@@ -1,6 +1,7 @@
 import path from "node:path";
 import { chromium, type Page, type Request, type Response } from "playwright-core";
 import { createJsonlSink, createTimestampedFileName } from "../core/raw.js";
+import type { SyncProgressHandler } from "../core/progress.js";
 import { getChromiumSession, listChromiumBrowsers } from "../auth/chromium.js";
 import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
@@ -20,6 +21,7 @@ interface XSyncOptions {
   cursor?: string;
   debugRawPages?: boolean;
   kind?: string;
+  onProgress?: SyncProgressHandler;
 }
 
 export interface XSyncResult {
@@ -56,6 +58,7 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
     await context.addCookies(session.playwrightCookies);
 
     const page = await context.newPage();
+    emitProgress(options.onProgress, "seed", `Discovering ${kind} request`);
     const syncTarget = await resolveSyncTarget(page, kind);
     const timelineResponsePromise = page.waitForResponse((response) => syncTarget.requestPattern.test(response.url()), { timeout: 20_000 });
 
@@ -76,9 +79,11 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
 
     const items: TroveItem[] = [];
     const seenIds = new Set<string>();
+    let pageNumber = 1;
 
     if (options.cursor) {
       mergeTimelinePage(items, seenIds, firstPage, options.limit);
+      emitProgress(options.onProgress, "page", `Fetched ${kind} page ${pageNumber}`, items.length);
 
       const replay = await fetchTimelinePage(seedRequest, options.cursor, remainingLimit(items.length, options.limit), kind);
       const replayPage = parseTimelinePayload(replay, kind);
@@ -93,6 +98,8 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
         kind,
       });
       mergeTimelinePage(items, seenIds, replayPage, options.limit);
+      pageNumber += 1;
+      emitProgress(options.onProgress, "page", `Fetched ${kind} page ${pageNumber}`, items.length);
 
       let nextCursor = replayPage.nextCursor;
       while (nextCursor && withinLimit(items.length, options.limit)) {
@@ -109,6 +116,8 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
           kind,
         });
         mergeTimelinePage(items, seenIds, pageData, options.limit);
+        pageNumber += 1;
+        emitProgress(options.onProgress, "page", `Fetched ${kind} page ${pageNumber}`, items.length);
         nextCursor = pageData.nextCursor;
       }
 
@@ -118,6 +127,7 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
     }
 
     mergeTimelinePage(items, seenIds, firstPage, options.limit);
+    emitProgress(options.onProgress, "page", `Fetched ${kind} page ${pageNumber}`, items.length);
 
     let nextCursor = firstPage.nextCursor;
 
@@ -135,6 +145,8 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
         kind,
       });
       mergeTimelinePage(items, seenIds, pageData, options.limit);
+      pageNumber += 1;
+      emitProgress(options.onProgress, "page", `Fetched ${kind} page ${pageNumber}`, items.length);
       nextCursor = pageData.nextCursor;
     }
 
@@ -411,7 +423,7 @@ function normalizeTweet(tweet: unknown, kind: XSyncKind): TroveItem | null {
 
   const item: TroveItem = {
     source: "x",
-    externalId: restId,
+    externalId: buildItemExternalId(restId, kind),
     title: `${titlePrefix}: ${truncate(text, 80)}`,
     url,
     excerpt: truncate(text, 240),
@@ -432,6 +444,10 @@ function normalizeTweet(tweet: unknown, kind: XSyncKind): TroveItem | null {
   }
 
   return item;
+}
+
+function buildItemExternalId(restId: string, kind: XSyncKind): string {
+  return `${kind}:${restId}`;
 }
 
 function extractRawTweetRecord(tweet: unknown, kind: XSyncKind): Record<string, unknown> | null {
@@ -762,6 +778,26 @@ function normalizeSyncKind(kind?: string): XSyncKind {
   }
 
   throw new Error('X sync kind must be "bookmarks" or "likes".');
+}
+
+function emitProgress(
+  onProgress: SyncProgressHandler | undefined,
+  phase: string,
+  message: string,
+  completed?: number,
+): void {
+  onProgress?.(
+    completed !== undefined
+      ? {
+          phase,
+          message,
+          completed,
+        }
+      : {
+          phase,
+          message,
+        },
+  );
 }
 
 export const __internal = {

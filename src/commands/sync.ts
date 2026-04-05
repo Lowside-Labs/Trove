@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { TerminalProgressRenderer, formatSyncRunLabel, type SyncProgressHandler } from "../core/progress.js";
 import { getSyncState, upsertItems, upsertSyncState, withDatabase } from "../db/database.js";
 import { getSyncSource, listSyncSourceIds, type SyncCommandOptions } from "../sources/index.js";
 
@@ -16,6 +17,7 @@ export function createSyncCommand() {
     .option("--debug-raw-pages", "Also store full raw GraphQL page payloads for debugging", false)
     .action(async (source, options) => {
       const syncSource = getSyncSource(source);
+      const progressRenderer = new TerminalProgressRenderer();
 
       if (!syncSource) {
         console.error(`Unknown source "${source}". Supported sources: ${listSyncSourceIds().join(", ")}.`);
@@ -26,50 +28,91 @@ export function createSyncCommand() {
       try {
         const limit = parseOptionalInteger(options.limit, "limit");
         const commandOptions = options as SyncCommandOptions;
-        const scope = syncSource.createScope(commandOptions);
-        const state = syncSource.shouldPersistState
-          ? withDatabase((db) => getSyncState(db, syncSource.id, scope))
-          : null;
-        const syncResult = await syncSource.sync({
-          options: commandOptions,
-          state,
-          ...(limit !== undefined ? { limit } : {}),
-        });
-        const count = withDatabase((db) => {
-          const importedCount = upsertItems(db, syncResult.items);
-          const nextState = syncSource.buildSyncState?.({
-            options: commandOptions,
-            importedCount,
-            result: syncResult,
-            scope,
-          });
+        const runs = (syncSource.expandSyncRuns?.(commandOptions) ?? [commandOptions]).filter(Boolean);
 
-          if (nextState) {
-            upsertSyncState(db, nextState);
+        if (runs.length > 1) {
+          let totalCount = 0;
+
+          for (const runOptions of runs) {
+            const label = formatSyncRunLabel(source, runOptions.kind);
+            const result = await runSingleSync(syncSource.id, syncSource, runOptions, limit, (event) => {
+              progressRenderer.update(label, event);
+            });
+            totalCount += result.count;
+
+            progressRenderer.clear();
+            console.log(`Imported ${result.count} items from ${source} (${runOptions.kind ?? "default"}).`);
+
+            if (result.summaryLines) {
+              for (const line of result.summaryLines) {
+                console.log(line);
+              }
+            }
           }
 
-          return importedCount;
+          console.log(`Imported ${totalCount} total items from ${source}.`);
+          return;
+        }
+
+        const runOptions = runs[0] ?? commandOptions;
+        const result = await runSingleSync(syncSource.id, syncSource, runOptions, limit, (event) => {
+          progressRenderer.update(formatSyncRunLabel(source, runOptions.kind), event);
         });
+        progressRenderer.clear();
+        console.log(`Imported ${result.count} items from ${source}.`);
 
-        console.log(`Imported ${count} items from ${source}.`);
-
-        const summaryLines = syncSource.getSummaryLines?.({
-          options: commandOptions,
-          state,
-          result: syncResult,
-          scope,
-        });
-
-        if (summaryLines) {
-          for (const line of summaryLines) {
+        if (result.summaryLines) {
+          for (const line of result.summaryLines) {
             console.log(line);
           }
         }
       } catch (error) {
+        progressRenderer.clear();
         console.error(error instanceof Error ? error.message : String(error));
         process.exitCode = 1;
       }
     });
+}
+
+async function runSingleSync(
+  sourceId: string,
+  syncSource: NonNullable<ReturnType<typeof getSyncSource>>,
+  commandOptions: SyncCommandOptions,
+  limit: number | undefined,
+  onProgress?: SyncProgressHandler,
+): Promise<{ count: number; summaryLines?: string[] }> {
+  const scope = syncSource.createScope(commandOptions);
+  const state = syncSource.shouldPersistState ? withDatabase((db) => getSyncState(db, sourceId, scope)) : null;
+  const syncResult = await syncSource.sync({
+    options: commandOptions,
+    state,
+    ...(limit !== undefined ? { limit } : {}),
+    ...(onProgress ? { onProgress } : {}),
+  });
+  const count = withDatabase((db) => {
+    const importedCount = upsertItems(db, syncResult.items);
+    const nextState = syncSource.buildSyncState?.({
+      options: commandOptions,
+      importedCount,
+      result: syncResult,
+      scope,
+    });
+
+    if (nextState) {
+      upsertSyncState(db, nextState);
+    }
+
+    return importedCount;
+  });
+
+  const summaryLines = syncSource.getSummaryLines?.({
+    options: commandOptions,
+    state,
+    result: syncResult,
+    scope,
+  });
+
+  return summaryLines ? { count, summaryLines } : { count };
 }
 
 function parseOptionalInteger(value: string | undefined, label: string): number | undefined {

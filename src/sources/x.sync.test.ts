@@ -175,7 +175,7 @@ describe("x bookmark sync", () => {
       cursor: "cursor-old",
     });
 
-    expect(result.items.map((item) => item.externalId)).toEqual(["new-1", "new-2", "old-1"]);
+    expect(result.items.map((item) => item.externalId)).toEqual(["bookmarks:new-1", "bookmarks:new-2", "bookmarks:old-1"]);
   });
 
   it("deduplicates overlap between the latest page and resumed pages", async () => {
@@ -205,7 +205,7 @@ describe("x bookmark sync", () => {
       cursor: "cursor-old",
     });
 
-    expect(result.items.map((item) => item.externalId)).toEqual(["new-1", "old-1", "old-2"]);
+    expect(result.items.map((item) => item.externalId)).toEqual(["bookmarks:new-1", "bookmarks:old-1", "bookmarks:old-2"]);
   });
 
   it("discovers the authenticated likes request and replays incremental likes pages", async () => {
@@ -280,7 +280,7 @@ describe("x bookmark sync", () => {
       cursor: "cursor-like-old",
     });
 
-    expect(result.items.map((item) => item.externalId)).toEqual(["like-new-1", "like-old-1"]);
+    expect(result.items.map((item) => item.externalId)).toEqual(["likes:like-new-1", "likes:like-old-1"]);
     expect(result.items[0]?.tags).toEqual(["x", "like"]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(

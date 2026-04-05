@@ -1,3 +1,4 @@
+import type { SyncProgressHandler } from "../core/progress.js";
 import type { SyncStateRecord } from "../db/database.js";
 import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
@@ -29,12 +30,14 @@ export interface SyncSourceResult {
 
 export interface SyncSourceDefinition {
   id: string;
+  expandSyncRuns?(options: SyncCommandOptions): SyncCommandOptions[];
   createScope(options: SyncCommandOptions): string;
   shouldPersistState?: boolean;
   sync(args: {
     options: SyncCommandOptions;
     state: SyncStateRecord | null;
     limit?: number;
+    onProgress?: SyncProgressHandler;
   }): Promise<SyncSourceResult>;
   buildSyncState?(args: {
     options: SyncCommandOptions;
@@ -52,13 +55,17 @@ export interface SyncSourceDefinition {
 
 const claudeSource: SyncSourceDefinition = {
   id: "claude",
+  expandSyncRuns(options) {
+    return [options];
+  },
   createScope(options) {
     return options.cdpUrl ?? "http://127.0.0.1:9222";
   },
-  async sync({ options, limit }) {
+  async sync({ options, limit, onProgress }) {
     return syncClaudeChats({
       ...(options.cdpUrl ? { cdpUrl: options.cdpUrl } : {}),
       ...(limit !== undefined ? { limit } : {}),
+      ...(onProgress ? { onProgress } : {}),
     });
   },
   getSummaryLines({ result, scope }) {
@@ -72,13 +79,17 @@ const claudeSource: SyncSourceDefinition = {
 
 const chatGptSource: SyncSourceDefinition = {
   id: "chatgpt",
+  expandSyncRuns(options) {
+    return [options];
+  },
   createScope(options) {
     return options.cdpUrl ?? "http://127.0.0.1:9222";
   },
-  async sync({ options, limit }) {
+  async sync({ options, limit, onProgress }) {
     return syncChatGptChats({
       ...(options.cdpUrl ? { cdpUrl: options.cdpUrl } : {}),
       ...(limit !== undefined ? { limit } : {}),
+      ...(onProgress ? { onProgress } : {}),
     });
   },
   getSummaryLines({ result, scope }) {
@@ -92,11 +103,14 @@ const chatGptSource: SyncSourceDefinition = {
 
 const githubSource: SyncSourceDefinition = {
   id: "github",
+  expandSyncRuns(options) {
+    return options.kind ? [options] : [{ ...options, kind: "stars" }];
+  },
   createScope(options) {
     return `${options.browser}:${options.profile ?? "Default"}:stars`;
   },
   shouldPersistState: true,
-  async sync({ options, state, limit }) {
+  async sync({ options, state, limit, onProgress }) {
     const browserId = options.browser as SupportedBrowserId;
 
     return syncGitHubStars({
@@ -105,6 +119,7 @@ const githubSource: SyncSourceDefinition = {
       ...(options.kind ? { kind: options.kind } : {}),
       ...(limit !== undefined ? { limit } : {}),
       ...(state?.cursor ? { cursor: state.cursor } : {}),
+      ...(onProgress ? { onProgress } : {}),
     });
   },
   buildSyncState({ options, importedCount, result, scope }) {
@@ -131,11 +146,14 @@ const githubSource: SyncSourceDefinition = {
 
 const xSource: SyncSourceDefinition = {
   id: "x",
+  expandSyncRuns(options) {
+    return options.kind ? [options] : [{ ...options, kind: "bookmarks" }, { ...options, kind: "likes" }];
+  },
   createScope(options) {
     return `${options.browser}:${options.profile ?? "Default"}:${normalizeXKind(options.kind)}`;
   },
   shouldPersistState: true,
-  async sync({ options, state, limit }) {
+  async sync({ options, state, limit, onProgress }) {
     const browserId = options.browser as SupportedBrowserId;
 
     return syncXBookmarks({
@@ -146,6 +164,7 @@ const xSource: SyncSourceDefinition = {
       ...(state?.cursor ? { cursor: state.cursor } : {}),
       ...(options.debugRawPages ? { debugRawPages: true } : {}),
       ...(options.kind ? { kind: options.kind } : {}),
+      ...(onProgress ? { onProgress } : {}),
     });
   },
   buildSyncState({ options, importedCount, result, scope }) {
@@ -182,16 +201,24 @@ const xSource: SyncSourceDefinition = {
 
 const hnSource: SyncSourceDefinition = {
   id: "hn",
+  expandSyncRuns(options) {
+    if (options.kind) {
+      return [options];
+    }
+
+    return [{ ...options, kind: "favorites" }, { ...options, kind: "favorite-comments" }];
+  },
   createScope(options) {
     return `${options.user ?? "unknown"}:${options.kind ?? "favorites"}`;
   },
   shouldPersistState: true,
-  async sync({ options, state, limit }) {
+  async sync({ options, state, limit, onProgress }) {
     return syncHnFavorites({
       ...(options.user ? { user: options.user } : {}),
       ...(options.kind ? { kind: options.kind } : {}),
       ...(limit !== undefined ? { limit } : {}),
       ...(state?.cursor ? { cursor: state.cursor } : {}),
+      ...(onProgress ? { onProgress } : {}),
     });
   },
   buildSyncState({ options, importedCount, result, scope }) {
@@ -218,11 +245,14 @@ const hnSource: SyncSourceDefinition = {
 
 const substackSource: SyncSourceDefinition = {
   id: "substack",
+  expandSyncRuns(options) {
+    return options.kind ? [options] : [{ ...options, kind: "saved" }, { ...options, kind: "likes" }];
+  },
   createScope(options) {
     return `${options.browser}:${options.profile ?? "Default"}:${options.kind ?? "saved"}`;
   },
   shouldPersistState: true,
-  async sync({ options, state, limit }) {
+  async sync({ options, state, limit, onProgress }) {
     const browserId = options.browser as SupportedBrowserId;
 
     return syncSubstackSaved({
@@ -231,6 +261,7 @@ const substackSource: SyncSourceDefinition = {
       ...(options.kind ? { kind: options.kind } : {}),
       ...(limit !== undefined ? { limit } : {}),
       ...(state?.cursor ? { cursor: state.cursor } : {}),
+      ...(onProgress ? { onProgress } : {}),
     });
   },
   buildSyncState({ options, importedCount, result, scope }) {

@@ -1,5 +1,6 @@
 import { parse } from "node-html-parser";
 import { createJsonlSink, createTimestampedFileName } from "../../core/raw.js";
+import type { SyncProgressHandler } from "../../core/progress.js";
 import type { TroveItem } from "../../types/item.js";
 
 const HN_BASE_URL = "https://news.ycombinator.com";
@@ -11,6 +12,7 @@ interface HnSyncOptions {
   kind?: string;
   limit?: number;
   cursor?: string;
+  onProgress?: SyncProgressHandler;
 }
 
 export interface HnSyncResult {
@@ -46,6 +48,7 @@ export async function syncHnFavorites(options: HnSyncOptions): Promise<HnSyncRes
   let shouldStop = false;
 
   while (!shouldStop) {
+    emitProgress(options.onProgress, "page", `Fetching ${kind} page ${nextPage}`);
     const html = await fetchPageHtml(buildPageUrl(user, kind, nextPage));
     const page = kind === "favorites" ? parseFavoritesPage(html) : parseFavoriteCommentsPage(html);
 
@@ -68,6 +71,8 @@ export async function syncHnFavorites(options: HnSyncOptions): Promise<HnSyncRes
         break;
       }
     }
+
+    emitProgress(options.onProgress, "page", `Fetched ${kind} page ${nextPage}`, items.length);
 
     if (shouldStop || !page.nextPage || page.items.length === 0) {
       break;
@@ -268,6 +273,26 @@ function readSavedAt(ageNode: { getAttribute(name: string): string | undefined }
 
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function emitProgress(
+  onProgress: SyncProgressHandler | undefined,
+  phase: string,
+  message: string,
+  completed?: number,
+): void {
+  onProgress?.(
+    completed !== undefined
+      ? {
+          phase,
+          message,
+          completed,
+        }
+      : {
+          phase,
+          message,
+        },
+  );
 }
 
 function toAbsoluteUrl(href: string): string {

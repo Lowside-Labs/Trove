@@ -1,6 +1,7 @@
 import path from "node:path";
 import { getChromiumSession } from "../auth/chromium.js";
 import { createJsonlSink, createTimestampedFileName } from "../core/raw.js";
+import type { SyncProgressHandler } from "../core/progress.js";
 import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
 
@@ -12,6 +13,7 @@ interface SubstackSyncOptions {
   kind?: string;
   limit?: number;
   cursor?: string;
+  onProgress?: SyncProgressHandler;
 }
 
 export interface SubstackSyncResult {
@@ -82,8 +84,10 @@ export async function syncSubstackSaved(options: SubstackSyncOptions): Promise<S
   const markerId = options.cursor;
   let offset = 0;
   let nextCursor: string | undefined;
+  let pageNumber = 1;
 
   while (true) {
+    emitProgress(options.onProgress, "page", `Fetching saved page ${pageNumber}`);
     const payload = await fetchSavedPostsPage(session.cookieHeader, offset, options.limit);
     const page = parseSavedPostsPayload(payload);
 
@@ -114,11 +118,14 @@ export async function syncSubstackSaved(options: SubstackSyncOptions): Promise<S
       }
     }
 
+    emitProgress(options.onProgress, "page", `Fetched saved page ${pageNumber}`, items.length);
+
     if (!page.hasMore || page.items.length === 0) {
       break;
     }
 
     offset += page.items.length;
+    pageNumber += 1;
   }
 
   return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
@@ -135,8 +142,10 @@ async function syncSubstackLikes(
   const markerId = options.cursor;
   let cursor: string | undefined;
   let nextCursor: string | undefined;
+  let pageNumber = 1;
 
   while (true) {
+    emitProgress(options.onProgress, "page", `Fetching likes page ${pageNumber}`);
     const payload = await fetchLikesPage(cookieHeader, selfProfile.id, cursor);
     const page = parseLikesPayload(payload, likesPageUrl);
 
@@ -167,11 +176,14 @@ async function syncSubstackLikes(
       }
     }
 
+    emitProgress(options.onProgress, "page", `Fetched likes page ${pageNumber}`, items.length);
+
     if (!page.nextCursor || page.items.length === 0) {
       break;
     }
 
     cursor = page.nextCursor;
+    pageNumber += 1;
   }
 
   return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
@@ -277,6 +289,26 @@ function normalizeKind(kind?: string): "saved" | "likes" {
   }
 
   throw new Error('Substack sync kind must be "saved" or "likes".');
+}
+
+function emitProgress(
+  onProgress: SyncProgressHandler | undefined,
+  phase: string,
+  message: string,
+  completed?: number,
+): void {
+  onProgress?.(
+    completed !== undefined
+      ? {
+          phase,
+          message,
+          completed,
+        }
+      : {
+          phase,
+          message,
+        },
+  );
 }
 
 async function fetchSelfProfile(cookieHeader: string): Promise<SelfProfile> {

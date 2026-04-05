@@ -3,6 +3,7 @@ import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright-core";
 import { ensureTroveDirs } from "../core/fs.js";
 import { createJsonlSink, createTimestampedFileName } from "../core/raw.js";
+import type { SyncProgressHandler } from "../core/progress.js";
 import type { TroveItem } from "../types/item.js";
 
 const DEFAULT_CDP_URL = "http://127.0.0.1:9222";
@@ -13,6 +14,7 @@ const LIST_PAGE_SIZE = 28;
 interface ChatGptSyncOptions {
   cdpUrl?: string;
   limit?: number;
+  onProgress?: SyncProgressHandler;
 }
 
 export interface ChatGptSyncResult {
@@ -77,15 +79,20 @@ export async function syncChatGptChats(options: ChatGptSyncOptions): Promise<Cha
   const contentDir = path.join(paths.contentDir, "chatgpt");
   fs.mkdirSync(contentDir, { recursive: true });
 
+  emitProgress(options.onProgress, "bootstrap", "Attaching to ChatGPT browser session");
   const browser = await chromium.connectOverCDP(cdpUrl);
   const page = await openChatGptPage(browser);
 
   try {
+    emitProgress(options.onProgress, "bootstrap", "Capturing ChatGPT session headers");
     const capturedHeaders = await captureConversationHeaders(page);
-    const summaries = await fetchConversationSummaries(page, capturedHeaders, options.limit, rawSink);
+    const summaries = await fetchConversationSummaries(page, capturedHeaders, options.limit, rawSink, options.onProgress);
     const items: TroveItem[] = [];
+    const total = summaries.length;
+    let completed = 0;
 
     for (const summary of summaries) {
+      emitProgress(options.onProgress, "detail", `Fetching ChatGPT conversation ${completed + 1}`, completed, total);
       const detailResponse = await fetchChatGptJson(
         page,
         capturedHeaders,
@@ -105,6 +112,8 @@ export async function syncChatGptChats(options: ChatGptSyncOptions): Promise<Cha
       const markdown = renderConversationMarkdown(detail);
       const markdownPath = writeConversationMarkdown(contentDir, detail, markdown);
       items.push(toTroveItem(summary, detail, markdown, markdownPath));
+      completed += 1;
+      emitProgress(options.onProgress, "detail", `Rendered ChatGPT conversation ${completed}`, completed, total);
     }
 
     return {
@@ -175,12 +184,15 @@ async function fetchConversationSummaries(
   capturedHeaders: ChatGptCapturedHeaders,
   requestedLimit: number | undefined,
   rawSink: ReturnType<typeof createJsonlSink>,
+  onProgress?: SyncProgressHandler,
 ): Promise<ChatGptConversationSummary[]> {
   const summaries: ChatGptConversationSummary[] = [];
   let offset = 0;
   let total: number | null = null;
+  let pageNumber = 1;
 
   while (requestedLimit === undefined || summaries.length < requestedLimit) {
+    emitProgress(onProgress, "page", `Fetching ChatGPT conversations page ${pageNumber}`, summaries.length, total ?? undefined);
     const requestPath = `/backend-api/conversations?offset=${offset}&limit=${LIST_PAGE_SIZE}&order=updated&is_archived=false&is_starred=false`;
     const response = await fetchChatGptJson(
       page,
@@ -207,6 +219,8 @@ async function fetchConversationSummaries(
     }
 
     offset += pageSummaries.length;
+    emitProgress(onProgress, "page", `Fetched ChatGPT conversations page ${pageNumber}`, summaries.length, total ?? undefined);
+    pageNumber += 1;
 
     if (total !== null && offset >= total) {
       break;
@@ -636,4 +650,32 @@ function readFiniteDate(value: unknown): string | undefined {
 
 function toIsoString(value: unknown): string {
   return readFiniteDate(value) ?? new Date().toISOString();
+}
+
+function emitProgress(
+  onProgress: SyncProgressHandler | undefined,
+  phase: string,
+  message: string,
+  completed?: number,
+  total?: number,
+): void {
+  onProgress?.(
+    total !== undefined && completed !== undefined
+      ? {
+          phase,
+          message,
+          completed,
+          total,
+        }
+      : completed !== undefined
+        ? {
+            phase,
+            message,
+            completed,
+          }
+        : {
+            phase,
+            message,
+          },
+  );
 }

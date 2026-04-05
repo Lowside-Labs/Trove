@@ -1,3 +1,4 @@
+import type { SyncProgressHandler } from "../core/progress.js";
 import path from "node:path";
 import { parse } from "node-html-parser";
 import { getChromiumSession, listChromiumBrowsers } from "../auth/chromium.js";
@@ -13,6 +14,7 @@ interface GitHubSyncOptions {
   kind?: string;
   limit?: number;
   cursor?: string;
+  onProgress?: SyncProgressHandler;
 }
 
 export interface GitHubSyncResult {
@@ -40,6 +42,7 @@ export async function syncGitHubStars(options: GitHubSyncOptions): Promise<GitHu
   const rawSink = createJsonlSink("github", createTimestampedFileName(scope));
   const items: TroveItem[] = [];
   const markerId = options.cursor;
+  emitProgress(options.onProgress, "bootstrap", "Loading GitHub stars landing page");
   const bootstrapHtml = await fetchStarsPage(session.cookieHeader, `${GITHUB_BASE_URL}/stars`);
   const bootstrapPage = parseStarsPage(bootstrapHtml);
   const username = bootstrapPage.username;
@@ -48,10 +51,13 @@ export async function syncGitHubStars(options: GitHubSyncOptions): Promise<GitHu
     throw new Error("Could not determine the authenticated GitHub username from the stars page.");
   }
 
+  emitProgress(options.onProgress, "bootstrap", `Resolved authenticated user ${username}`);
   let nextPageUrl = buildStarsRepositoriesUrl(username);
   let nextCursor: string | undefined;
+  let pageNumber = 1;
 
   while (nextPageUrl) {
+    emitProgress(options.onProgress, "page", `Fetching stars page ${pageNumber}`);
     const html = await fetchStarsPage(session.cookieHeader, nextPageUrl);
     const page = parseStarsPage(html);
 
@@ -82,11 +88,14 @@ export async function syncGitHubStars(options: GitHubSyncOptions): Promise<GitHu
       }
     }
 
+    emitProgress(options.onProgress, "page", `Fetched stars page ${pageNumber}`, items.length);
+
     if (!page.nextPageUrl || page.items.length === 0) {
       break;
     }
 
     nextPageUrl = page.nextPageUrl;
+    pageNumber += 1;
   }
 
   return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
@@ -257,6 +266,26 @@ function normalizeKind(kind?: string): "stars" {
   }
 
   throw new Error('GitHub sync kind must be "stars".');
+}
+
+function emitProgress(
+  onProgress: SyncProgressHandler | undefined,
+  phase: string,
+  message: string,
+  completed?: number,
+): void {
+  onProgress?.(
+    completed !== undefined
+      ? {
+          phase,
+          message,
+          completed,
+        }
+      : {
+          phase,
+          message,
+        },
+  );
 }
 
 export const __internal = {
