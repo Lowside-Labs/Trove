@@ -26,6 +26,18 @@ interface SyncStateRow {
   metadata_json: string | null;
 }
 
+interface SourceStatsRow {
+  source: string;
+  count: number;
+  last_synced_at: string | null;
+}
+
+interface ArchiveOverviewRow {
+  total_items: number;
+  total_sources: number;
+  last_synced_at: string | null;
+}
+
 interface MasterSqlRow {
   sql: string | null;
 }
@@ -36,6 +48,23 @@ export interface SyncStateRecord {
   cursor?: string;
   lastSyncedAt?: string;
   metadata?: Record<string, unknown>;
+}
+
+export interface SourceStatsRecord {
+  source: string;
+  count: number;
+  lastSyncedAt?: string;
+}
+
+export interface ArchiveOverviewRecord {
+  totalItems: number;
+  totalSources: number;
+  lastSyncedAt?: string;
+}
+
+export interface UpsertItemsResult {
+  insertedCount: number;
+  updatedCount: number;
 }
 
 export function openDatabase(root?: string): Database.Database {
@@ -56,7 +85,7 @@ export function withDatabase<T>(fn: (db: Database.Database) => T, root?: string)
   }
 }
 
-export function upsertItems(db: Database.Database, items: TroveItem[]): number {
+export function upsertItems(db: Database.Database, items: TroveItem[]): UpsertItemsResult {
   const statement = db.prepare(`
     INSERT INTO items (
       source,
@@ -94,9 +123,17 @@ export function upsertItems(db: Database.Database, items: TroveItem[]): number {
       tags_json = excluded.tags_json,
       raw_json = excluded.raw_json
   `);
+  const existingStatement = db.prepare<[string, string], { id: number } | undefined>(
+    "SELECT id FROM items WHERE source = ? AND external_id = ?",
+  );
 
   const insertMany = db.transaction((records: TroveItem[]) => {
+    let insertedCount = 0;
+    let updatedCount = 0;
+
     for (const item of records) {
+      const exists = existingStatement.get(item.source, item.externalId);
+
       statement.run({
         source: item.source,
         externalId: item.externalId,
@@ -110,11 +147,18 @@ export function upsertItems(db: Database.Database, items: TroveItem[]): number {
         tagsJson: JSON.stringify(item.tags ?? []),
         rawJson: JSON.stringify(item.raw ?? {}),
       });
+
+      if (exists) {
+        updatedCount += 1;
+      } else {
+        insertedCount += 1;
+      }
     }
+
+    return { insertedCount, updatedCount };
   });
 
-  insertMany(items);
-  return items.length;
+  return insertMany(items);
 }
 
 export function searchItems(db: Database.Database, query: string, limit = 10): SearchResult[] {
@@ -148,6 +192,60 @@ export function getSourceCounts(db: Database.Database): Array<{ source: string; 
   return db
     .prepare("SELECT source, COUNT(*) AS count FROM items GROUP BY source ORDER BY count DESC, source ASC")
     .all() as Array<{ source: string; count: number }>;
+}
+
+export function getSourceStats(db: Database.Database): SourceStatsRecord[] {
+  const rows = db
+    .prepare(
+      `
+        SELECT
+          items.source AS source,
+          COUNT(*) AS count,
+          sync.last_synced_at AS last_synced_at
+        FROM items
+        LEFT JOIN (
+          SELECT source, MAX(last_synced_at) AS last_synced_at
+          FROM sync_state
+          GROUP BY source
+        ) AS sync ON sync.source = items.source
+        GROUP BY items.source
+        ORDER BY count DESC, items.source ASC
+      `,
+    )
+    .all() as SourceStatsRow[];
+
+  return rows.map((row) => ({
+    source: row.source,
+    count: row.count,
+    ...(row.last_synced_at ? { lastSyncedAt: row.last_synced_at } : {}),
+  }));
+}
+
+export function getArchiveOverview(db: Database.Database): ArchiveOverviewRecord {
+  const row = db
+    .prepare(
+      `
+        SELECT
+          COUNT(*) AS total_items,
+          COUNT(DISTINCT source) AS total_sources,
+          (SELECT MAX(last_synced_at) FROM sync_state) AS last_synced_at
+        FROM items
+      `,
+    )
+    .get() as ArchiveOverviewRow | undefined;
+
+  if (!row) {
+    return {
+      totalItems: 0,
+      totalSources: 0,
+    };
+  }
+
+  return {
+    totalItems: row.total_items,
+    totalSources: row.total_sources,
+    ...(row.last_synced_at ? { lastSyncedAt: row.last_synced_at } : {}),
+  };
 }
 
 export function getSyncState(db: Database.Database, source: string, scope: string): SyncStateRecord | null {

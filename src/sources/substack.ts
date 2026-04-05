@@ -1,10 +1,12 @@
 import path from "node:path";
 import { getChromiumSession } from "../auth/chromium.js";
 import { createJsonlSink, createTimestampedFileName } from "../core/raw.js";
+import type { SyncProgressHandler } from "../core/progress.js";
 import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
 
 const SUBSTACK_BASE_URL = "https://substack.com";
+const MAX_STALLED_PAGES = 3;
 
 interface SubstackSyncOptions {
   browserId: SupportedBrowserId;
@@ -12,6 +14,7 @@ interface SubstackSyncOptions {
   kind?: string;
   limit?: number;
   cursor?: string;
+  onProgress?: SyncProgressHandler;
 }
 
 export interface SubstackSyncResult {
@@ -70,7 +73,12 @@ interface ParsedSavedPage {
 
 export async function syncSubstackSaved(options: SubstackSyncOptions): Promise<SubstackSyncResult> {
   const kind = normalizeKind(options.kind);
-  const session = await getChromiumSession(options.browserId, options.profile, ["https://substack.com/", "https://www.substack.com/"]);
+  const session = await getChromiumSession(
+    options.browserId,
+    options.profile,
+    ["https://substack.com/", "https://www.substack.com/"],
+    "Substack",
+  );
   const scope = `${options.browserId}-${(options.profile ?? "Default").replaceAll(path.sep, "-")}-${kind}`;
   const rawSink = createJsonlSink("substack", createTimestampedFileName(scope));
 
@@ -79,13 +87,18 @@ export async function syncSubstackSaved(options: SubstackSyncOptions): Promise<S
   }
 
   const items: TroveItem[] = [];
+  const seenIds = new Set<string>();
   const markerId = options.cursor;
   let offset = 0;
   let nextCursor: string | undefined;
+  let pageNumber = 1;
+  let stalledPages = 0;
 
   while (true) {
+    emitProgress(options.onProgress, "page", `Fetching saved page ${pageNumber}`);
     const payload = await fetchSavedPostsPage(session.cookieHeader, offset, options.limit);
     const page = parseSavedPostsPayload(payload);
+    let importedCount = 0;
 
     if (offset === 0) {
       nextCursor = page.items[0]?.externalId ?? markerId;
@@ -107,18 +120,33 @@ export async function syncSubstackSaved(options: SubstackSyncOptions): Promise<S
         return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
       }
 
+      if (seenIds.has(item.externalId)) {
+        continue;
+      }
+
       items.push(item);
+      seenIds.add(item.externalId);
+      importedCount += 1;
 
       if (typeof options.limit === "number" && items.length >= options.limit) {
         return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
       }
     }
 
+    emitProgress(options.onProgress, "page", `Fetched saved page ${pageNumber}`, items.length);
+
     if (!page.hasMore || page.items.length === 0) {
       break;
     }
 
+    stalledPages = importedCount === 0 ? stalledPages + 1 : 0;
+
+    if (stalledPages >= MAX_STALLED_PAGES) {
+      break;
+    }
+
     offset += page.items.length;
+    pageNumber += 1;
   }
 
   return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
@@ -132,13 +160,19 @@ async function syncSubstackLikes(
   const selfProfile = await fetchSelfProfile(cookieHeader);
   const likesPageUrl = `https://substack.com/@${selfProfile.handle}/likes`;
   const items: TroveItem[] = [];
+  const seenIds = new Set<string>();
   const markerId = options.cursor;
   let cursor: string | undefined;
   let nextCursor: string | undefined;
+  let pageNumber = 1;
+  let stalledPages = 0;
 
   while (true) {
+    const requestedCursor = cursor;
+    emitProgress(options.onProgress, "page", `Fetching likes page ${pageNumber}`);
     const payload = await fetchLikesPage(cookieHeader, selfProfile.id, cursor);
     const page = parseLikesPayload(payload, likesPageUrl);
+    let importedCount = 0;
 
     if (!cursor) {
       nextCursor = page.items[0]?.externalId ?? markerId;
@@ -160,18 +194,37 @@ async function syncSubstackLikes(
         return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
       }
 
+      if (seenIds.has(item.externalId)) {
+        continue;
+      }
+
       items.push(item);
+      seenIds.add(item.externalId);
+      importedCount += 1;
 
       if (typeof options.limit === "number" && items.length >= options.limit) {
         return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
       }
     }
 
+    emitProgress(options.onProgress, "page", `Fetched likes page ${pageNumber}`, items.length);
+
     if (!page.nextCursor || page.items.length === 0) {
       break;
     }
 
+    if (page.nextCursor === requestedCursor) {
+      break;
+    }
+
+    stalledPages = importedCount === 0 ? stalledPages + 1 : 0;
+
+    if (stalledPages >= MAX_STALLED_PAGES) {
+      break;
+    }
+
     cursor = page.nextCursor;
+    pageNumber += 1;
   }
 
   return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
@@ -277,6 +330,26 @@ function normalizeKind(kind?: string): "saved" | "likes" {
   }
 
   throw new Error('Substack sync kind must be "saved" or "likes".');
+}
+
+function emitProgress(
+  onProgress: SyncProgressHandler | undefined,
+  phase: string,
+  message: string,
+  completed?: number,
+): void {
+  onProgress?.(
+    completed !== undefined
+      ? {
+          phase,
+          message,
+          completed,
+        }
+      : {
+          phase,
+          message,
+        },
+  );
 }
 
 async function fetchSelfProfile(cookieHeader: string): Promise<SelfProfile> {

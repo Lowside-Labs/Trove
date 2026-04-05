@@ -3,16 +3,19 @@ import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright-core";
 import { ensureTroveDirs } from "../core/fs.js";
 import { createJsonlSink, createTimestampedFileName } from "../core/raw.js";
+import type { SyncProgressHandler } from "../core/progress.js";
 import type { TroveItem } from "../types/item.js";
 
 const DEFAULT_CDP_URL = "http://127.0.0.1:9222";
 const CLAUDE_HOST = "claude.ai";
 const ORG_ID_PATTERN = /\/api\/organizations\/([^/]+)\//;
 const LIST_PAGE_SIZE = 30;
+const MAX_STALLED_LIST_PAGES = 3;
 
 interface ClaudeSyncOptions {
   cdpUrl?: string;
   limit?: number;
+  onProgress?: SyncProgressHandler;
 }
 
 export interface ClaudeSyncResult {
@@ -72,14 +75,19 @@ export async function syncClaudeChats(options: ClaudeSyncOptions): Promise<Claud
   fs.mkdirSync(contentDir, { recursive: true });
 
   const browser = await chromium.connectOverCDP(cdpUrl);
+  emitProgress(options.onProgress, "bootstrap", "Attaching to Claude browser session");
   const page = await getClaudePage(browser);
+  emitProgress(options.onProgress, "bootstrap", "Discovering Claude organization");
   const orgId = await discoverOrganizationId(page);
   const requestedLimit = options.limit;
-  const summaries = await fetchConversationSummaries(page, orgId, requestedLimit, rawSink);
+  const summaries = await fetchConversationSummaries(page, orgId, requestedLimit, rawSink, options.onProgress);
 
   const items: TroveItem[] = [];
+  const total = summaries.length;
+  let completed = 0;
 
   for (const summary of summaries) {
+    emitProgress(options.onProgress, "detail", `Fetching Claude conversation ${completed + 1}`, completed, total);
     const detailResponse = await fetchClaudeJson(
       page,
       `/api/organizations/${orgId}/chat_conversations/${summary.id}?tree=True&rendering_mode=messages&render_all_tools=true&consistency=eventual`,
@@ -97,6 +105,8 @@ export async function syncClaudeChats(options: ClaudeSyncOptions): Promise<Claud
     const markdown = renderConversationMarkdown(detail);
     const markdownPath = writeConversationMarkdown(contentDir, detail, markdown);
     items.push(toTroveItem(summary, detail, markdown, markdownPath));
+    completed += 1;
+    emitProgress(options.onProgress, "detail", `Rendered Claude conversation ${completed}`, completed, total);
   }
 
   return { items, rawPath: rawSink.path, contentPath: contentDir };
@@ -171,12 +181,17 @@ async function fetchConversationSummaries(
   orgId: string,
   requestedLimit: number | undefined,
   rawSink: ReturnType<typeof createJsonlSink>,
+  onProgress?: SyncProgressHandler,
 ): Promise<ClaudeConversationSummary[]> {
   const summaries: ClaudeConversationSummary[] = [];
+  const seenIds = new Set<string>();
   let offset = 0;
   let hasMore = true;
+  let pageNumber = 1;
+  let stalledPages = 0;
 
   while (hasMore && (requestedLimit === undefined || summaries.length < requestedLimit)) {
+    emitProgress(onProgress, "page", `Fetching Claude conversations page ${pageNumber}`, summaries.length);
     const response = await fetchClaudeJson(
       page,
       `/api/organizations/${orgId}/chat_conversations_v2?limit=${LIST_PAGE_SIZE}&offset=${offset}&starred=false&consistency=eventual`,
@@ -190,14 +205,33 @@ async function fetchConversationSummaries(
     });
 
     const pageSummaries = extractConversationSummaries(response.body);
-    summaries.push(...pageSummaries);
+    let importedCount = 0;
+
+    for (const summary of pageSummaries) {
+      if (seenIds.has(summary.id)) {
+        continue;
+      }
+
+      summaries.push(summary);
+      seenIds.add(summary.id);
+      importedCount += 1;
+    }
+
     hasMore = readHasMore(response.body);
 
     if (pageSummaries.length === 0) {
       break;
     }
 
+    stalledPages = importedCount === 0 ? stalledPages + 1 : 0;
+
+    if (stalledPages >= MAX_STALLED_LIST_PAGES) {
+      break;
+    }
+
     offset += LIST_PAGE_SIZE;
+    emitProgress(onProgress, "page", `Fetched Claude conversations page ${pageNumber}`, summaries.length);
+    pageNumber += 1;
   }
 
   return requestedLimit === undefined ? summaries : summaries.slice(0, requestedLimit);
@@ -665,4 +699,32 @@ function firstString(record: Record<string, unknown>, keys: string[]): string | 
 
 function readNumericIndex(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
+}
+
+function emitProgress(
+  onProgress: SyncProgressHandler | undefined,
+  phase: string,
+  message: string,
+  completed?: number,
+  total?: number,
+): void {
+  onProgress?.(
+    total !== undefined && completed !== undefined
+      ? {
+          phase,
+          message,
+          completed,
+          total,
+        }
+      : completed !== undefined
+        ? {
+            phase,
+            message,
+            completed,
+          }
+        : {
+            phase,
+            message,
+          },
+  );
 }

@@ -6,7 +6,7 @@ Trove is a TypeScript CLI with source under `src/`.
 
 - `src/cli.ts`: CLI entrypoint.
 - `src/commands/`: command handlers such as `sync`, `search`, `stats`, and `init`.
-- `src/sources/`: source adapters and parsing logic. X bookmark logic lives in `x.ts`; related tests live beside it in `x.test.ts` and `x.sync.test.ts`.
+- `src/sources/`: source adapters and parsing logic. X bookmark and like logic lives in `x.ts`; related tests live beside it in `x.test.ts` and `x.sync.test.ts`.
 - `src/auth/`: browser session and cookie-loading code.
 - `src/db/`: SQLite access, schema, and DB tests.
 - `src/core/`: shared filesystem and raw-output helpers.
@@ -21,7 +21,9 @@ Keep tests close to the code they cover using `*.test.ts`.
 - `npm test`: run the Vitest suite.
 - `npm run typecheck`: run `tsc --noEmit`.
 
-Before opening a PR, run `npm test` and `npm run typecheck`.
+Trove targets Node 22+. If the default local Node version is newer, `better-sqlite3` may require rerunning tests under Node 22.
+
+Before opening a PR, run `npm test` and `npm run typecheck` under a compatible Node version.
 
 ## Coding Style & Naming Conventions
 
@@ -41,6 +43,7 @@ Vitest is the test framework. Favor targeted unit and mocked integration tests o
 - Name tests `*.test.ts`.
 - Add regression tests for parsing, sync cursor flow, and cleanup behavior when fixing bugs.
 - Mock Playwright, fetch, and browser/session code for X sync tests rather than calling live services.
+- Prefer source-specific parsing tests for `x`, `substack`, `github`, and `hn` over live-service coverage.
 
 ## Commit & Pull Request Guidelines
 

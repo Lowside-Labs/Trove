@@ -12,6 +12,7 @@
   "scripts": {
     "build": "tsup src/cli.ts --format esm --target node22 --dts --clean",
     "dev": "tsx src/cli.ts",
+    "reset-local": "tsx scripts/reset-local.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -20,10 +21,21 @@
     "typescript",
     "sqlite",
     "search",
-    "bookmarks"
+    "bookmarks",
+    "archive",
+    "substack",
+    "hacker-news",
+    "x"
   ],
-  "author": "",
-  "license": "ISC",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lowside-Labs/Trove.git"
+  },
+  "homepage": "https://github.com/Lowside-Labs/Trove",
+  "bugs": {
+    "url": "https://github.com/Lowside-Labs/Trove/issues"
+  },
   "engines": {
     "node": ">=22.0.0"
   },

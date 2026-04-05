@@ -1,6 +1,7 @@
 import path from "node:path";
 import { chromium, type Page, type Request, type Response } from "playwright-core";
 import { createJsonlSink, createTimestampedFileName } from "../core/raw.js";
+import type { SyncProgressHandler } from "../core/progress.js";
 import { getChromiumSession, listChromiumBrowsers } from "../auth/chromium.js";
 import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
@@ -9,6 +10,7 @@ const X_BOOKMARKS_URL = "https://x.com/i/bookmarks";
 const X_HOME_URL = "https://x.com/home";
 const BOOKMARKS_REQUEST_PATTERN = /\/i\/api\/graphql\/[^/]+\/Bookmarks(?:\?|$)/;
 const LIKES_REQUEST_PATTERN = /\/i\/api\/graphql\/[^/]+\/Likes(?:\?|$)/;
+const MAX_STALLED_PAGES = 3;
 
 type XSyncKind = "bookmarks" | "likes";
 
@@ -20,6 +22,7 @@ interface XSyncOptions {
   cursor?: string;
   debugRawPages?: boolean;
   kind?: string;
+  onProgress?: SyncProgressHandler;
 }
 
 export interface XSyncResult {
@@ -42,7 +45,7 @@ interface TimelinePage {
 
 export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult> {
   const kind = normalizeSyncKind(options.kind);
-  const session = await getChromiumSession(options.browserId, options.profile);
+  const session = await getChromiumSession(options.browserId, options.profile, undefined, "X");
   const scope = `${options.browserId}-${(options.profile ?? "Default").replaceAll(path.sep, "-")}-${kind}`;
   const rawSink = createJsonlSink("x", createTimestampedFileName(scope));
   const debugRawSink = options.debugRawPages ? createJsonlSink(path.join("x", "debug-pages"), createTimestampedFileName(scope)) : null;
@@ -56,13 +59,14 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
     await context.addCookies(session.playwrightCookies);
 
     const page = await context.newPage();
+    emitProgress(options.onProgress, "seed", `Discovering ${kind} request`);
     const syncTarget = await resolveSyncTarget(page, kind);
     const timelineResponsePromise = page.waitForResponse((response) => syncTarget.requestPattern.test(response.url()), { timeout: 20_000 });
 
     await page.goto(syncTarget.pageUrl, { waitUntil: "domcontentloaded" });
     const timelineResponse = await timelineResponsePromise;
     const seedRequest = await buildSeedRequest(timelineResponse);
-    const firstPayload = await timelineResponse.json();
+    const firstPayload = await readTimelineResponsePayload(timelineResponse, `X ${kind} seed request`);
     const firstPage = parseTimelinePayload(firstPayload, kind);
     writeRawItems(rawSink, firstPage.rawItems);
     writeDebugRawBookmarksPage(debugRawSink, {
@@ -76,9 +80,11 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
 
     const items: TroveItem[] = [];
     const seenIds = new Set<string>();
+    let pageNumber = 1;
 
     if (options.cursor) {
       mergeTimelinePage(items, seenIds, firstPage, options.limit);
+      emitProgress(options.onProgress, "page", `Fetched ${kind} page ${pageNumber}`, items.length);
 
       const replay = await fetchTimelinePage(seedRequest, options.cursor, remainingLimit(items.length, options.limit), kind);
       const replayPage = parseTimelinePayload(replay, kind);
@@ -93,9 +99,14 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
         kind,
       });
       mergeTimelinePage(items, seenIds, replayPage, options.limit);
+      pageNumber += 1;
+      emitProgress(options.onProgress, "page", `Fetched ${kind} page ${pageNumber}`, items.length);
 
       let nextCursor = replayPage.nextCursor;
+      let stalledPages = 0;
+
       while (nextCursor && withinLimit(items.length, options.limit)) {
+        const requestedCursor = nextCursor;
         const response = await fetchTimelinePage(seedRequest, nextCursor, remainingLimit(items.length, options.limit), kind);
         const pageData = parseTimelinePayload(response, kind);
         writeRawItems(rawSink, pageData.rawItems);
@@ -108,8 +119,18 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
           payload: response,
           kind,
         });
-        mergeTimelinePage(items, seenIds, pageData, options.limit);
-        nextCursor = pageData.nextCursor;
+        const importedCount = mergeTimelinePage(items, seenIds, pageData, options.limit);
+        pageNumber += 1;
+        emitProgress(options.onProgress, "page", `Fetched ${kind} page ${pageNumber}`, items.length);
+        nextCursor = nextPageCursor(pageData.nextCursor, requestedCursor, importedCount, stalledPages);
+
+        if (nextCursor) {
+          stalledPages = importedCount === 0 ? stalledPages + 1 : 0;
+
+          if (stalledPages >= MAX_STALLED_PAGES) {
+            nextCursor = undefined;
+          }
+        }
       }
 
       return nextCursor
@@ -118,10 +139,14 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
     }
 
     mergeTimelinePage(items, seenIds, firstPage, options.limit);
+    emitProgress(options.onProgress, "page", `Fetched ${kind} page ${pageNumber}`, items.length);
 
     let nextCursor = firstPage.nextCursor;
 
+    let stalledPages = 0;
+
     while (nextCursor && withinLimit(items.length, options.limit)) {
+      const requestedCursor = nextCursor;
       const response = await fetchTimelinePage(seedRequest, nextCursor, remainingLimit(items.length, options.limit), kind);
       const pageData = parseTimelinePayload(response, kind);
       writeRawItems(rawSink, pageData.rawItems);
@@ -134,8 +159,18 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
         payload: response,
         kind,
       });
-      mergeTimelinePage(items, seenIds, pageData, options.limit);
-      nextCursor = pageData.nextCursor;
+      const importedCount = mergeTimelinePage(items, seenIds, pageData, options.limit);
+      pageNumber += 1;
+      emitProgress(options.onProgress, "page", `Fetched ${kind} page ${pageNumber}`, items.length);
+      nextCursor = nextPageCursor(pageData.nextCursor, requestedCursor, importedCount, stalledPages);
+
+      if (nextCursor) {
+        stalledPages = importedCount === 0 ? stalledPages + 1 : 0;
+
+        if (stalledPages >= MAX_STALLED_PAGES) {
+          nextCursor = undefined;
+        }
+      }
     }
 
     return nextCursor
@@ -222,6 +257,20 @@ async function fetchTimelinePage(seedRequest: SeedRequest, cursor: string, count
   }
 
   return response.json();
+}
+
+async function readTimelineResponsePayload(response: Response, label: string): Promise<unknown> {
+  const text = await response.text();
+
+  if (!response.ok()) {
+    throw new Error(`${label} failed with ${response.status()}: ${text.slice(0, 400)}`);
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new Error(`${label} returned non-JSON content: ${text.slice(0, 400)}`);
+  }
 }
 
 async function getRequestHeaders(request: Request): Promise<Record<string, string>> {
@@ -397,7 +446,7 @@ function normalizeTweet(tweet: unknown, kind: XSyncKind): TroveItem | null {
 
   const item: TroveItem = {
     source: "x",
-    externalId: restId,
+    externalId: buildItemExternalId(restId, kind),
     title: `${titlePrefix}: ${truncate(text, 80)}`,
     url,
     excerpt: truncate(text, 240),
@@ -418,6 +467,10 @@ function normalizeTweet(tweet: unknown, kind: XSyncKind): TroveItem | null {
   }
 
   return item;
+}
+
+function buildItemExternalId(restId: string, kind: XSyncKind): string {
+  return `${kind}:${restId}`;
 }
 
 function extractRawTweetRecord(tweet: unknown, kind: XSyncKind): Record<string, unknown> | null {
@@ -685,7 +738,9 @@ function remainingLimit(count: number, limit?: number): number | undefined {
   return Math.max(0, limit - count);
 }
 
-function mergeTimelinePage(allItems: TroveItem[], seenIds: Set<string>, page: TimelinePage, limit?: number): void {
+function mergeTimelinePage(allItems: TroveItem[], seenIds: Set<string>, page: TimelinePage, limit?: number): number {
+  let importedCount = 0;
+
   for (const item of page.items) {
     if (seenIds.has(item.externalId)) {
       continue;
@@ -693,11 +748,35 @@ function mergeTimelinePage(allItems: TroveItem[], seenIds: Set<string>, page: Ti
 
     allItems.push(item);
     seenIds.add(item.externalId);
+    importedCount += 1;
 
     if (!withinLimit(allItems.length, limit)) {
       break;
     }
   }
+
+  return importedCount;
+}
+
+function nextPageCursor(
+  candidateCursor: string | undefined,
+  requestedCursor: string,
+  importedCount: number,
+  stalledPages: number,
+): string | undefined {
+  if (!candidateCursor) {
+    return undefined;
+  }
+
+  if (candidateCursor === requestedCursor) {
+    return undefined;
+  }
+
+  if (importedCount === 0 && stalledPages + 1 >= MAX_STALLED_PAGES) {
+    return undefined;
+  }
+
+  return candidateCursor;
 }
 
 function writeRawItems(
@@ -748,6 +827,26 @@ function normalizeSyncKind(kind?: string): XSyncKind {
   }
 
   throw new Error('X sync kind must be "bookmarks" or "likes".');
+}
+
+function emitProgress(
+  onProgress: SyncProgressHandler | undefined,
+  phase: string,
+  message: string,
+  completed?: number,
+): void {
+  onProgress?.(
+    completed !== undefined
+      ? {
+          phase,
+          message,
+          completed,
+        }
+      : {
+          phase,
+          message,
+        },
+  );
 }
 
 export const __internal = {

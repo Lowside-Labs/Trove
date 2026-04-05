@@ -59,7 +59,7 @@ describe("x bookmarks parsing", () => {
 
     expect(page.nextCursor).toBe("cursor-abc");
     expect(page.items).toHaveLength(1);
-    expect(page.items[0]?.externalId).toBe("123");
+    expect(page.items[0]?.externalId).toBe("bookmarks:123");
     expect(page.items[0]?.url).toBe("https://x.com/emad/status/123");
   });
 
@@ -161,7 +161,7 @@ describe("x bookmarks parsing", () => {
 
     const page = __internal.parseTimelinePayload(payload, "bookmarks");
 
-    expect(page.items.map((item) => item.externalId)).toEqual(["123"]);
+    expect(page.items.map((item) => item.externalId)).toEqual(["bookmarks:123"]);
     expect(page.rawItems.map((item) => item.id)).toEqual(["123"]);
   });
 });
@@ -229,7 +229,7 @@ describe("x likes parsing", () => {
     expect(page.nextCursor).toBe("cursor-likes");
     expect(page.items).toHaveLength(1);
     expect(page.items[0]).toMatchObject({
-      externalId: "789",
+      externalId: "likes:789",
       url: "https://x.com/liked_author/status/789",
       tags: ["x", "like"],
       raw: expect.objectContaining({
@@ -242,5 +242,32 @@ describe("x likes parsing", () => {
       kind: "like",
       tags: ["x", "like"],
     });
+  });
+
+  it("uses distinct item ids for bookmarks and likes that point to the same tweet", () => {
+    const tweet = {
+      __typename: "Tweet",
+      rest_id: "shared-123",
+      legacy: {
+        full_text: "Tweet present in both collections",
+        created_at: "Sat Apr 04 22:00:00 +0000 2026",
+      },
+      core: {
+        user_results: {
+          result: {
+            legacy: {
+              screen_name: "shared_author",
+            },
+          },
+        },
+      },
+    };
+
+    const bookmark = __internal.normalizeTweet(tweet, "bookmarks");
+    const like = __internal.normalizeTweet(tweet, "likes");
+
+    expect(bookmark?.externalId).toBe("bookmarks:shared-123");
+    expect(like?.externalId).toBe("likes:shared-123");
+    expect(bookmark?.externalId).not.toBe(like?.externalId);
   });
 });
