@@ -73,7 +73,12 @@ interface ParsedSavedPage {
 
 export async function syncSubstackSaved(options: SubstackSyncOptions): Promise<SubstackSyncResult> {
   const kind = normalizeKind(options.kind);
-  const session = await getChromiumSession(options.browserId, options.profile, ["https://substack.com/", "https://www.substack.com/"]);
+  const session = await getChromiumSession(
+    options.browserId,
+    options.profile,
+    ["https://substack.com/", "https://www.substack.com/"],
+    "Substack",
+  );
   const scope = `${options.browserId}-${(options.profile ?? "Default").replaceAll(path.sep, "-")}-${kind}`;
   const rawSink = createJsonlSink("substack", createTimestampedFileName(scope));
 

@@ -45,7 +45,7 @@ interface TimelinePage {
 
 export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult> {
   const kind = normalizeSyncKind(options.kind);
-  const session = await getChromiumSession(options.browserId, options.profile);
+  const session = await getChromiumSession(options.browserId, options.profile, undefined, "X");
   const scope = `${options.browserId}-${(options.profile ?? "Default").replaceAll(path.sep, "-")}-${kind}`;
   const rawSink = createJsonlSink("x", createTimestampedFileName(scope));
   const debugRawSink = options.debugRawPages ? createJsonlSink(path.join("x", "debug-pages"), createTimestampedFileName(scope)) : null;

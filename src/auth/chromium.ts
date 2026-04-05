@@ -140,6 +140,7 @@ export async function getChromiumSession(
   browserId: SupportedBrowserId,
   profile?: string,
   domains: string[] = ["https://x.com/", "https://twitter.com/"],
+  sourceLabel = "the target service",
 ): Promise<BrowserSession> {
   if (process.platform !== "darwin") {
     throw new Error("The seamless Chromium session provider is only implemented for macOS right now.");
@@ -158,7 +159,9 @@ export async function getChromiumSession(
   const cookies = loadCookiesFromStore(browser.cookiesPath, domains, decryptionKey);
 
   if (cookies.length === 0) {
-    throw new Error(`No cookies were extracted for ${browser.name}. Confirm that you are logged into X in the ${browser.profile} profile.`);
+    throw new Error(
+      `No cookies were extracted for ${browser.name}. Confirm that you are logged into ${sourceLabel} in the ${browser.profile} profile.`,
+    );
   }
 
   const dedupedCookies = new Map<string, BrowserSession["playwrightCookies"][number]>();

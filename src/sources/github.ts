@@ -38,7 +38,7 @@ export async function syncGitHubStars(options: GitHubSyncOptions): Promise<GitHu
     throw new Error('GitHub sync kind must be "stars".');
   }
 
-  const session = await getChromiumSession(options.browserId, options.profile, ["https://github.com/"]);
+  const session = await getChromiumSession(options.browserId, options.profile, ["https://github.com/"], "GitHub");
   const scope = `${options.browserId}-${(options.profile ?? "Default").replaceAll(path.sep, "-")}-${kind}`;
   const rawSink = createJsonlSink("github", createTimestampedFileName(scope));
   const items: TroveItem[] = [];

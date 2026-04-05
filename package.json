@@ -21,10 +21,21 @@
     "typescript",
     "sqlite",
     "search",
-    "bookmarks"
+    "bookmarks",
+    "archive",
+    "substack",
+    "hacker-news",
+    "x"
   ],
-  "author": "",
-  "license": "ISC",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lowside-Labs/Trove.git"
+  },
+  "homepage": "https://github.com/Lowside-Labs/Trove",
+  "bugs": {
+    "url": "https://github.com/Lowside-Labs/Trove/issues"
+  },
   "engines": {
     "node": ">=22.0.0"
   },
