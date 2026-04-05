@@ -1,5 +1,7 @@
 # Trove
 
+![Trove repository artwork](assets/trove-thumbnail.jpg)
+
 Trove is a local-first CLI for building a searchable archive from the things you save across the web. It pulls source-native data into a local SQLite database, preserves compact raw artifacts on disk, and lets you search everything from one place.
 
 Trove is for people who save too much from X, Hacker News, Substack, GitHub, and AI tools and want one local archive instead of five silos.
