@@ -62,4 +62,36 @@ describe("x bookmarks parsing", () => {
     expect(page.items[0]?.externalId).toBe("123");
     expect(page.items[0]?.url).toBe("https://x.com/emad/status/123");
   });
+
+  it("extracts author data from wrapped user_results shapes", () => {
+    const tweet = {
+      __typename: "Tweet",
+      rest_id: "456",
+      legacy: {
+        full_text: "Wrapped author lookup",
+        created_at: "Sat Apr 04 20:00:00 +0000 2026",
+      },
+      core: {
+        user_results: {
+          result: {
+            __typename: "User",
+            legacy: {
+              screen_name: "mageba_wav",
+              name: "Mageba",
+            },
+          },
+        },
+      },
+    };
+
+    const normalized = __internal.normalizeTweet(tweet);
+    const raw = __internal.extractRawBookmarkRecord(tweet);
+
+    expect(normalized?.url).toBe("https://x.com/mageba_wav/status/456");
+    expect(normalized?.author).toBe("Mageba");
+    expect(raw?.author).toEqual({
+      name: "Mageba",
+      screenName: "mageba_wav",
+    });
+  });
 });

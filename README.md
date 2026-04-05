@@ -67,5 +67,7 @@ Current behavior:
 - `brave` and `arc` are detected in the browser layer, but not yet verified for cookie decryption
 - Trove uses your browser session to discover the current bookmarks request shape, then replays pagination from Node
 - Trove stores a per-browser/profile cursor for X so later syncs can resume incrementally
+- Trove stores clean bookmark records as JSON Lines files under `~/.trove/raw/x/`
+- full GraphQL page payloads are only stored when you pass `--debug-raw-pages`
 
 If the CLI says no cookies were found, confirm that you are logged into X in the selected browser profile.

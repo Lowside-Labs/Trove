@@ -12,6 +12,7 @@ export function createSyncCommand() {
     .option("--profile <profile>", "Browser profile to read cookies from")
     .option("--limit <number>", "Maximum number of items to import")
     .option("--headful", "Show the browser while Trove discovers the bookmarks request", false)
+    .option("--debug-raw-pages", "Also store full raw GraphQL page payloads for debugging", false)
     .action(async (source, options) => {
       if (source !== "demo" && source !== "x") {
         console.error(`Unknown source "${source}". Supported sources: demo, x.`);
@@ -27,13 +28,14 @@ export function createSyncCommand() {
         const state = source === "x" ? getSyncState(db, "x", scope) : null;
         const syncResult =
           source === "demo"
-            ? { items: getDemoItems() }
+            ? { items: getDemoItems(), rawPath: "" }
             : await syncXBookmarks({
                 browserId,
                 ...(options.profile ? { profile: options.profile } : {}),
                 ...(limit !== undefined ? { limit } : {}),
                 ...(options.headful ? { headful: true } : {}),
                 ...(state?.cursor ? { cursor: state.cursor } : {}),
+                ...(options.debugRawPages ? { debugRawPages: true } : {}),
               });
         const count = upsertItems(db, syncResult.items);
 
@@ -56,6 +58,10 @@ export function createSyncCommand() {
 
         if (source === "x") {
           console.log(state?.cursor ? `Resumed from saved cursor for ${scope}.` : `Started fresh sync for ${scope}.`);
+          console.log(`Bookmarks JSONL: ${syncResult.rawPath}`);
+          if (syncResult.debugRawPagesPath) {
+            console.log(`Debug raw pages: ${syncResult.debugRawPagesPath}`);
+          }
           console.log(`Browsers detected: ${formatAvailableBrowserList()}`);
         }
       } catch (error) {
