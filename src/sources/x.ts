@@ -62,7 +62,7 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
     await page.goto(syncTarget.pageUrl, { waitUntil: "domcontentloaded" });
     const timelineResponse = await timelineResponsePromise;
     const seedRequest = await buildSeedRequest(timelineResponse);
-    const firstPayload = await timelineResponse.json();
+    const firstPayload = await readTimelineResponsePayload(timelineResponse, `X ${kind} seed request`);
     const firstPage = parseTimelinePayload(firstPayload, kind);
     writeRawItems(rawSink, firstPage.rawItems);
     writeDebugRawBookmarksPage(debugRawSink, {
@@ -222,6 +222,20 @@ async function fetchTimelinePage(seedRequest: SeedRequest, cursor: string, count
   }
 
   return response.json();
+}
+
+async function readTimelineResponsePayload(response: Response, label: string): Promise<unknown> {
+  const text = await response.text();
+
+  if (!response.ok()) {
+    throw new Error(`${label} failed with ${response.status()}: ${text.slice(0, 400)}`);
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new Error(`${label} returned non-JSON content: ${text.slice(0, 400)}`);
+  }
 }
 
 async function getRequestHeaders(request: Request): Promise<Record<string, string>> {

@@ -7,6 +7,9 @@ const createTimestampedFileName = vi.fn(() => "test.jsonl");
 let bookmarksResponse: {
   url: () => string;
   json: ReturnType<typeof vi.fn>;
+  text: ReturnType<typeof vi.fn>;
+  ok: () => boolean;
+  status: () => number;
   request: () => {
     url: () => string;
     allHeaders: ReturnType<typeof vi.fn>;
@@ -114,6 +117,9 @@ describe("x bookmark sync", () => {
     bookmarksResponse = {
       url: () => "https://x.com/i/api/graphql/query-id/Bookmarks?variables=%7B%22count%22%3A20%7D",
       json: vi.fn(),
+      text: vi.fn(async () => ""),
+      ok: () => true,
+      status: () => 200,
       request: () => ({
         url: () => "https://x.com/i/api/graphql/query-id/Bookmarks?variables=%7B%22count%22%3A20%7D",
         allHeaders: vi.fn(async () => ({
@@ -154,6 +160,7 @@ describe("x bookmark sync", () => {
     ]);
     const replayPayload = createPayload([createTweetEntry("old-1", "Older bookmark")]);
     bookmarksResponse.json.mockResolvedValue(seedPayload);
+    bookmarksResponse.text.mockResolvedValue(JSON.stringify(seedPayload));
 
     vi.stubGlobal(
       "fetch",
@@ -183,6 +190,7 @@ describe("x bookmark sync", () => {
       createTweetEntry("old-2", "Older bookmark"),
     ]);
     bookmarksResponse.json.mockResolvedValue(seedPayload);
+    bookmarksResponse.text.mockResolvedValue(JSON.stringify(seedPayload));
 
     vi.stubGlobal(
       "fetch",
@@ -247,6 +255,9 @@ describe("x bookmark sync", () => {
     bookmarksResponse = {
       url: () => "https://x.com/i/api/graphql/query-id/Likes?variables=%7B%22count%22%3A20%7D",
       json: vi.fn().mockResolvedValue(likesSeedPayload),
+      text: vi.fn(async () => JSON.stringify(likesSeedPayload)),
+      ok: () => true,
+      status: () => 200,
       request: () => ({
         url: () => "https://x.com/i/api/graphql/query-id/Likes?variables=%7B%22count%22%3A20%7D",
         allHeaders: vi.fn(async () => ({
@@ -280,5 +291,20 @@ describe("x bookmark sync", () => {
         method: "GET",
       }),
     );
+  });
+
+  it("surfaces a readable rate-limit error when the seed request returns plain text", async () => {
+    const { syncXBookmarks } = await buildSyncModule();
+
+    bookmarksResponse.text.mockResolvedValue("Rate limit exceeded\n");
+    bookmarksResponse.ok = () => false;
+    bookmarksResponse.status = () => 429;
+
+    await expect(
+      syncXBookmarks({
+        browserId: "chrome",
+        kind: "bookmarks",
+      }),
+    ).rejects.toThrow("X bookmarks seed request failed with 429: Rate limit exceeded");
   });
 });
