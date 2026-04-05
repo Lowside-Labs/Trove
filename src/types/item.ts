@@ -1,4 +1,4 @@
-export type ItemSource = "demo" | "x" | "reddit" | "github" | "history";
+export type ItemSource = string;
 
 export interface TroveItem {
   source: ItemSource;

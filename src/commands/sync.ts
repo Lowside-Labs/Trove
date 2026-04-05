@@ -1,69 +1,68 @@
 import { Command } from "commander";
 import { getSyncState, upsertItems, upsertSyncState, withDatabase } from "../db/database.js";
-import { getDemoItems } from "../sources/demo.js";
-import { formatAvailableBrowserList, syncXBookmarks } from "../sources/x.js";
-import type { SupportedBrowserId } from "../types/browser.js";
+import { getSyncSource, listSyncSourceIds, type SyncCommandOptions } from "../sources/index.js";
 
 export function createSyncCommand() {
   return new Command("sync")
     .description("Sync content from a source into the local database.")
-    .argument("<source>", "Source adapter to run, currently: demo | x")
+    .argument("<source>", `Source adapter to run, currently: ${listSyncSourceIds().join(" | ")}`)
     .option("--browser <browser>", "Chromium browser id to use for seamless session reuse", "chrome")
     .option("--profile <profile>", "Browser profile to read cookies from")
     .option("--limit <number>", "Maximum number of items to import")
+    .option("--user <user>", "Account username for sources that sync public user data")
+    .option("--kind <kind>", "Source-specific sync mode, for HN: favorites | favorite-comments")
     .option("--headful", "Show the browser while Trove discovers the bookmarks request", false)
     .option("--debug-raw-pages", "Also store full raw GraphQL page payloads for debugging", false)
     .action(async (source, options) => {
-      if (source !== "demo" && source !== "x") {
-        console.error(`Unknown source "${source}". Supported sources: demo, x.`);
+      const syncSource = getSyncSource(source);
+
+      if (!syncSource) {
+        console.error(`Unknown source "${source}". Supported sources: ${listSyncSourceIds().join(", ")}.`);
         process.exitCode = 1;
         return;
       }
 
       try {
         const limit = parseOptionalInteger(options.limit, "limit");
-        const browserId = options.browser as SupportedBrowserId;
-        const scope = source === "x" ? `${browserId}:${options.profile ?? "Default"}` : "default";
-        const { count, state, syncResult } = await withDatabase(async (db) => {
-          const state = source === "x" ? getSyncState(db, "x", scope) : null;
-          const syncResult =
-            source === "demo"
-              ? { items: getDemoItems(), rawPath: "" }
-              : await syncXBookmarks({
-                  browserId,
-                  ...(options.profile ? { profile: options.profile } : {}),
-                  ...(limit !== undefined ? { limit } : {}),
-                  ...(options.headful ? { headful: true } : {}),
-                  ...(state?.cursor ? { cursor: state.cursor } : {}),
-                  ...(options.debugRawPages ? { debugRawPages: true } : {}),
-                });
-          const count = upsertItems(db, syncResult.items);
+        const commandOptions = options as SyncCommandOptions;
+        const scope = syncSource.createScope(commandOptions);
+        const state = syncSource.shouldPersistState
+          ? withDatabase((db) => getSyncState(db, syncSource.id, scope))
+          : null;
+        const syncResult = await syncSource.sync({
+          options: commandOptions,
+          state,
+          ...(limit !== undefined ? { limit } : {}),
+        });
+        const count = withDatabase((db) => {
+          const importedCount = upsertItems(db, syncResult.items);
+          const nextState = syncSource.buildSyncState?.({
+            options: commandOptions,
+            importedCount,
+            result: syncResult,
+            scope,
+          });
 
-          if (source === "x") {
-            upsertSyncState(db, {
-              source: "x",
-              scope,
-              ...(syncResult.nextCursor ? { cursor: syncResult.nextCursor } : {}),
-              metadata: {
-                browserId,
-                profile: options.profile ?? "Default",
-                lastImportCount: count,
-              },
-            });
+          if (nextState) {
+            upsertSyncState(db, nextState);
           }
 
-          return { count, state, syncResult };
+          return importedCount;
         });
 
         console.log(`Imported ${count} items from ${source}.`);
 
-        if (source === "x") {
-          console.log(state?.cursor ? `Resumed from saved cursor for ${scope}.` : `Started fresh sync for ${scope}.`);
-          console.log(`Bookmarks JSONL: ${syncResult.rawPath}`);
-          if (syncResult.debugRawPagesPath) {
-            console.log(`Debug raw pages: ${syncResult.debugRawPagesPath}`);
+        const summaryLines = syncSource.getSummaryLines?.({
+          options: commandOptions,
+          state,
+          result: syncResult,
+          scope,
+        });
+
+        if (summaryLines) {
+          for (const line of summaryLines) {
+            console.log(line);
           }
-          console.log(`Browsers detected: ${formatAvailableBrowserList()}`);
         }
       } catch (error) {
         console.error(error instanceof Error ? error.message : String(error));
