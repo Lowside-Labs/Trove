@@ -9,6 +9,7 @@ export function createSyncCommand() {
     .option("--browser <browser>", "Chromium browser id to use for seamless session reuse", "chrome")
     .option("--profile <profile>", "Browser profile to read cookies from")
     .option("--limit <number>", "Maximum number of items to import")
+    .option("--cdp-url <url>", "Attach to a live Chromium browser over CDP, for example http://127.0.0.1:9222")
     .option("--user <user>", "Account username for sources that sync public user data")
     .option("--kind <kind>", "Source-specific sync mode, for HN: favorites | favorite-comments")
     .option("--headful", "Show the browser while Trove discovers the bookmarks request", false)

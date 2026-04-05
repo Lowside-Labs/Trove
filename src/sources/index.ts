@@ -1,6 +1,7 @@
 import type { SyncStateRecord } from "../db/database.js";
 import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
+import { syncClaudeChats } from "./claude.js";
 import { getDemoItems } from "./demo.js";
 import { syncHnFavorites } from "./hn/index.js";
 import { syncSubstackSaved } from "./substack.js";
@@ -10,6 +11,7 @@ export interface SyncCommandOptions {
   browser: string;
   profile?: string;
   limit?: string;
+  cdpUrl?: string;
   headful?: boolean;
   debugRawPages?: boolean;
   user?: string;
@@ -21,6 +23,7 @@ export interface SyncSourceResult {
   rawPath: string;
   nextCursor?: string;
   debugRawPagesPath?: string;
+  contentPath?: string;
 }
 
 export interface SyncSourceDefinition {
@@ -50,6 +53,26 @@ const demoSource: SyncSourceDefinition = {
   id: "demo",
   createScope: () => "default",
   sync: async () => ({ items: getDemoItems(), rawPath: "" }),
+};
+
+const claudeSource: SyncSourceDefinition = {
+  id: "claude",
+  createScope(options) {
+    return options.cdpUrl ?? "http://127.0.0.1:9222";
+  },
+  async sync({ options, limit }) {
+    return syncClaudeChats({
+      ...(options.cdpUrl ? { cdpUrl: options.cdpUrl } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+    });
+  },
+  getSummaryLines({ result, scope }) {
+    return [
+      `Fetched Claude chats through live browser attachment at ${scope}.`,
+      `Claude raw JSONL: ${result.rawPath}`,
+      `Claude Markdown: ${result.contentPath}`,
+    ];
+  },
 };
 
 const xSource: SyncSourceDefinition = {
@@ -172,7 +195,7 @@ const substackSource: SyncSourceDefinition = {
   },
 };
 
-const syncSources = [demoSource, hnSource, substackSource, xSource];
+const syncSources = [demoSource, claudeSource, hnSource, substackSource, xSource];
 
 export function getSyncSource(id: string): SyncSourceDefinition | undefined {
   return syncSources.find((source) => source.id === id);
