@@ -233,7 +233,7 @@ function ensureFtsSchema(db: Database.Database): void {
     .prepare<[string], MasterSqlRow>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?")
     .get("items_fts");
 
-  if (row?.sql?.includes(`tokenize='${ITEMS_FTS_TOKENIZER}'`)) {
+  if (row?.sql?.includes(`tokenize='${ITEMS_FTS_TOKENIZER}'`) && row.sql.includes("tags")) {
     return;
   }
 

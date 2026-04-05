@@ -80,6 +80,9 @@ describe("database", () => {
 
     expect(searchItems(db, "distribute", 5).map((item) => item.externalId)).toContain("stemming-1");
     expect(searchItems(db, "café", 5).map((item) => item.externalId)).toContain("accent-1");
+    expect(searchItems(db, "tags:cafe", 5).map((item) => item.externalId)).toEqual(
+      expect.arrayContaining(["stemming-1", "accent-1"]),
+    );
 
     db.close();
   });
