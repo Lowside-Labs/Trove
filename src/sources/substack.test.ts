@@ -141,6 +141,37 @@ describe("substack saved sync", () => {
     expect(result.nextCursor).toBe("13");
     expect(result.items.map((item) => item.externalId)).toEqual(["13", "12"]);
   });
+
+  it("stops saved pagination after repeated pages add no new items", async () => {
+    const { syncSubstackSaved } = await buildModule();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => createSavedPayload({ ids: [13, 12], more: true }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => createSavedPayload({ ids: [13, 12], more: true }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => createSavedPayload({ ids: [13, 12], more: true }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => createSavedPayload({ ids: [13, 12], more: true }),
+      });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await syncSubstackSaved({
+      browserId: "dia",
+    });
+
+    expect(result.items.map((item) => item.externalId)).toEqual(["13", "12"]);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
 });
 
 describe("substack likes sync", () => {
@@ -312,5 +343,52 @@ describe("substack likes sync", () => {
     );
     expect(result.nextCursor).toBe("p-new");
     expect(result.items.map((item) => item.externalId)).toEqual(["p-new"]);
+  });
+
+  it("stops likes pagination when repeated pages add no new entities", async () => {
+    const { syncSubstackSaved } = await buildModule();
+    const repeatedLikesPage = {
+      items: [
+        {
+          entity_key: "p-new",
+          type: "post",
+          context: { type: "post_like", timestamp: "2026-04-03T00:00:00.000Z" },
+          post: {
+            id: 1,
+            title: "New like",
+            canonical_url: "https://example.substack.com/p/new-like",
+          },
+          publication: {
+            id: 7,
+            name: "Example Pub",
+          },
+        },
+      ],
+      nextCursor: "cursor-2",
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => '<script>window._preloads = JSON.parse("{\\"user\\":{\\"id\\":5511150,\\"handle\\":\\"3omda\\"}}")</script>',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => repeatedLikesPage,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => repeatedLikesPage,
+      });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await syncSubstackSaved({
+      browserId: "dia",
+      kind: "likes",
+    });
+
+    expect(result.items.map((item) => item.externalId)).toEqual(["p-new"]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

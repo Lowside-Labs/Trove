@@ -7,6 +7,7 @@ import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
 
 const GITHUB_BASE_URL = "https://github.com";
+const MAX_STALLED_PAGES = 3;
 
 interface GitHubSyncOptions {
   browserId: SupportedBrowserId;
@@ -41,6 +42,7 @@ export async function syncGitHubStars(options: GitHubSyncOptions): Promise<GitHu
   const scope = `${options.browserId}-${(options.profile ?? "Default").replaceAll(path.sep, "-")}-${kind}`;
   const rawSink = createJsonlSink("github", createTimestampedFileName(scope));
   const items: TroveItem[] = [];
+  const seenIds = new Set<string>();
   const markerId = options.cursor;
   emitProgress(options.onProgress, "bootstrap", "Loading GitHub stars landing page");
   const bootstrapHtml = await fetchStarsPage(session.cookieHeader, `${GITHUB_BASE_URL}/stars`);
@@ -55,11 +57,14 @@ export async function syncGitHubStars(options: GitHubSyncOptions): Promise<GitHu
   let nextPageUrl = buildStarsRepositoriesUrl(username);
   let nextCursor: string | undefined;
   let pageNumber = 1;
+  let stalledPages = 0;
 
   while (nextPageUrl) {
+    const requestedPageUrl = nextPageUrl;
     emitProgress(options.onProgress, "page", `Fetching stars page ${pageNumber}`);
     const html = await fetchStarsPage(session.cookieHeader, nextPageUrl);
     const page = parseStarsPage(html);
+    let importedCount = 0;
 
     if (!nextCursor) {
       nextCursor = page.items[0]?.externalId ?? markerId;
@@ -81,7 +86,13 @@ export async function syncGitHubStars(options: GitHubSyncOptions): Promise<GitHu
         return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
       }
 
+      if (seenIds.has(item.externalId)) {
+        continue;
+      }
+
       items.push(item);
+      seenIds.add(item.externalId);
+      importedCount += 1;
 
       if (typeof options.limit === "number" && items.length >= options.limit) {
         return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
@@ -91,6 +102,16 @@ export async function syncGitHubStars(options: GitHubSyncOptions): Promise<GitHu
     emitProgress(options.onProgress, "page", `Fetched stars page ${pageNumber}`, items.length);
 
     if (!page.nextPageUrl || page.items.length === 0) {
+      break;
+    }
+
+    if (page.nextPageUrl === requestedPageUrl) {
+      break;
+    }
+
+    stalledPages = importedCount === 0 ? stalledPages + 1 : 0;
+
+    if (stalledPages >= MAX_STALLED_PAGES) {
       break;
     }
 

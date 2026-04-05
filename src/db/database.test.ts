@@ -2,7 +2,16 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { getSyncState, openDatabase, searchItems, upsertItems, upsertSyncState, withDatabase } from "./database.js";
+import {
+  getArchiveOverview,
+  getSourceStats,
+  getSyncState,
+  openDatabase,
+  searchItems,
+  upsertItems,
+  upsertSyncState,
+  withDatabase,
+} from "./database.js";
 import type { TroveItem } from "../types/item.js";
 
 const roots: string[] = [];
@@ -29,6 +38,26 @@ describe("database", () => {
     db.close();
   });
 
+  it("distinguishes newly inserted rows from updated rows", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "trove-test-"));
+    roots.push(root);
+
+    const db = openDatabase(root);
+    const firstResult = upsertItems(db, getFixtureItems());
+    const secondResult = upsertItems(
+      db,
+      getFixtureItems().map((item) => ({
+        ...item,
+        title: `${item.title} refreshed`,
+      })),
+    );
+
+    expect(firstResult).toEqual({ insertedCount: 2, updatedCount: 0 });
+    expect(secondResult).toEqual({ insertedCount: 0, updatedCount: 2 });
+
+    db.close();
+  });
+
   it("persists sync state records", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "trove-test-"));
     roots.push(root);
@@ -45,6 +74,35 @@ describe("database", () => {
 
     expect(state?.cursor).toBe("cursor-123");
     expect(state?.metadata).toEqual({ browserId: "chrome" });
+
+    db.close();
+  });
+
+  it("reports source stats and archive freshness", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "trove-test-"));
+    roots.push(root);
+
+    const db = openDatabase(root);
+    upsertItems(db, getFixtureItems());
+    upsertSyncState(db, {
+      source: "fixture",
+      scope: "fixture:default",
+      cursor: "cursor-123",
+      lastSyncedAt: "2026-04-05T08:00:00.000Z",
+    });
+
+    expect(getSourceStats(db)).toEqual([
+      {
+        source: "fixture",
+        count: 2,
+        lastSyncedAt: "2026-04-05T08:00:00.000Z",
+      },
+    ]);
+    expect(getArchiveOverview(db)).toEqual({
+      totalItems: 2,
+      totalSources: 1,
+      lastSyncedAt: "2026-04-05T08:00:00.000Z",
+    });
 
     db.close();
   });

@@ -10,6 +10,7 @@ const DEFAULT_CDP_URL = "http://127.0.0.1:9222";
 const CHATGPT_HOME_URL = "https://chatgpt.com/";
 const CHATGPT_HOST = "chatgpt.com";
 const LIST_PAGE_SIZE = 28;
+const MAX_STALLED_LIST_PAGES = 3;
 
 interface ChatGptSyncOptions {
   cdpUrl?: string;
@@ -187,9 +188,11 @@ async function fetchConversationSummaries(
   onProgress?: SyncProgressHandler,
 ): Promise<ChatGptConversationSummary[]> {
   const summaries: ChatGptConversationSummary[] = [];
+  const seenIds = new Set<string>();
   let offset = 0;
   let total: number | null = null;
   let pageNumber = 1;
+  let stalledPages = 0;
 
   while (requestedLimit === undefined || summaries.length < requestedLimit) {
     emitProgress(onProgress, "page", `Fetching ChatGPT conversations page ${pageNumber}`, summaries.length, total ?? undefined);
@@ -211,10 +214,27 @@ async function fetchConversationSummaries(
 
     const payload = asRecord(response.body);
     const pageSummaries = readConversationSummaries(payload);
-    summaries.push(...pageSummaries);
+    let importedCount = 0;
+
+    for (const summary of pageSummaries) {
+      if (seenIds.has(summary.id)) {
+        continue;
+      }
+
+      summaries.push(summary);
+      seenIds.add(summary.id);
+      importedCount += 1;
+    }
+
     total = readFiniteNumber(payload?.total) ?? total;
 
     if (pageSummaries.length === 0) {
+      break;
+    }
+
+    stalledPages = importedCount === 0 ? stalledPages + 1 : 0;
+
+    if (stalledPages >= MAX_STALLED_LIST_PAGES) {
       break;
     }
 

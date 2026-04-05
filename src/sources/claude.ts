@@ -10,6 +10,7 @@ const DEFAULT_CDP_URL = "http://127.0.0.1:9222";
 const CLAUDE_HOST = "claude.ai";
 const ORG_ID_PATTERN = /\/api\/organizations\/([^/]+)\//;
 const LIST_PAGE_SIZE = 30;
+const MAX_STALLED_LIST_PAGES = 3;
 
 interface ClaudeSyncOptions {
   cdpUrl?: string;
@@ -183,9 +184,11 @@ async function fetchConversationSummaries(
   onProgress?: SyncProgressHandler,
 ): Promise<ClaudeConversationSummary[]> {
   const summaries: ClaudeConversationSummary[] = [];
+  const seenIds = new Set<string>();
   let offset = 0;
   let hasMore = true;
   let pageNumber = 1;
+  let stalledPages = 0;
 
   while (hasMore && (requestedLimit === undefined || summaries.length < requestedLimit)) {
     emitProgress(onProgress, "page", `Fetching Claude conversations page ${pageNumber}`, summaries.length);
@@ -202,10 +205,27 @@ async function fetchConversationSummaries(
     });
 
     const pageSummaries = extractConversationSummaries(response.body);
-    summaries.push(...pageSummaries);
+    let importedCount = 0;
+
+    for (const summary of pageSummaries) {
+      if (seenIds.has(summary.id)) {
+        continue;
+      }
+
+      summaries.push(summary);
+      seenIds.add(summary.id);
+      importedCount += 1;
+    }
+
     hasMore = readHasMore(response.body);
 
     if (pageSummaries.length === 0) {
+      break;
+    }
+
+    stalledPages = importedCount === 0 ? stalledPages + 1 : 0;
+
+    if (stalledPages >= MAX_STALLED_LIST_PAGES) {
       break;
     }
 

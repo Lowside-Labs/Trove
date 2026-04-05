@@ -10,6 +10,7 @@ const X_BOOKMARKS_URL = "https://x.com/i/bookmarks";
 const X_HOME_URL = "https://x.com/home";
 const BOOKMARKS_REQUEST_PATTERN = /\/i\/api\/graphql\/[^/]+\/Bookmarks(?:\?|$)/;
 const LIKES_REQUEST_PATTERN = /\/i\/api\/graphql\/[^/]+\/Likes(?:\?|$)/;
+const MAX_STALLED_PAGES = 3;
 
 type XSyncKind = "bookmarks" | "likes";
 
@@ -102,7 +103,10 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
       emitProgress(options.onProgress, "page", `Fetched ${kind} page ${pageNumber}`, items.length);
 
       let nextCursor = replayPage.nextCursor;
+      let stalledPages = 0;
+
       while (nextCursor && withinLimit(items.length, options.limit)) {
+        const requestedCursor = nextCursor;
         const response = await fetchTimelinePage(seedRequest, nextCursor, remainingLimit(items.length, options.limit), kind);
         const pageData = parseTimelinePayload(response, kind);
         writeRawItems(rawSink, pageData.rawItems);
@@ -115,10 +119,18 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
           payload: response,
           kind,
         });
-        mergeTimelinePage(items, seenIds, pageData, options.limit);
+        const importedCount = mergeTimelinePage(items, seenIds, pageData, options.limit);
         pageNumber += 1;
         emitProgress(options.onProgress, "page", `Fetched ${kind} page ${pageNumber}`, items.length);
-        nextCursor = pageData.nextCursor;
+        nextCursor = nextPageCursor(pageData.nextCursor, requestedCursor, importedCount, stalledPages);
+
+        if (nextCursor) {
+          stalledPages = importedCount === 0 ? stalledPages + 1 : 0;
+
+          if (stalledPages >= MAX_STALLED_PAGES) {
+            nextCursor = undefined;
+          }
+        }
       }
 
       return nextCursor
@@ -131,7 +143,10 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
 
     let nextCursor = firstPage.nextCursor;
 
+    let stalledPages = 0;
+
     while (nextCursor && withinLimit(items.length, options.limit)) {
+      const requestedCursor = nextCursor;
       const response = await fetchTimelinePage(seedRequest, nextCursor, remainingLimit(items.length, options.limit), kind);
       const pageData = parseTimelinePayload(response, kind);
       writeRawItems(rawSink, pageData.rawItems);
@@ -144,10 +159,18 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
         payload: response,
         kind,
       });
-      mergeTimelinePage(items, seenIds, pageData, options.limit);
+      const importedCount = mergeTimelinePage(items, seenIds, pageData, options.limit);
       pageNumber += 1;
       emitProgress(options.onProgress, "page", `Fetched ${kind} page ${pageNumber}`, items.length);
-      nextCursor = pageData.nextCursor;
+      nextCursor = nextPageCursor(pageData.nextCursor, requestedCursor, importedCount, stalledPages);
+
+      if (nextCursor) {
+        stalledPages = importedCount === 0 ? stalledPages + 1 : 0;
+
+        if (stalledPages >= MAX_STALLED_PAGES) {
+          nextCursor = undefined;
+        }
+      }
     }
 
     return nextCursor
@@ -715,7 +738,9 @@ function remainingLimit(count: number, limit?: number): number | undefined {
   return Math.max(0, limit - count);
 }
 
-function mergeTimelinePage(allItems: TroveItem[], seenIds: Set<string>, page: TimelinePage, limit?: number): void {
+function mergeTimelinePage(allItems: TroveItem[], seenIds: Set<string>, page: TimelinePage, limit?: number): number {
+  let importedCount = 0;
+
   for (const item of page.items) {
     if (seenIds.has(item.externalId)) {
       continue;
@@ -723,11 +748,35 @@ function mergeTimelinePage(allItems: TroveItem[], seenIds: Set<string>, page: Ti
 
     allItems.push(item);
     seenIds.add(item.externalId);
+    importedCount += 1;
 
     if (!withinLimit(allItems.length, limit)) {
       break;
     }
   }
+
+  return importedCount;
+}
+
+function nextPageCursor(
+  candidateCursor: string | undefined,
+  requestedCursor: string,
+  importedCount: number,
+  stalledPages: number,
+): string | undefined {
+  if (!candidateCursor) {
+    return undefined;
+  }
+
+  if (candidateCursor === requestedCursor) {
+    return undefined;
+  }
+
+  if (importedCount === 0 && stalledPages + 1 >= MAX_STALLED_PAGES) {
+    return undefined;
+  }
+
+  return candidateCursor;
 }
 
 function writeRawItems(

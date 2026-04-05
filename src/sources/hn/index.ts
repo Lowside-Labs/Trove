@@ -48,6 +48,7 @@ export async function syncHnFavorites(options: HnSyncOptions): Promise<HnSyncRes
   let shouldStop = false;
 
   while (!shouldStop) {
+    const requestedPage = nextPage;
     emitProgress(options.onProgress, "page", `Fetching ${kind} page ${nextPage}`);
     const html = await fetchPageHtml(buildPageUrl(user, kind, nextPage));
     const page = kind === "favorites" ? parseFavoritesPage(html) : parseFavoriteCommentsPage(html);
@@ -75,6 +76,10 @@ export async function syncHnFavorites(options: HnSyncOptions): Promise<HnSyncRes
     emitProgress(options.onProgress, "page", `Fetched ${kind} page ${nextPage}`, items.length);
 
     if (shouldStop || !page.nextPage || page.items.length === 0) {
+      break;
+    }
+
+    if (page.nextPage <= requestedPage) {
       break;
     }
 

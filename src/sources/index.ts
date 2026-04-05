@@ -1,4 +1,5 @@
 import type { SyncProgressHandler } from "../core/progress.js";
+import type { SummarySection } from "../core/output.js";
 import type { SyncStateRecord } from "../db/database.js";
 import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
@@ -28,6 +29,12 @@ export interface SyncSourceResult {
   contentPath?: string;
 }
 
+export interface SyncSummary {
+  headline: string;
+  sections: SummarySection[];
+  notes?: string[];
+}
+
 export interface SyncSourceDefinition {
   id: string;
   expandSyncRuns?(options: SyncCommandOptions): SyncCommandOptions[];
@@ -45,12 +52,12 @@ export interface SyncSourceDefinition {
     result: SyncSourceResult;
     scope: string;
   }): SyncStateRecord | null;
-  getSummaryLines?(args: {
+  getSummary?(args: {
     options: SyncCommandOptions;
     state: SyncStateRecord | null;
     result: SyncSourceResult;
     scope: string;
-  }): string[];
+  }): SyncSummary;
 }
 
 const claudeSource: SyncSourceDefinition = {
@@ -68,12 +75,23 @@ const claudeSource: SyncSourceDefinition = {
       ...(onProgress ? { onProgress } : {}),
     });
   },
-  getSummaryLines({ result, scope }) {
-    return [
-      `Fetched Claude chats through live browser attachment at ${scope}.`,
-      `Claude raw JSONL: ${result.rawPath}`,
-      `Claude Markdown: ${result.contentPath}`,
-    ];
+  getSummary({ result, scope }) {
+    return {
+      headline: "Fetched Claude chats through a live browser attachment.",
+      sections: [
+        {
+          title: "Artifacts",
+          entries: [
+            { label: "Raw JSONL", value: result.rawPath },
+            { label: "Markdown", value: result.contentPath ?? "Not written", tone: result.contentPath ? "default" : "muted" },
+          ],
+        },
+        {
+          title: "Context",
+          entries: [{ label: "CDP URL", value: scope, tone: "muted" }],
+        },
+      ],
+    };
   },
 };
 
@@ -92,12 +110,23 @@ const chatGptSource: SyncSourceDefinition = {
       ...(onProgress ? { onProgress } : {}),
     });
   },
-  getSummaryLines({ result, scope }) {
-    return [
-      `Fetched ChatGPT chats through live browser attachment at ${scope}.`,
-      `ChatGPT raw JSONL: ${result.rawPath}`,
-      `ChatGPT Markdown: ${result.contentPath}`,
-    ];
+  getSummary({ result, scope }) {
+    return {
+      headline: "Fetched ChatGPT chats through a live browser attachment.",
+      sections: [
+        {
+          title: "Artifacts",
+          entries: [
+            { label: "Raw JSONL", value: result.rawPath },
+            { label: "Markdown", value: result.contentPath ?? "Not written", tone: result.contentPath ? "default" : "muted" },
+          ],
+        },
+        {
+          title: "Context",
+          entries: [{ label: "CDP URL", value: scope, tone: "muted" }],
+        },
+      ],
+    };
   },
 };
 
@@ -135,12 +164,23 @@ const githubSource: SyncSourceDefinition = {
       },
     };
   },
-  getSummaryLines({ state, result, scope }) {
-    return [
-      state?.cursor ? `Resumed GitHub stars sync for ${scope}.` : `Started fresh GitHub stars sync for ${scope}.`,
-      `GitHub stars JSONL: ${result.rawPath}`,
-      `Browsers detected: ${formatAvailableGitHubBrowserList()}`,
-    ];
+  getSummary({ state, result, scope }) {
+    return {
+      headline: state?.cursor ? "Resumed GitHub stars sync from a saved cursor." : "Started a fresh GitHub stars sync.",
+      sections: [
+        {
+          title: "Artifacts",
+          entries: [{ label: "Raw JSONL", value: result.rawPath }],
+        },
+        {
+          title: "Context",
+          entries: [
+            { label: "Scope", value: scope, tone: "muted" },
+            { label: "Browsers", value: formatAvailableGitHubBrowserList(), tone: "muted" },
+          ],
+        },
+      ],
+    };
   },
 };
 
@@ -182,20 +222,31 @@ const xSource: SyncSourceDefinition = {
       },
     };
   },
-  getSummaryLines({ options, state, result, scope }) {
+  getSummary({ options, state, result, scope }) {
     const kind = normalizeXKind(options.kind);
     const label = kind === "likes" ? "Likes" : "Bookmarks";
-    const lines = [state?.cursor ? `Resumed from saved cursor for ${scope}.` : `Started fresh sync for ${scope}.`];
-
-    lines.push(`${label} JSONL: ${result.rawPath}`);
+    const artifactEntries = [{ label: `${label} JSONL`, value: result.rawPath }];
 
     if (result.debugRawPagesPath) {
-      lines.push(`Debug raw pages: ${result.debugRawPagesPath}`);
+      artifactEntries.push({ label: "Debug pages", value: result.debugRawPagesPath });
     }
 
-    lines.push(`Browsers detected: ${formatAvailableBrowserList()}`);
-
-    return lines;
+    return {
+      headline: state?.cursor ? `Resumed X ${kind} sync from a saved cursor.` : `Started a fresh X ${kind} sync.`,
+      sections: [
+        {
+          title: "Artifacts",
+          entries: artifactEntries,
+        },
+        {
+          title: "Context",
+          entries: [
+            { label: "Scope", value: scope, tone: "muted" },
+            { label: "Browsers", value: formatAvailableBrowserList(), tone: "muted" },
+          ],
+        },
+      ],
+    };
   },
 };
 
@@ -233,13 +284,25 @@ const hnSource: SyncSourceDefinition = {
       },
     };
   },
-  getSummaryLines({ options, result, scope, state }) {
-    return [
-      state?.cursor ? `Resumed HN sync for ${scope}.` : `Started fresh HN sync for ${scope}.`,
-      `HN favorites JSONL: ${result.rawPath}`,
-      `Saved timestamps use the original HN item time because HN favorites pages do not expose favorited-at time.`,
-      `User: ${options.user ?? ""}, kind: ${options.kind ?? "favorites"}.`,
-    ];
+  getSummary({ options, result, scope, state }) {
+    return {
+      headline: state?.cursor ? "Resumed Hacker News sync from the last saved marker." : "Started a fresh Hacker News sync.",
+      sections: [
+        {
+          title: "Artifacts",
+          entries: [{ label: "Raw JSONL", value: result.rawPath }],
+        },
+        {
+          title: "Context",
+          entries: [
+            { label: "Scope", value: scope, tone: "muted" },
+            { label: "User", value: options.user ?? "Unknown", tone: "muted" },
+            { label: "Kind", value: options.kind ?? "favorites", tone: "muted" },
+          ],
+        },
+      ],
+      notes: ["Saved timestamps use the original HN item time because favorites pages do not expose favorited-at time."],
+    };
   },
 };
 
@@ -276,13 +339,22 @@ const substackSource: SyncSourceDefinition = {
       },
     };
   },
-  getSummaryLines({ options, state, result, scope }) {
+  getSummary({ options, state, result, scope }) {
     const kind = options.kind ?? "saved";
 
-    return [
-      state?.cursor ? `Resumed Substack ${kind} sync for ${scope}.` : `Started fresh Substack ${kind} sync for ${scope}.`,
-      `Substack ${kind} JSONL: ${result.rawPath}`,
-    ];
+    return {
+      headline: state?.cursor ? `Resumed Substack ${kind} sync from a saved cursor.` : `Started a fresh Substack ${kind} sync.`,
+      sections: [
+        {
+          title: "Artifacts",
+          entries: [{ label: `${kind} JSONL`, value: result.rawPath }],
+        },
+        {
+          title: "Context",
+          entries: [{ label: "Scope", value: scope, tone: "muted" }],
+        },
+      ],
+    };
   },
 };
 

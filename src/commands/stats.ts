@@ -1,17 +1,28 @@
 import { Command } from "commander";
-import { getSourceCounts, withDatabase } from "../db/database.js";
+import { TerminalOutput, renderStatsReport } from "../core/output.js";
+import { getArchiveOverview, getSourceStats, withDatabase } from "../db/database.js";
 
 export function createStatsCommand() {
-  return new Command("stats").description("Show basic counts by source.").action(() => {
-    const counts = withDatabase((db) => getSourceCounts(db));
+  return new Command("stats").description("Show archive health and counts by source.").action(() => {
+    const output = new TerminalOutput();
+    const report = withDatabase((db) => {
+      const overview = getArchiveOverview(db);
+      const rows = getSourceStats(db);
 
-    if (counts.length === 0) {
-      console.log("No items indexed yet.");
+      return {
+        totalItems: overview.totalItems,
+        totalSources: overview.totalSources,
+        rows,
+        ...(overview.lastSyncedAt ? { lastSyncedAt: overview.lastSyncedAt } : {}),
+      };
+    });
+
+    if (report.rows.length === 0) {
+      output.info("No items indexed yet.");
+      output.line(output.toned("Run `trove sync <source>` to start building the archive.", "muted"));
       return;
     }
 
-    for (const entry of counts) {
-      console.log(`${entry.source}: ${entry.count}`);
-    }
+    renderStatsReport(output, report);
   });
 }

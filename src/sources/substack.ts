@@ -6,6 +6,7 @@ import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
 
 const SUBSTACK_BASE_URL = "https://substack.com";
+const MAX_STALLED_PAGES = 3;
 
 interface SubstackSyncOptions {
   browserId: SupportedBrowserId;
@@ -81,15 +82,18 @@ export async function syncSubstackSaved(options: SubstackSyncOptions): Promise<S
   }
 
   const items: TroveItem[] = [];
+  const seenIds = new Set<string>();
   const markerId = options.cursor;
   let offset = 0;
   let nextCursor: string | undefined;
   let pageNumber = 1;
+  let stalledPages = 0;
 
   while (true) {
     emitProgress(options.onProgress, "page", `Fetching saved page ${pageNumber}`);
     const payload = await fetchSavedPostsPage(session.cookieHeader, offset, options.limit);
     const page = parseSavedPostsPayload(payload);
+    let importedCount = 0;
 
     if (offset === 0) {
       nextCursor = page.items[0]?.externalId ?? markerId;
@@ -111,7 +115,13 @@ export async function syncSubstackSaved(options: SubstackSyncOptions): Promise<S
         return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
       }
 
+      if (seenIds.has(item.externalId)) {
+        continue;
+      }
+
       items.push(item);
+      seenIds.add(item.externalId);
+      importedCount += 1;
 
       if (typeof options.limit === "number" && items.length >= options.limit) {
         return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
@@ -121,6 +131,12 @@ export async function syncSubstackSaved(options: SubstackSyncOptions): Promise<S
     emitProgress(options.onProgress, "page", `Fetched saved page ${pageNumber}`, items.length);
 
     if (!page.hasMore || page.items.length === 0) {
+      break;
+    }
+
+    stalledPages = importedCount === 0 ? stalledPages + 1 : 0;
+
+    if (stalledPages >= MAX_STALLED_PAGES) {
       break;
     }
 
@@ -139,15 +155,19 @@ async function syncSubstackLikes(
   const selfProfile = await fetchSelfProfile(cookieHeader);
   const likesPageUrl = `https://substack.com/@${selfProfile.handle}/likes`;
   const items: TroveItem[] = [];
+  const seenIds = new Set<string>();
   const markerId = options.cursor;
   let cursor: string | undefined;
   let nextCursor: string | undefined;
   let pageNumber = 1;
+  let stalledPages = 0;
 
   while (true) {
+    const requestedCursor = cursor;
     emitProgress(options.onProgress, "page", `Fetching likes page ${pageNumber}`);
     const payload = await fetchLikesPage(cookieHeader, selfProfile.id, cursor);
     const page = parseLikesPayload(payload, likesPageUrl);
+    let importedCount = 0;
 
     if (!cursor) {
       nextCursor = page.items[0]?.externalId ?? markerId;
@@ -169,7 +189,13 @@ async function syncSubstackLikes(
         return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
       }
 
+      if (seenIds.has(item.externalId)) {
+        continue;
+      }
+
       items.push(item);
+      seenIds.add(item.externalId);
+      importedCount += 1;
 
       if (typeof options.limit === "number" && items.length >= options.limit) {
         return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
@@ -179,6 +205,16 @@ async function syncSubstackLikes(
     emitProgress(options.onProgress, "page", `Fetched likes page ${pageNumber}`, items.length);
 
     if (!page.nextCursor || page.items.length === 0) {
+      break;
+    }
+
+    if (page.nextCursor === requestedCursor) {
+      break;
+    }
+
+    stalledPages = importedCount === 0 ? stalledPages + 1 : 0;
+
+    if (stalledPages >= MAX_STALLED_PAGES) {
       break;
     }
 

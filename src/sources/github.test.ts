@@ -1,12 +1,49 @@
-import { describe, expect, it } from "vitest";
-import { __internal } from "./github.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const sinks: Array<{ path: string; append: ReturnType<typeof vi.fn> }> = [];
+const getChromiumSession = vi.fn();
+const createTimestampedFileName = vi.fn(() => "test.jsonl");
+
+vi.mock("../auth/chromium.js", () => ({
+  getChromiumSession,
+  listChromiumBrowsers: vi.fn(() => []),
+}));
+
+vi.mock("../core/raw.js", () => ({
+  createJsonlSink: vi.fn((source: string, fileName: string) => {
+    const sink = {
+      path: `/tmp/${source}-${fileName}`,
+      append: vi.fn(),
+    };
+    sinks.push(sink);
+    return sink;
+  }),
+  createTimestampedFileName,
+}));
+
+async function buildModule() {
+  return import("./github.js");
+}
 
 describe("github stars parsing", () => {
-  it("builds the repositories listing url from the authenticated username", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    vi.unstubAllGlobals();
+    sinks.length = 0;
+
+    getChromiumSession.mockResolvedValue({
+      cookieHeader: "logged_in=yes",
+    });
+  });
+
+  it("builds the repositories listing url from the authenticated username", async () => {
+    const { __internal } = await import("./github.js");
     expect(__internal.buildStarsRepositoriesUrl("moodyxo")).toBe("https://github.com/stars/moodyxo/repositories?filter=all");
   });
 
-  it("extracts starred repositories, username, and next page", () => {
+  it("extracts starred repositories, username, and next page", async () => {
+    const { __internal } = await import("./github.js");
     const html = `
       <main>
         <ul class="filter-list">
@@ -69,7 +106,8 @@ describe("github stars parsing", () => {
     ]);
   });
 
-  it("returns no next page when pagination is absent", () => {
+  it("returns no next page when pagination is absent", async () => {
+    const { __internal } = await import("./github.js");
     const html = `
       <main>
         <ul class="filter-list">
@@ -88,5 +126,39 @@ describe("github stars parsing", () => {
 
     expect(page.nextPageUrl).toBeUndefined();
     expect(page.items).toHaveLength(1);
+  });
+
+  it("stops when GitHub pagination repeats without importing new stars", async () => {
+    const { syncGitHubStars } = await buildModule();
+    const repeatedPageHtml = `
+      <main>
+        <ul class="filter-list">
+          <li><a href="/stars/moodyxo">All stars</a></li>
+        </ul>
+        <ul id="user-list-repositories">
+          <li class="tmp-py-4 border-bottom public source ">
+            <h3><a href="/foo/bar"><span class="text-normal">foo / </span>bar</a></h3>
+            <span class="float-right">Starred <relative-time datetime="2026-04-01T00:00:00Z">Apr 1, 2026</relative-time></span>
+          </li>
+        </ul>
+        <div class="paginate-container">
+          <a class="next_page" href="https://github.com/stars/moodyxo/repositories?direction=desc&amp;filter=all&amp;page=2&amp;sort=created">Next</a>
+        </div>
+      </main>
+    `;
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => repeatedPageHtml,
+      url: "https://github.com/stars/moodyxo/repositories?direction=desc&filter=all&page=2&sort=created",
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await syncGitHubStars({
+      browserId: "chrome",
+    });
+
+    expect(result.items.map((item) => item.externalId)).toEqual(["foo/bar"]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

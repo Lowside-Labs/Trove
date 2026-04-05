@@ -307,4 +307,81 @@ describe("x bookmark sync", () => {
       }),
     ).rejects.toThrow("X bookmarks seed request failed with 429: Rate limit exceeded");
   });
+
+  it("stops likes pagination when repeated pages add no new items", async () => {
+    const { syncXBookmarks } = await buildSyncModule();
+    const likesSeedPayload = {
+      data: {
+        user: {
+          result: {
+            timeline: {
+              timeline: {
+                instructions: [
+                  {
+                    type: "TimelineAddEntries",
+                    entries: [
+                      createTweetEntry("like-1", "Newest like", "liked_author"),
+                      createCursorEntry("cursor-2"),
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    };
+    const stalledPayload = {
+      data: {
+        user: {
+          result: {
+            timeline: {
+              timeline: {
+                instructions: [
+                  {
+                    type: "TimelineAddEntries",
+                    entries: [
+                      createTweetEntry("like-1", "Newest like", "liked_author"),
+                      createCursorEntry("cursor-3"),
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    };
+
+    bookmarksResponse = {
+      url: () => "https://x.com/i/api/graphql/query-id/Likes?variables=%7B%22count%22%3A20%7D",
+      json: vi.fn().mockResolvedValue(likesSeedPayload),
+      text: vi.fn(async () => JSON.stringify(likesSeedPayload)),
+      ok: () => true,
+      status: () => 200,
+      request: () => ({
+        url: () => "https://x.com/i/api/graphql/query-id/Likes?variables=%7B%22count%22%3A20%7D",
+        allHeaders: vi.fn(async () => ({
+          authorization: "Bearer token",
+          cookie: "auth=1",
+        })),
+      }),
+    };
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => stalledPayload,
+    }));
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await syncXBookmarks({
+      browserId: "chrome",
+      kind: "likes",
+    });
+
+    expect(result.items.map((item) => item.externalId)).toEqual(["likes:like-1"]);
+    expect(result.nextCursor).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
