@@ -1,0 +1,65 @@
+import { describe, expect, it } from "vitest";
+import { __internal } from "./x.js";
+
+describe("x bookmarks parsing", () => {
+  it("extracts bookmark items and bottom cursor from a timeline payload", () => {
+    const payload = {
+      data: {
+        bookmark_timeline_v2: {
+          timeline: {
+            instructions: [
+              {
+                type: "TimelineAddEntries",
+                entries: [
+                  {
+                    entryId: "tweet-123",
+                    content: {
+                      itemContent: {
+                        tweet_results: {
+                          result: {
+                            __typename: "Tweet",
+                            rest_id: "123",
+                            legacy: {
+                              full_text: "Browser-auth research thread",
+                              created_at: "Sat Apr 04 20:00:00 +0000 2026",
+                              favorite_count: 10,
+                              retweet_count: 2,
+                            },
+                            core: {
+                              user_results: {
+                                result: {
+                                  legacy: {
+                                    screen_name: "emad",
+                                    name: "Emad",
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    entryId: "cursor-bottom-0",
+                    content: {
+                      cursorType: "Bottom",
+                      value: "cursor-abc",
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const page = __internal.parseBookmarksPayload(payload);
+
+    expect(page.nextCursor).toBe("cursor-abc");
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.externalId).toBe("123");
+    expect(page.items[0]?.url).toBe("https://x.com/emad/status/123");
+  });
+});

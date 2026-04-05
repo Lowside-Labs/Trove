@@ -18,6 +18,15 @@ CREATE TABLE IF NOT EXISTS items (
   UNIQUE(source, external_id)
 );
 
+CREATE TABLE IF NOT EXISTS sync_state (
+  source TEXT NOT NULL,
+  scope TEXT NOT NULL,
+  cursor TEXT,
+  last_synced_at TEXT,
+  metadata_json TEXT,
+  PRIMARY KEY (source, scope)
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
   title,
   excerpt,

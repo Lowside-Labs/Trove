@@ -18,6 +18,22 @@ interface ItemRow {
   rank?: number;
 }
 
+interface SyncStateRow {
+  source: string;
+  scope: string;
+  cursor: string | null;
+  last_synced_at: string | null;
+  metadata_json: string | null;
+}
+
+export interface SyncStateRecord {
+  source: string;
+  scope: string;
+  cursor?: string;
+  lastSyncedAt?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export function openDatabase(root?: string): Database.Database {
   const paths = ensureTroveDirs(root);
   const db = new Database(paths.dbPath);
@@ -118,6 +134,56 @@ export function getSourceCounts(db: Database.Database): Array<{ source: string; 
   return db
     .prepare("SELECT source, COUNT(*) AS count FROM items GROUP BY source ORDER BY count DESC, source ASC")
     .all() as Array<{ source: string; count: number }>;
+}
+
+export function getSyncState(db: Database.Database, source: string, scope: string): SyncStateRecord | null {
+  const row = db
+    .prepare<[string, string], SyncStateRow>(
+      "SELECT source, scope, cursor, last_synced_at, metadata_json FROM sync_state WHERE source = ? AND scope = ?",
+    )
+    .get(source, scope);
+
+  if (!row) {
+    return null;
+  }
+
+  const state: SyncStateRecord = {
+    source: row.source,
+    scope: row.scope,
+  };
+
+  if (row.cursor !== null) {
+    state.cursor = row.cursor;
+  }
+
+  if (row.last_synced_at !== null) {
+    state.lastSyncedAt = row.last_synced_at;
+  }
+
+  if (row.metadata_json !== null) {
+    state.metadata = JSON.parse(row.metadata_json) as Record<string, unknown>;
+  }
+
+  return state;
+}
+
+export function upsertSyncState(db: Database.Database, state: SyncStateRecord): void {
+  db.prepare(
+    `
+      INSERT INTO sync_state (source, scope, cursor, last_synced_at, metadata_json)
+      VALUES (@source, @scope, @cursor, @lastSyncedAt, @metadataJson)
+      ON CONFLICT(source, scope) DO UPDATE SET
+        cursor = excluded.cursor,
+        last_synced_at = excluded.last_synced_at,
+        metadata_json = excluded.metadata_json
+    `,
+  ).run({
+    source: state.source,
+    scope: state.scope,
+    cursor: state.cursor ?? null,
+    lastSyncedAt: state.lastSyncedAt ?? new Date().toISOString(),
+    metadataJson: JSON.stringify(state.metadata ?? {}),
+  });
 }
 
 function mapRowToSearchResult(row: ItemRow): SearchResult {
