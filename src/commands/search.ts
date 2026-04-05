@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { openDatabase, searchItems } from "../db/database.js";
+import { searchItems, withDatabase } from "../db/database.js";
 
 export function createSearchCommand() {
   return new Command("search")
@@ -15,9 +15,7 @@ export function createSearchCommand() {
         return;
       }
 
-      const db = openDatabase();
-      const results = searchItems(db, query, limit);
-      db.close();
+      const results = withDatabase((db) => searchItems(db, query, limit));
 
       if (results.length === 0) {
         console.log("No matching items found.");

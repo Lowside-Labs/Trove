@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { getSyncState, openDatabase, upsertItems, upsertSyncState } from "../db/database.js";
+import { getSyncState, upsertItems, upsertSyncState, withDatabase } from "../db/database.js";
 import { getDemoItems } from "../sources/demo.js";
 import { formatAvailableBrowserList, syncXBookmarks } from "../sources/x.js";
 import type { SupportedBrowserId } from "../types/browser.js";
@@ -21,38 +21,39 @@ export function createSyncCommand() {
       }
 
       try {
-        const db = openDatabase();
         const limit = parseOptionalInteger(options.limit, "limit");
         const browserId = options.browser as SupportedBrowserId;
         const scope = source === "x" ? `${browserId}:${options.profile ?? "Default"}` : "default";
-        const state = source === "x" ? getSyncState(db, "x", scope) : null;
-        const syncResult =
-          source === "demo"
-            ? { items: getDemoItems(), rawPath: "" }
-            : await syncXBookmarks({
+        const { count, state, syncResult } = await withDatabase(async (db) => {
+          const state = source === "x" ? getSyncState(db, "x", scope) : null;
+          const syncResult =
+            source === "demo"
+              ? { items: getDemoItems(), rawPath: "" }
+              : await syncXBookmarks({
+                  browserId,
+                  ...(options.profile ? { profile: options.profile } : {}),
+                  ...(limit !== undefined ? { limit } : {}),
+                  ...(options.headful ? { headful: true } : {}),
+                  ...(state?.cursor ? { cursor: state.cursor } : {}),
+                  ...(options.debugRawPages ? { debugRawPages: true } : {}),
+                });
+          const count = upsertItems(db, syncResult.items);
+
+          if (source === "x") {
+            upsertSyncState(db, {
+              source: "x",
+              scope,
+              ...(syncResult.nextCursor ? { cursor: syncResult.nextCursor } : {}),
+              metadata: {
                 browserId,
-                ...(options.profile ? { profile: options.profile } : {}),
-                ...(limit !== undefined ? { limit } : {}),
-                ...(options.headful ? { headful: true } : {}),
-                ...(state?.cursor ? { cursor: state.cursor } : {}),
-                ...(options.debugRawPages ? { debugRawPages: true } : {}),
-              });
-        const count = upsertItems(db, syncResult.items);
+                profile: options.profile ?? "Default",
+                lastImportCount: count,
+              },
+            });
+          }
 
-        if (source === "x") {
-          upsertSyncState(db, {
-            source: "x",
-            scope,
-            ...(syncResult.nextCursor ? { cursor: syncResult.nextCursor } : {}),
-            metadata: {
-              browserId,
-              profile: options.profile ?? "Default",
-              lastImportCount: count,
-            },
-          });
-        }
-
-        db.close();
+          return { count, state, syncResult };
+        });
 
         console.log(`Imported ${count} items from ${source}.`);
 

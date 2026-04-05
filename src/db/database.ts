@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { ensureTroveDirs } from "../core/fs.js";
-import { schemaSql } from "./schema.js";
+import { ITEMS_FTS_TOKENIZER, schemaSql } from "./schema.js";
 import type { SearchResult, TroveItem } from "../types/item.js";
 
 interface ItemRow {
@@ -26,6 +26,10 @@ interface SyncStateRow {
   metadata_json: string | null;
 }
 
+interface MasterSqlRow {
+  sql: string | null;
+}
+
 export interface SyncStateRecord {
   source: string;
   scope: string;
@@ -39,7 +43,17 @@ export function openDatabase(root?: string): Database.Database {
   const db = new Database(paths.dbPath);
   db.pragma("journal_mode = WAL");
   db.exec(schemaSql);
+  ensureFtsSchema(db);
   return db;
+}
+
+export function withDatabase<T>(fn: (db: Database.Database) => T, root?: string): T {
+  const db = openDatabase(root);
+  try {
+    return fn(db);
+  } finally {
+    db.close();
+  }
 }
 
 export function upsertItems(db: Database.Database, items: TroveItem[]): number {
@@ -212,4 +226,23 @@ function mapRowToSearchResult(row: ItemRow): SearchResult {
   }
 
   return result;
+}
+
+function ensureFtsSchema(db: Database.Database): void {
+  const row = db
+    .prepare<[string], MasterSqlRow>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .get("items_fts");
+
+  if (row?.sql?.includes(`tokenize='${ITEMS_FTS_TOKENIZER}'`)) {
+    return;
+  }
+
+  db.exec(`
+    DROP TRIGGER IF EXISTS items_ai;
+    DROP TRIGGER IF EXISTS items_ad;
+    DROP TRIGGER IF EXISTS items_au;
+    DROP TABLE IF EXISTS items_fts;
+  `);
+  db.exec(schemaSql);
+  db.prepare("INSERT INTO items_fts(items_fts) VALUES('rebuild')").run();
 }

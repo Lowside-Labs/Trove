@@ -1,9 +1,10 @@
 import crypto from "node:crypto";
+import { execFile as execFileCallback } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import Database from "better-sqlite3";
-import keytar from "keytar";
 import type { BrowserDefinition, BrowserSession, ResolvedBrowserTarget, SupportedBrowserId } from "../types/browser.js";
 
 const homeDir = os.homedir();
@@ -12,6 +13,7 @@ const MACOS_KEY_LENGTH = 16;
 const MACOS_ITERATIONS = 1003;
 const MACOS_IV = Buffer.alloc(MACOS_KEY_LENGTH, 0x20);
 const CHROMIUM_EPOCH_OFFSET = 11_644_473_600_000_000;
+const execFile = promisify(execFileCallback);
 
 interface BrowserKeychainTarget {
   service: string;
@@ -175,7 +177,7 @@ export async function getChromiumSession(
 }
 
 async function deriveMacosCookieKey(target: BrowserKeychainTarget): Promise<Buffer> {
-  const password = await keytar.getPassword(target.service, target.account);
+  const password = await getMacosKeychainPassword(target);
 
   if (!password) {
     throw new Error(`Could not read ${target.service} from macOS Keychain for account ${target.account}.`);
@@ -189,6 +191,7 @@ function loadCookiesFromStore(cookiesPath: string, domains: string[], decryption
 
   try {
     const db = new Database(tempPath, { readonly: true });
+    const hasHostKeyPrefix = databaseHasHostKeyPrefix(db);
     const rows = db
       .prepare<[], RawCookieRow>(
         `
@@ -201,7 +204,7 @@ function loadCookiesFromStore(cookiesPath: string, domains: string[], decryption
 
     return rows
       .filter((row) => domains.some((domain) => matchesDomain(domain, row.host_key)))
-      .map((row) => mapCookieRow(row, decryptionKey))
+      .map((row) => mapCookieRow(row, decryptionKey, hasHostKeyPrefix))
       .filter((cookie): cookie is BrowserSession["playwrightCookies"][number] => cookie !== null);
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
@@ -221,8 +224,12 @@ function matchesDomain(rawUrl: string, hostKey: string): boolean {
   return hostname === normalizedHostKey || hostname.endsWith(`.${normalizedHostKey}`);
 }
 
-function mapCookieRow(row: RawCookieRow, decryptionKey: Buffer): BrowserSession["playwrightCookies"][number] | null {
-  const value = row.value || decryptCookieValue(row.encrypted_value, decryptionKey);
+function mapCookieRow(
+  row: RawCookieRow,
+  decryptionKey: Buffer,
+  hasHostKeyPrefix: boolean,
+): BrowserSession["playwrightCookies"][number] | null {
+  const value = row.value || decryptCookieValue(row.encrypted_value, decryptionKey, hasHostKeyPrefix);
 
   if (!value) {
     return null;
@@ -245,7 +252,7 @@ function mapCookieRow(row: RawCookieRow, decryptionKey: Buffer): BrowserSession[
   return cookie;
 }
 
-function decryptCookieValue(encryptedValue: Buffer | null, decryptionKey: Buffer): string {
+function decryptCookieValue(encryptedValue: Buffer | null, decryptionKey: Buffer, hasHostKeyPrefix: boolean): string {
   if (!encryptedValue || encryptedValue.length === 0) {
     return "";
   }
@@ -256,9 +263,35 @@ function decryptCookieValue(encryptedValue: Buffer | null, decryptionKey: Buffer
 
   const decrypted = Buffer.concat([decipher.update(payload), decipher.final()]);
   const paddingLength = decrypted.at(-1) ?? 0;
-  const trimmed = paddingLength > 0 ? decrypted.subarray(32, decrypted.length - paddingLength) : decrypted.subarray(32);
+  const unpadded = paddingLength > 0 ? decrypted.subarray(0, decrypted.length - paddingLength) : decrypted;
+  const trimmed = hasHostKeyPrefix ? unpadded.subarray(32) : unpadded;
 
   return trimmed.toString("utf8");
+}
+
+async function getMacosKeychainPassword(target: BrowserKeychainTarget): Promise<string | null> {
+  try {
+    const { stdout } = await execFile("/usr/bin/security", [
+      "find-generic-password",
+      "-w",
+      "-a",
+      target.account,
+      "-s",
+      target.service,
+    ]);
+    const password = stdout.trim();
+    return password.length > 0 ? password : null;
+  } catch {
+    return null;
+  }
+}
+
+function databaseHasHostKeyPrefix(db: Database.Database): boolean {
+  const row = db
+    .prepare<[], { value: string } | undefined>("SELECT value FROM meta WHERE key = 'version'")
+    .get();
+  const version = Number.parseInt(row?.value ?? "0", 10);
+  return Number.isFinite(version) && version >= 24;
 }
 
 function chromiumEpochToUnixSeconds(value: number): number {
@@ -271,5 +304,8 @@ function chromiumEpochToUnixSeconds(value: number): number {
 
 export const __internal = {
   copyCookiesDb,
+  databaseHasHostKeyPrefix,
+  decryptCookieValue,
+  getMacosKeychainPassword,
   loadCookiesFromStore,
 };

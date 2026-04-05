@@ -1,3 +1,5 @@
+export const ITEMS_FTS_TOKENIZER = "porter unicode61 remove_diacritics 2";
+
 export const schemaSql = `
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
@@ -33,7 +35,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
   content,
   tags,
   content='items',
-  content_rowid='id'
+  content_rowid='id',
+  tokenize='${ITEMS_FTS_TOKENIZER}'
 );
 
 CREATE TRIGGER IF NOT EXISTS items_ai AFTER INSERT ON items BEGIN
