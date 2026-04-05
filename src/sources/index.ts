@@ -3,6 +3,7 @@ import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
 import { syncClaudeChats } from "./claude.js";
 import { syncChatGptChats } from "./chatgpt.js";
+import { formatAvailableGitHubBrowserList, syncGitHubStars } from "./github.js";
 import { syncHnFavorites } from "./hn/index.js";
 import { syncSubstackSaved } from "./substack.js";
 import { formatAvailableBrowserList, syncXBookmarks } from "./x.js";
@@ -85,6 +86,45 @@ const chatGptSource: SyncSourceDefinition = {
       `Fetched ChatGPT chats through live browser attachment at ${scope}.`,
       `ChatGPT raw JSONL: ${result.rawPath}`,
       `ChatGPT Markdown: ${result.contentPath}`,
+    ];
+  },
+};
+
+const githubSource: SyncSourceDefinition = {
+  id: "github",
+  createScope(options) {
+    return `${options.browser}:${options.profile ?? "Default"}:stars`;
+  },
+  shouldPersistState: true,
+  async sync({ options, state, limit }) {
+    const browserId = options.browser as SupportedBrowserId;
+
+    return syncGitHubStars({
+      browserId,
+      ...(options.profile ? { profile: options.profile } : {}),
+      ...(options.kind ? { kind: options.kind } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+      ...(state?.cursor ? { cursor: state.cursor } : {}),
+    });
+  },
+  buildSyncState({ options, importedCount, result, scope }) {
+    return {
+      source: "github",
+      scope,
+      ...(result.nextCursor ? { cursor: result.nextCursor } : {}),
+      metadata: {
+        browserId: options.browser,
+        profile: options.profile ?? "Default",
+        kind: "stars",
+        lastImportCount: importedCount,
+      },
+    };
+  },
+  getSummaryLines({ state, result, scope }) {
+    return [
+      state?.cursor ? `Resumed GitHub stars sync for ${scope}.` : `Started fresh GitHub stars sync for ${scope}.`,
+      `GitHub stars JSONL: ${result.rawPath}`,
+      `Browsers detected: ${formatAvailableGitHubBrowserList()}`,
     ];
   },
 };
@@ -215,7 +255,7 @@ const substackSource: SyncSourceDefinition = {
   },
 };
 
-const syncSources = [claudeSource, chatGptSource, hnSource, substackSource, xSource];
+const syncSources = [claudeSource, chatGptSource, githubSource, hnSource, substackSource, xSource];
 
 function normalizeXKind(kind?: string): "bookmarks" | "likes" {
   if (!kind || kind === "bookmarks" || kind === "bookmark") {
