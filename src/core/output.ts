@@ -202,6 +202,7 @@ export function renderInitReport(output: TerminalOutput, paths: TrovePaths, vaul
   ]);
   output.blank();
   output.line(output.toned(`From inside this folder, \`trove\` commands target this workspace automatically.`, "muted"));
+  output.line(output.toned("Trove will remember this workspace for future commands.", "muted"));
   output.line(output.toned(`Next: run \`${syncCommand}\`, then open the folder in your agent.`, "muted"));
   output.line(output.toned(`Claude Code: \`${openCommand}\``, "muted"));
   output.line(output.toned(`From anywhere: \`trove --home ${quotedRoot} <command>\``, "muted"));

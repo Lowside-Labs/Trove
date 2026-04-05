@@ -70,8 +70,8 @@ print_next_steps() {
   printf 'Binary: %s/trove\n' "$BIN_DIR"
   printf 'Workspace example:\n'
   printf '  trove init --path ~/Trove\n'
-  printf '  cd ~/Trove\n'
   printf '  trove sync x --browser chrome\n'
+  printf '  cd ~/Trove && claude\n'
 
   case ":$PATH:" in
     *":$BIN_DIR:"*) ;;

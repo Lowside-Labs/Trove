@@ -27,14 +27,11 @@ curl -fsSL https://raw.githubusercontent.com/Lowside-Labs/Trove/main/install.sh 
 # Create a visible workspace instead of the default ~/.trove
 trove init --path ~/Trove
 
-# Work inside the workspace so Trove auto-detects it
-cd ~/Trove
-
-# Sync a source into that workspace
+# Trove remembers that workspace for future commands
 trove sync x --browser chrome --limit 20
 
 # Open the workspace in Claude Code
-claude
+cd ~/Trove && claude
 ```
 
 If you prefer the default hidden location, omit `--path ~/Trove` and Trove will use `~/.trove`.
@@ -58,8 +55,9 @@ The installer currently expects `Node 22+` to already be installed.
 
 1. `trove init` creates a workspace.
 2. `trove sync <source>` imports saved material into SQLite and raw artifacts.
-3. Trove refreshes `INDEX.md`, `AGENTS.md`, and `CLAUDE.md` automatically after sync and hydrate runs.
-4. You open that folder in Claude Code, Codex, or another tool and ask questions over your own material.
+3. Trove remembers the workspace you initialized and uses it by default for future commands.
+4. Trove refreshes `INDEX.md`, `AGENTS.md`, and `CLAUDE.md` automatically after sync and hydrate runs.
+5. You open that folder in Claude Code, Codex, or another tool and ask questions over your own material.
 
 Optional:
 
@@ -169,13 +167,16 @@ trove init --here
 # Create a workspace somewhere specific
 trove init --path ~/Trove
 
-# Sync from anywhere into a specific workspace
-trove --home ~/Trove sync substack --browser chrome
+# After init, Trove remembers that workspace
+trove sync substack --browser chrome
 
-# Once you are inside the workspace, Trove auto-detects it
+# You can also run commands inside the workspace
 cd ~/Trove
 trove search 'tags:bookmark'
 trove stats
+
+# Use --home when you want to override the remembered workspace
+trove --home ~/AnotherTrove search 'sqlite'
 ```
 
 ## Storage and Path Options
@@ -192,7 +193,7 @@ Recommendation:
 - Use `--here` for project-specific research or a temporary working set
 - Use `~/.trove` only if you prefer app-style hidden storage
 
-If you are not inside the workspace, point commands at it with `--home <path>`.
+If you want to override the remembered workspace, use `--home <path>`.
 
 ## Installation
 

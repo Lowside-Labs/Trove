@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { runArchivePostProcessing } from "../core/archive.js";
 import { renderInitReport, TerminalOutput } from "../core/output.js";
 import { ensureTroveDirs } from "../core/fs.js";
-import { resolveWorkspaceRoot } from "../core/paths.js";
+import { getDefaultTroveRoot, resolveWorkspaceRoot, saveDefaultWorkspaceRoot } from "../core/paths.js";
 import { withDatabase } from "../db/database.js";
 
 export function createInitCommand() {
@@ -14,18 +14,18 @@ export function createInitCommand() {
       const output = new TerminalOutput();
 
       try {
-        const root = resolveWorkspaceRoot({
-          path: options.path,
-          here: options.here,
-        });
+        const root =
+          resolveWorkspaceRoot({
+            path: options.path,
+            here: options.here,
+          }) ?? getDefaultTroveRoot();
 
-        if (root) {
-          process.env.TROVE_HOME = root;
-        }
+        process.env.TROVE_HOME = root;
 
         const paths = ensureTroveDirs(root);
         withDatabase(() => undefined, paths.root);
         const vaultArtifacts = runArchivePostProcessing(paths.root);
+        saveDefaultWorkspaceRoot(paths.root);
         renderInitReport(output, paths, vaultArtifacts);
       } catch (error) {
         output.error(error instanceof Error ? error.message : String(error));

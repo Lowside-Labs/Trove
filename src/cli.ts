@@ -7,22 +7,32 @@ import { createInitCommand } from "./commands/init.js";
 import { createSearchCommand } from "./commands/search.js";
 import { createStatsCommand } from "./commands/stats.js";
 import { createSyncCommand } from "./commands/sync.js";
-import { resolveWorkspaceRoot } from "./core/paths.js";
+import { TerminalOutput } from "./core/output.js";
+import { resolveCommandWorkspace } from "./core/paths.js";
 
 const program = new Command()
   .name("trove")
   .description("Turn your saved web material into a local knowledge workspace for AI agents.")
-  .option("--home <path>", "Path to the Trove workspace (default: ~/.trove)")
+  .option("--home <path>", "Path to the Trove workspace (overrides the remembered workspace)")
   .version("0.1.0");
 
 program.hook("preAction", (_thisCommand, actionCommand) => {
-  const home = resolveWorkspaceRoot({
+  if (actionCommand.name() === "init") {
+    return;
+  }
+
+  const output = new TerminalOutput();
+  const resolution = resolveCommandWorkspace({
     home: actionCommand.optsWithGlobals().home,
   });
 
-  if (home) {
-    process.env.TROVE_HOME = home;
+  if (resolution.root) {
+    process.env.TROVE_HOME = resolution.root;
+    return;
   }
+
+  output.error(resolution.error ?? "No Trove workspace found.");
+  process.exit(1);
 });
 
 program.addCommand(createInitCommand());

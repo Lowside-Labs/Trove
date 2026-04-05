@@ -1,7 +1,14 @@
 import fs from "node:fs";
 import { getTrovePaths } from "../src/core/paths.js";
 
-const paths = getTrovePaths();
+let paths: ReturnType<typeof getTrovePaths>;
+
+try {
+  paths = getTrovePaths();
+} catch (error) {
+  console.log(error instanceof Error ? error.message : String(error));
+  process.exit(0);
+}
 
 if (!fs.existsSync(paths.root)) {
   console.log(`Nothing to reset. Trove home does not exist at ${paths.root}`);

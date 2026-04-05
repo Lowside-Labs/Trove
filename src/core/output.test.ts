@@ -149,6 +149,7 @@ describe("output helpers", () => {
     expect(rendered).toContain("AGENTS:");
     expect(rendered).toContain("/tmp/trove-workspace/AGENTS.md");
     expect(rendered).toContain("From inside this folder, `trove` commands target this workspace automatically.");
+    expect(rendered).toContain("Trove will remember this workspace for future commands.");
     expect(rendered).toContain("cd /tmp/trove-workspace && claude");
   });
 
