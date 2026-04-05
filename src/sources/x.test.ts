@@ -55,7 +55,7 @@ describe("x bookmarks parsing", () => {
       },
     };
 
-    const page = __internal.parseBookmarksPayload(payload);
+    const page = __internal.parseTimelinePayload(payload, "bookmarks");
 
     expect(page.nextCursor).toBe("cursor-abc");
     expect(page.items).toHaveLength(1);
@@ -84,8 +84,8 @@ describe("x bookmarks parsing", () => {
       },
     };
 
-    const normalized = __internal.normalizeTweet(tweet);
-    const raw = __internal.extractRawBookmarkRecord(tweet);
+    const normalized = __internal.normalizeTweet(tweet, "bookmarks");
+    const raw = __internal.extractRawTweetRecord(tweet, "bookmarks");
 
     expect(normalized?.url).toBe("https://x.com/mageba_wav/status/456");
     expect(normalized?.author).toBe("Mageba");
@@ -159,9 +159,88 @@ describe("x bookmarks parsing", () => {
       },
     };
 
-    const page = __internal.parseBookmarksPayload(payload);
+    const page = __internal.parseTimelinePayload(payload, "bookmarks");
 
     expect(page.items.map((item) => item.externalId)).toEqual(["123"]);
-    expect(page.rawBookmarks.map((item) => item.id)).toEqual(["123"]);
+    expect(page.rawItems.map((item) => item.id)).toEqual(["123"]);
+  });
+});
+
+describe("x likes parsing", () => {
+  it("extracts liked tweets from the likes timeline payload", () => {
+    const payload = {
+      data: {
+        user: {
+          result: {
+            timeline: {
+              timeline: {
+                instructions: [
+                  {
+                    type: "TimelineAddEntries",
+                    entries: [
+                      {
+                        entryId: "tweet-789",
+                        sortIndex: "999999",
+                        content: {
+                          itemContent: {
+                            tweet_results: {
+                              result: {
+                                __typename: "Tweet",
+                                rest_id: "789",
+                                legacy: {
+                                  full_text: "Post that was liked later",
+                                  created_at: "Sat Apr 04 22:00:00 +0000 2026",
+                                  favorite_count: 42,
+                                },
+                                core: {
+                                  user_results: {
+                                    result: {
+                                      legacy: {
+                                        screen_name: "liked_author",
+                                        name: "Liked Author",
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                      {
+                        entryId: "cursor-bottom-0",
+                        content: {
+                          cursorType: "Bottom",
+                          value: "cursor-likes",
+                        },
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const page = __internal.parseTimelinePayload(payload, "likes");
+
+    expect(page.nextCursor).toBe("cursor-likes");
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).toMatchObject({
+      externalId: "789",
+      url: "https://x.com/liked_author/status/789",
+      tags: ["x", "like"],
+      raw: expect.objectContaining({
+        kind: "like",
+        savedAtSource: "tweet.created_at",
+      }),
+    });
+    expect(page.rawItems[0]).toMatchObject({
+      id: "789",
+      kind: "like",
+      tags: ["x", "like"],
+    });
   });
 });

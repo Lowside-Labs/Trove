@@ -1,12 +1,16 @@
 import path from "node:path";
-import { chromium, type Request, type Response } from "playwright-core";
+import { chromium, type Page, type Request, type Response } from "playwright-core";
 import { createJsonlSink, createTimestampedFileName } from "../core/raw.js";
 import { getChromiumSession, listChromiumBrowsers } from "../auth/chromium.js";
 import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
 
 const X_BOOKMARKS_URL = "https://x.com/i/bookmarks";
+const X_HOME_URL = "https://x.com/home";
 const BOOKMARKS_REQUEST_PATTERN = /\/i\/api\/graphql\/[^/]+\/Bookmarks(?:\?|$)/;
+const LIKES_REQUEST_PATTERN = /\/i\/api\/graphql\/[^/]+\/Likes(?:\?|$)/;
+
+type XSyncKind = "bookmarks" | "likes";
 
 interface XSyncOptions {
   browserId: SupportedBrowserId;
@@ -15,6 +19,7 @@ interface XSyncOptions {
   headful?: boolean;
   cursor?: string;
   debugRawPages?: boolean;
+  kind?: string;
 }
 
 export interface XSyncResult {
@@ -29,15 +34,16 @@ interface SeedRequest {
   headers: Record<string, string>;
 }
 
-interface BookmarksPage {
+interface TimelinePage {
   items: TroveItem[];
-  rawBookmarks: Record<string, unknown>[];
+  rawItems: Record<string, unknown>[];
   nextCursor?: string;
 }
 
 export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult> {
+  const kind = normalizeSyncKind(options.kind);
   const session = await getChromiumSession(options.browserId, options.profile);
-  const scope = `${options.browserId}-${(options.profile ?? "Default").replaceAll(path.sep, "-")}`;
+  const scope = `${options.browserId}-${(options.profile ?? "Default").replaceAll(path.sep, "-")}-${kind}`;
   const rawSink = createJsonlSink("x", createTimestampedFileName(scope));
   const debugRawSink = options.debugRawPages ? createJsonlSink(path.join("x", "debug-pages"), createTimestampedFileName(scope)) : null;
   const browser = await chromium.launch({
@@ -50,34 +56,33 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
     await context.addCookies(session.playwrightCookies);
 
     const page = await context.newPage();
-    const bookmarksResponsePromise = page.waitForResponse(
-      (response) => BOOKMARKS_REQUEST_PATTERN.test(response.url()),
-      { timeout: 20_000 },
-    );
+    const syncTarget = await resolveSyncTarget(page, kind);
+    const timelineResponsePromise = page.waitForResponse((response) => syncTarget.requestPattern.test(response.url()), { timeout: 20_000 });
 
-    await page.goto(X_BOOKMARKS_URL, { waitUntil: "domcontentloaded" });
-    const bookmarksResponse = await bookmarksResponsePromise;
-    const seedRequest = await buildSeedRequest(bookmarksResponse);
-    const firstPayload = await bookmarksResponse.json();
-    const firstPage = parseBookmarksPayload(firstPayload);
-    writeRawBookmarks(rawSink, firstPage.rawBookmarks);
+    await page.goto(syncTarget.pageUrl, { waitUntil: "domcontentloaded" });
+    const timelineResponse = await timelineResponsePromise;
+    const seedRequest = await buildSeedRequest(timelineResponse);
+    const firstPayload = await timelineResponse.json();
+    const firstPage = parseTimelinePayload(firstPayload, kind);
+    writeRawItems(rawSink, firstPage.rawItems);
     writeDebugRawBookmarksPage(debugRawSink, {
       browserId: options.browserId,
       profile: options.profile ?? "Default",
       phase: "seed",
-      requestUrl: bookmarksResponse.url(),
+      requestUrl: timelineResponse.url(),
       payload: firstPayload,
+      kind,
     });
 
     const items: TroveItem[] = [];
     const seenIds = new Set<string>();
 
     if (options.cursor) {
-      mergeBookmarkPage(items, seenIds, firstPage, options.limit);
+      mergeTimelinePage(items, seenIds, firstPage, options.limit);
 
-      const replay = await fetchBookmarksPage(seedRequest, options.cursor, remainingLimit(items.length, options.limit));
-      const replayPage = parseBookmarksPayload(replay);
-      writeRawBookmarks(rawSink, replayPage.rawBookmarks);
+      const replay = await fetchTimelinePage(seedRequest, options.cursor, remainingLimit(items.length, options.limit), kind);
+      const replayPage = parseTimelinePayload(replay, kind);
+      writeRawItems(rawSink, replayPage.rawItems);
       writeDebugRawBookmarksPage(debugRawSink, {
         browserId: options.browserId,
         profile: options.profile ?? "Default",
@@ -85,14 +90,15 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
         cursor: options.cursor,
         requestUrl: seedRequest.url.toString(),
         payload: replay,
+        kind,
       });
-      mergeBookmarkPage(items, seenIds, replayPage, options.limit);
+      mergeTimelinePage(items, seenIds, replayPage, options.limit);
 
       let nextCursor = replayPage.nextCursor;
       while (nextCursor && withinLimit(items.length, options.limit)) {
-        const response = await fetchBookmarksPage(seedRequest, nextCursor, remainingLimit(items.length, options.limit));
-        const pageData = parseBookmarksPayload(response);
-        writeRawBookmarks(rawSink, pageData.rawBookmarks);
+        const response = await fetchTimelinePage(seedRequest, nextCursor, remainingLimit(items.length, options.limit), kind);
+        const pageData = parseTimelinePayload(response, kind);
+        writeRawItems(rawSink, pageData.rawItems);
         writeDebugRawBookmarksPage(debugRawSink, {
           browserId: options.browserId,
           profile: options.profile ?? "Default",
@@ -100,8 +106,9 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
           cursor: nextCursor,
           requestUrl: seedRequest.url.toString(),
           payload: response,
+          kind,
         });
-        mergeBookmarkPage(items, seenIds, pageData, options.limit);
+        mergeTimelinePage(items, seenIds, pageData, options.limit);
         nextCursor = pageData.nextCursor;
       }
 
@@ -110,14 +117,14 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
         : { items, rawPath: rawSink.path, ...(debugRawSink ? { debugRawPagesPath: debugRawSink.path } : {}) };
     }
 
-    mergeBookmarkPage(items, seenIds, firstPage, options.limit);
+    mergeTimelinePage(items, seenIds, firstPage, options.limit);
 
     let nextCursor = firstPage.nextCursor;
 
     while (nextCursor && withinLimit(items.length, options.limit)) {
-      const response = await fetchBookmarksPage(seedRequest, nextCursor, remainingLimit(items.length, options.limit));
-      const pageData = parseBookmarksPayload(response);
-      writeRawBookmarks(rawSink, pageData.rawBookmarks);
+      const response = await fetchTimelinePage(seedRequest, nextCursor, remainingLimit(items.length, options.limit), kind);
+      const pageData = parseTimelinePayload(response, kind);
+      writeRawItems(rawSink, pageData.rawItems);
       writeDebugRawBookmarksPage(debugRawSink, {
         browserId: options.browserId,
         profile: options.profile ?? "Default",
@@ -125,8 +132,9 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
         cursor: nextCursor,
         requestUrl: seedRequest.url.toString(),
         payload: response,
+        kind,
       });
-      mergeBookmarkPage(items, seenIds, pageData, options.limit);
+      mergeTimelinePage(items, seenIds, pageData, options.limit);
       nextCursor = pageData.nextCursor;
     }
 
@@ -158,7 +166,41 @@ async function buildSeedRequest(response: Response): Promise<SeedRequest> {
   };
 }
 
-async function fetchBookmarksPage(seedRequest: SeedRequest, cursor: string, count?: number): Promise<unknown> {
+async function resolveSyncTarget(page: Page, kind: XSyncKind): Promise<{
+  pageUrl: string;
+  requestPattern: RegExp;
+}> {
+  if (kind === "bookmarks") {
+    return {
+      pageUrl: X_BOOKMARKS_URL,
+      requestPattern: BOOKMARKS_REQUEST_PATTERN,
+    };
+  }
+
+  await page.goto(X_HOME_URL, { waitUntil: "domcontentloaded" });
+  const screenName = await resolveAuthenticatedScreenName(page);
+
+  return {
+    pageUrl: `https://x.com/${screenName}/likes`,
+    requestPattern: LIKES_REQUEST_PATTERN,
+  };
+}
+
+async function resolveAuthenticatedScreenName(page: Page): Promise<string> {
+  const profileLink = page.locator('a[data-testid="AppTabBar_Profile_Link"]').first();
+  await profileLink.waitFor({ state: "attached", timeout: 20_000 });
+  const href = await profileLink.getAttribute("href");
+  const path = href?.trim();
+  const screenName = path?.startsWith("/") ? path.slice(1) : path;
+
+  if (!screenName || !looksLikeScreenName(screenName)) {
+    throw new Error("Could not resolve the authenticated X profile handle from the home page.");
+  }
+
+  return screenName;
+}
+
+async function fetchTimelinePage(seedRequest: SeedRequest, cursor: string, count: number | undefined, kind: XSyncKind): Promise<unknown> {
   const url = new URL(seedRequest.url.toString());
   const variables = parseJsonParam<Record<string, unknown>>(url.searchParams.get("variables"));
 
@@ -176,7 +218,7 @@ async function fetchBookmarksPage(seedRequest: SeedRequest, cursor: string, coun
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`X bookmarks request failed with ${response.status}: ${body.slice(0, 400)}`);
+    throw new Error(`X ${kind} request failed with ${response.status}: ${body.slice(0, 400)}`);
   }
 
   return response.json();
@@ -214,19 +256,19 @@ function sanitizeRequestHeaders(headers: Record<string, string>): Record<string,
   );
 }
 
-function parseBookmarksPayload(payload: unknown): BookmarksPage {
-  const tweets = collectTweets(payload);
-  const items = tweets.map(normalizeTweet).filter((item): item is TroveItem => item !== null);
-  const rawBookmarks = tweets.map(extractRawBookmarkRecord).filter((item): item is Record<string, unknown> => item !== null);
+function parseTimelinePayload(payload: unknown, kind: XSyncKind): TimelinePage {
+  const tweets = collectTweets(payload, kind);
+  const items = tweets.map((tweet) => normalizeTweet(tweet, kind)).filter((item): item is TroveItem => item !== null);
+  const rawItems = tweets.map((tweet) => extractRawTweetRecord(tweet, kind)).filter((item): item is Record<string, unknown> => item !== null);
   const nextCursor = collectBottomCursor(payload);
 
-  return nextCursor ? { items, rawBookmarks, nextCursor } : { items, rawBookmarks };
+  return nextCursor ? { items, rawItems, nextCursor } : { items, rawItems };
 }
 
-function collectTweets(payload: unknown): unknown[] {
+function collectTweets(payload: unknown, kind: XSyncKind): unknown[] {
   const results = new Map<string, unknown>();
 
-  for (const entry of collectTimelineEntries(payload)) {
+  for (const entry of collectTimelineEntries(payload, kind)) {
     const candidate = unwrapTweet(extractTweetFromEntry(entry));
     if (!candidate || typeof candidate !== "object") {
       continue;
@@ -250,8 +292,8 @@ function collectTweets(payload: unknown): unknown[] {
   return Array.from(results.values());
 }
 
-function collectTimelineEntries(payload: unknown): Record<string, unknown>[] {
-  const instructions = asRecord(asRecord(asRecord(payload)?.data)?.bookmark_timeline_v2)?.timeline;
+function collectTimelineEntries(payload: unknown, kind: XSyncKind): Record<string, unknown>[] {
+  const instructions = getTimelineInstructionRoot(payload, kind);
   const instructionList = Array.isArray(asRecord(instructions)?.instructions) ? (asRecord(instructions)?.instructions as unknown[]) : [];
   const entries: Record<string, unknown>[] = [];
 
@@ -271,6 +313,18 @@ function collectTimelineEntries(payload: unknown): Record<string, unknown>[] {
   }
 
   return entries;
+}
+
+function getTimelineInstructionRoot(payload: unknown, kind: XSyncKind): Record<string, unknown> | null {
+  if (kind === "bookmarks") {
+    const bookmarksTimelineContainer = asRecord(asRecord(asRecord(payload)?.data)?.bookmark_timeline_v2);
+    return asRecord(bookmarksTimelineContainer?.timeline);
+  }
+
+  const user = asRecord(asRecord(payload)?.data)?.user;
+  const result = asRecord(asRecord(user)?.result);
+  const likesTimelineContainer = asRecord(result?.timeline);
+  return asRecord(likesTimelineContainer?.timeline);
 }
 
 function extractTweetFromEntry(entry: Record<string, unknown>): unknown {
@@ -318,7 +372,7 @@ function unwrapTweet(value: unknown): unknown {
   return value;
 }
 
-function normalizeTweet(tweet: unknown): TroveItem | null {
+function normalizeTweet(tweet: unknown, kind: XSyncKind): TroveItem | null {
   if (!tweet || typeof tweet !== "object") {
     return null;
   }
@@ -338,7 +392,8 @@ function normalizeTweet(tweet: unknown): TroveItem | null {
     ? new Date(readString(legacy, "created_at") as string).toISOString()
     : new Date().toISOString();
   const url = screenName ? `https://x.com/${screenName}/status/${restId}` : `https://x.com/i/status/${restId}`;
-  const titlePrefix = screenName ? `@${screenName}` : "X bookmark";
+  const titlePrefix = screenName ? `@${screenName}` : kind === "likes" ? "X like" : "X bookmark";
+  const actionTag = kind === "likes" ? "like" : "bookmark";
 
   const item: TroveItem = {
     source: "x",
@@ -348,9 +403,10 @@ function normalizeTweet(tweet: unknown): TroveItem | null {
     excerpt: truncate(text, 240),
     content: text,
     savedAt,
-    tags: ["x", "bookmark"],
+    tags: ["x", actionTag],
     raw: {
-      kind: "bookmark",
+      kind: actionTag,
+      savedAtSource: "tweet.created_at",
       ...(screenName ? { screenName } : {}),
       favoriteCount: readNumber(legacy, "favorite_count"),
       retweetCount: readNumber(legacy, "retweet_count"),
@@ -364,7 +420,7 @@ function normalizeTweet(tweet: unknown): TroveItem | null {
   return item;
 }
 
-function extractRawBookmarkRecord(tweet: unknown): Record<string, unknown> | null {
+function extractRawTweetRecord(tweet: unknown, kind: XSyncKind): Record<string, unknown> | null {
   if (!tweet || typeof tweet !== "object") {
     return null;
   }
@@ -380,8 +436,10 @@ function extractRawBookmarkRecord(tweet: unknown): Record<string, unknown> | nul
   }
 
   const screenName = author?.screenName;
+  const actionTag = kind === "likes" ? "like" : "bookmark";
 
-  const bookmark: Record<string, unknown> = {
+  const item: Record<string, unknown> = {
+    kind: actionTag,
     id: restId,
     url: screenName ? `https://x.com/${screenName}/status/${restId}` : `https://x.com/i/status/${restId}`,
     text,
@@ -394,14 +452,14 @@ function extractRawBookmarkRecord(tweet: unknown): Record<string, unknown> | nul
     },
     links: extractUrls(legacy),
     media: extractMedia(legacy),
-    tags: ["x", "bookmark"],
+    tags: ["x", actionTag],
   };
 
   if (author) {
-    bookmark.author = author;
+    item.author = author;
   }
 
-  return bookmark;
+  return item;
 }
 
 function extractTweetText(tweet: Record<string, unknown>): string | null {
@@ -627,7 +685,7 @@ function remainingLimit(count: number, limit?: number): number | undefined {
   return Math.max(0, limit - count);
 }
 
-function mergeBookmarkPage(allItems: TroveItem[], seenIds: Set<string>, page: BookmarksPage, limit?: number): void {
+function mergeTimelinePage(allItems: TroveItem[], seenIds: Set<string>, page: TimelinePage, limit?: number): void {
   for (const item of page.items) {
     if (seenIds.has(item.externalId)) {
       continue;
@@ -642,12 +700,12 @@ function mergeBookmarkPage(allItems: TroveItem[], seenIds: Set<string>, page: Bo
   }
 }
 
-function writeRawBookmarks(
+function writeRawItems(
   sink: ReturnType<typeof createJsonlSink>,
-  bookmarks: Record<string, unknown>[],
+  items: Record<string, unknown>[],
 ): void {
-  for (const bookmark of bookmarks) {
-    sink.append(bookmark);
+  for (const item of items) {
+    sink.append(item);
   }
 }
 
@@ -660,6 +718,7 @@ function writeDebugRawBookmarksPage(
     requestUrl: string;
     payload: unknown;
     cursor?: string;
+    kind: XSyncKind;
   },
 ): void {
   if (!sink) {
@@ -671,6 +730,7 @@ function writeDebugRawBookmarksPage(
     source: "x",
     browserId: entry.browserId,
     profile: entry.profile,
+    kind: entry.kind,
     phase: entry.phase,
     requestUrl: entry.requestUrl,
     ...(entry.cursor ? { cursor: entry.cursor } : {}),
@@ -678,10 +738,22 @@ function writeDebugRawBookmarksPage(
   });
 }
 
+function normalizeSyncKind(kind?: string): XSyncKind {
+  if (!kind || kind === "bookmarks" || kind === "bookmark") {
+    return "bookmarks";
+  }
+
+  if (kind === "likes" || kind === "like") {
+    return "likes";
+  }
+
+  throw new Error('X sync kind must be "bookmarks" or "likes".');
+}
+
 export const __internal = {
   collectBottomCursor,
-  extractRawBookmarkRecord,
+  extractRawTweetRecord,
   normalizeTweet,
-  parseBookmarksPayload,
+  parseTimelinePayload,
   truncate,
 };

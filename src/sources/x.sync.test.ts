@@ -124,8 +124,14 @@ describe("x bookmark sync", () => {
     };
 
     const page = {
-      waitForResponse: vi.fn().mockResolvedValue(bookmarksResponse),
+      waitForResponse: vi.fn(() => Promise.resolve(bookmarksResponse)),
       goto: vi.fn(),
+      locator: vi.fn(() => ({
+        first: () => ({
+          waitFor: vi.fn(),
+          getAttribute: vi.fn().mockResolvedValue("/this_is_moody"),
+        }),
+      })),
     };
 
     const context = {
@@ -192,5 +198,87 @@ describe("x bookmark sync", () => {
     });
 
     expect(result.items.map((item) => item.externalId)).toEqual(["new-1", "old-1", "old-2"]);
+  });
+
+  it("discovers the authenticated likes request and replays incremental likes pages", async () => {
+    const { syncXBookmarks } = await buildSyncModule();
+    const likesSeedPayload = {
+      data: {
+        user: {
+          result: {
+            timeline: {
+              timeline: {
+                instructions: [
+                  {
+                    type: "TimelineAddEntries",
+                    entries: [
+                      createTweetEntry("like-new-1", "Newest like", "liked_author"),
+                      createCursorEntry("cursor-like-old"),
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    };
+    const replayPayload = {
+      data: {
+        user: {
+          result: {
+            timeline: {
+              timeline: {
+                instructions: [
+                  {
+                    type: "TimelineAddEntries",
+                    entries: [
+                      createTweetEntry("like-old-1", "Older like", "liked_author"),
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    };
+
+    bookmarksResponse = {
+      url: () => "https://x.com/i/api/graphql/query-id/Likes?variables=%7B%22count%22%3A20%7D",
+      json: vi.fn().mockResolvedValue(likesSeedPayload),
+      request: () => ({
+        url: () => "https://x.com/i/api/graphql/query-id/Likes?variables=%7B%22count%22%3A20%7D",
+        allHeaders: vi.fn(async () => ({
+          authorization: "Bearer token",
+          cookie: "auth=1",
+        })),
+      }),
+    };
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => replayPayload,
+    }));
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await syncXBookmarks({
+      browserId: "chrome",
+      kind: "likes",
+      cursor: "cursor-like-old",
+    });
+
+    expect(result.items.map((item) => item.externalId)).toEqual(["like-new-1", "like-old-1"]);
+    expect(result.items[0]?.tags).toEqual(["x", "like"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        href: "https://x.com/i/api/graphql/query-id/Likes?variables=%7B%22count%22%3A20%2C%22cursor%22%3A%22cursor-like-old%22%7D",
+      }),
+      expect.objectContaining({
+        method: "GET",
+      }),
+    );
   });
 });
