@@ -185,7 +185,7 @@ async function deriveMacosCookieKey(target: BrowserKeychainTarget): Promise<Buff
 }
 
 function loadCookiesFromStore(cookiesPath: string, domains: string[], decryptionKey: Buffer): BrowserSession["playwrightCookies"] {
-  const tempPath = copyCookiesDb(cookiesPath);
+  const { tempDir, tempPath } = copyCookiesDb(cookiesPath);
 
   try {
     const db = new Database(tempPath, { readonly: true });
@@ -204,15 +204,15 @@ function loadCookiesFromStore(cookiesPath: string, domains: string[], decryption
       .map((row) => mapCookieRow(row, decryptionKey))
       .filter((cookie): cookie is BrowserSession["playwrightCookies"][number] => cookie !== null);
   } finally {
-    fs.rmSync(tempPath, { force: true });
+    fs.rmSync(tempDir, { recursive: true, force: true });
   }
 }
 
-function copyCookiesDb(cookiesPath: string): string {
+function copyCookiesDb(cookiesPath: string): { tempDir: string; tempPath: string } {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "trove-cookies-"));
   const tempPath = path.join(tempDir, "Cookies.sqlite");
   fs.copyFileSync(cookiesPath, tempPath);
-  return tempPath;
+  return { tempDir, tempPath };
 }
 
 function matchesDomain(rawUrl: string, hostKey: string): boolean {
@@ -268,3 +268,8 @@ function chromiumEpochToUnixSeconds(value: number): number {
 
   return Math.floor((value - CHROMIUM_EPOCH_OFFSET) / 1_000_000);
 }
+
+export const __internal = {
+  copyCookiesDb,
+  loadCookiesFromStore,
+};

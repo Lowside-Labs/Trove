@@ -73,6 +73,8 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
     const seenIds = new Set<string>();
 
     if (options.cursor) {
+      mergeBookmarkPage(items, seenIds, firstPage, options.limit);
+
       const replay = await fetchBookmarksPage(seedRequest, options.cursor, remainingLimit(items.length, options.limit));
       const replayPage = parseBookmarksPayload(replay);
       writeRawBookmarks(rawSink, replayPage.rawBookmarks);
@@ -224,24 +226,71 @@ function parseBookmarksPayload(payload: unknown): BookmarksPage {
 function collectTweets(payload: unknown): unknown[] {
   const results = new Map<string, unknown>();
 
-  walk(payload, (value) => {
-    const candidate = unwrapTweet(value);
+  for (const entry of collectTimelineEntries(payload)) {
+    const candidate = unwrapTweet(extractTweetFromEntry(entry));
     if (!candidate || typeof candidate !== "object") {
-      return;
+      continue;
     }
 
     const candidateRecord = asRecord(candidate);
-    const restId = readString(candidateRecord, "rest_id");
-    const fullText = readString(asRecord(candidateRecord?.legacy), "full_text");
+    if (!candidateRecord) {
+      continue;
+    }
 
-    if (!restId || !fullText) {
-      return;
+    const restId = readString(candidateRecord, "rest_id");
+    const text = extractTweetText(candidateRecord);
+
+    if (!restId || !text) {
+      continue;
     }
 
     results.set(restId, candidate);
-  });
+  }
 
   return Array.from(results.values());
+}
+
+function collectTimelineEntries(payload: unknown): Record<string, unknown>[] {
+  const instructions = asRecord(asRecord(asRecord(payload)?.data)?.bookmark_timeline_v2)?.timeline;
+  const instructionList = Array.isArray(asRecord(instructions)?.instructions) ? (asRecord(instructions)?.instructions as unknown[]) : [];
+  const entries: Record<string, unknown>[] = [];
+
+  for (const instruction of instructionList) {
+    const record = asRecord(instruction);
+    if (!record) {
+      continue;
+    }
+
+    const instructionEntries = Array.isArray(record.entries) ? record.entries : [];
+    for (const entry of instructionEntries) {
+      const entryRecord = asRecord(entry);
+      if (entryRecord) {
+        entries.push(entryRecord);
+      }
+    }
+  }
+
+  return entries;
+}
+
+function extractTweetFromEntry(entry: Record<string, unknown>): unknown {
+  const content = asRecord(entry.content);
+  const itemContent = asRecord(content?.itemContent);
+
+  if (itemContent?.tweet_results) {
+    return itemContent;
+  }
+
+  const items = Array.isArray(content?.items) ? content.items : [];
+  for (const item of items) {
+    const itemEntry = asRecord(item);
+    const itemItem = asRecord(asRecord(itemEntry?.item)?.itemContent);
+    if (itemItem?.tweet_results) {
+      return itemItem;
+    }
+  }
+
+  return null;
 }
 
 function unwrapTweet(value: unknown): unknown {
