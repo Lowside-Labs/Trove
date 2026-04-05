@@ -68,7 +68,7 @@ describe("vault artifacts", () => {
     const agents = fs.readFileSync(artifacts.agentsPath, "utf8");
     const claude = fs.readFileSync(artifacts.claudePath, "utf8");
 
-    expect(index).toContain("# Trove Index");
+    expect(index).toContain("# Trove Workspace Index");
     expect(index).toContain("Total items: 3");
     expect(index).toContain("Items with content: 1");
     expect(index).toContain("substack: 1 item (saved: 1), last synced 2026-04-05");
@@ -76,6 +76,7 @@ describe("vault artifacts", () => {
     expect(index).toContain("claude: 1 item (chats: 1)");
     expect(index).toContain("Local-first search notes");
     expect(agents).toContain("Read `INDEX.md` first");
-    expect(claude).toContain("Read `INDEX.md` first");
+    expect(agents).toContain("`CLAUDE.md` imports this file");
+    expect(claude).toContain("@AGENTS.md");
   });
 });

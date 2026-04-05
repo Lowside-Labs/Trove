@@ -39,9 +39,9 @@ describe("archive post-processing", () => {
     });
     const section = buildVaultSummarySection(vaultArtifacts);
 
-    expect(events).toEqual(["index:Refreshing vault artifacts"]);
+    expect(events).toEqual(["index:Refreshing workspace guides"]);
     expect(fs.existsSync(vaultArtifacts.indexPath)).toBe(true);
-    expect(section.title).toBe("Vault");
-    expect(section.entries.map((entry) => entry.label)).toEqual(["Index", "AGENTS", "CLAUDE"]);
+    expect(section.title).toBe("Workspace");
+    expect(section.entries.map((entry) => entry.label)).toEqual(["Root", "Index", "AGENTS", "CLAUDE"]);
   });
 });

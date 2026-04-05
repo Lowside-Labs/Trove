@@ -3,7 +3,7 @@ import { TerminalOutput, renderStatsReport } from "../core/output.js";
 import { getArchiveOverview, getSourceStats, withDatabase } from "../db/database.js";
 
 export function createStatsCommand() {
-  return new Command("stats").description("Show archive health and counts by source.").action(() => {
+  return new Command("stats").description("Show workspace health and counts by source.").action(() => {
     const output = new TerminalOutput();
     const report = withDatabase((db) => {
       const overview = getArchiveOverview(db);

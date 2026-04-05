@@ -2,137 +2,139 @@
 
 ![Trove repository artwork](assets/trove-thumbnail.jpg)
 
-Trove is a local-first CLI for turning the things you save across the web into one searchable local archive. It pulls source-native data into SQLite, keeps compact raw artifacts on disk, and lets you search everything from one place.
+Trove turns the things you save on the web into a local knowledge workspace for AI agents.
 
-Trove is for people who save too much from X, Hacker News, Substack, GitHub, and AI tools and want one local archive instead of five silos.
+Sync bookmarks, likes, stars, favorites, articles, and chats. Trove builds a folder your agent can actually use:
 
-## In 10 Seconds
+- `AGENTS.md` for Codex and other AGENTS-aware tools
+- `CLAUDE.md` for Claude Code
+- `INDEX.md` for a fast human and agent overview
+- Markdown content under `content/` for article-style browsing
 
-- Import saved content from `x`, `substack`, `github`, `hn`, `claude`, and `chatgpt`
-- Generate `INDEX.md`, `AGENTS.md`, and `CLAUDE.md` in `~/.trove/`
-- Hydrate external links into markdown under `~/.trove/content/`
-- Use six commands: `init`, `sync`, `index`, `hydrate`, `search`, and `stats`
+Use it to ask questions like:
 
-```bash
-git clone https://github.com/Lowside-Labs/Trove.git
-cd Trove
-npm install
-npm run build
-node dist/cli.js init
-node dist/cli.js sync x --browser chrome --limit 20
-node dist/cli.js hydrate --limit 20
-node dist/cli.js search 'tags:bookmark'
-```
-
-> [!IMPORTANT]
-> Trove currently installs from source. Use `Node 22+`. Seamless Chromium cookie reuse for `x`, `substack`, and `github` is currently implemented only on macOS.
-
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Command Cheat Sheet](#command-cheat-sheet)
-- [Supported Sources](#supported-sources)
-- [Search](#search)
-- [How It Works](#how-it-works)
-- [Data Storage and Privacy](#data-storage-and-privacy)
-- [Troubleshooting](#troubleshooting)
-- [Development](#development)
-- [Roadmap](#roadmap)
+- What have I been saving about local-first software?
+- Which authors or publications recur across my saved items?
+- Summarize the articles I saved recently about AI coding tools.
 
 ## Quick Start
 
-Examples below use `node dist/cli.js` because Trove is currently a source-install project.
-
-### 1. Install
+The fastest agent-first path is:
 
 ```bash
-git clone https://github.com/Lowside-Labs/Trove.git
-cd Trove
-npm install
-npm run build
-node dist/cli.js --help
+curl -fsSL https://raw.githubusercontent.com/Lowside-Labs/Trove/main/install.sh | bash
+
+# Create a visible workspace instead of the default ~/.trove
+trove init --path ~/Trove
+
+# Work inside the workspace so Trove auto-detects it
+cd ~/Trove
+
+# Sync a source into that workspace
+trove sync x --browser chrome --limit 20
+
+# Open the workspace in Claude Code
+claude
 ```
 
-### 2. Initialize the archive
+If you prefer the default hidden location, omit `--path ~/Trove` and Trove will use `~/.trove`.
+The installer currently expects `Node 22+` to already be installed.
+
+## Table of Contents
+
+- [How It Works](#how-it-works)
+- [What Gets Created](#what-gets-created)
+- [Using It With Agents](#using-it-with-agents)
+- [Browsing In Obsidian](#browsing-in-obsidian)
+- [Supported Sources](#supported-sources)
+- [Commands](#commands)
+- [Installation](#installation)
+- [Storage and Path Options](#storage-and-path-options)
+- [Limitations](#limitations)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+
+## How It Works
+
+1. `trove init` creates a workspace.
+2. `trove sync <source>` imports saved material into SQLite and raw artifacts.
+3. Trove refreshes `INDEX.md`, `AGENTS.md`, and `CLAUDE.md` automatically after sync and hydrate runs.
+4. You open that folder in Claude Code, Codex, or another tool and ask questions over your own material.
+
+Optional:
+
+- `trove hydrate` fetches article-style pages and writes markdown under `content/`
+- `trove search` lets you inspect results directly from the CLI
+
+## What Gets Created
+
+If you initialize a visible workspace such as `~/Trove`, the layout looks like this:
+
+```text
+~/Trove/
+  AGENTS.md
+  CLAUDE.md
+  INDEX.md
+  content/
+  data/
+    trove.db
+  raw/
+  index/
+  logs/
+```
+
+What these files are for:
+
+- `AGENTS.md`: canonical instructions for AGENTS-aware tools
+- `CLAUDE.md`: Claude Code entry point that imports `AGENTS.md`
+- `INDEX.md`: source counts, recent items, top authors, and suggested questions
+- `content/`: markdown for hydrated articles and exported chats
+- `data/trove.db`: local SQLite archive and FTS5 search index
+- `raw/`: compact source-native payloads for inspection and debugging
+
+## Using It With Agents
+
+The workspace is designed to be the handoff point.
+
+### Claude Code
 
 ```bash
-node dist/cli.js init
+cd ~/Trove
+claude
 ```
 
-This creates `~/.trove/` and initializes the local SQLite database.
+Claude Code reads `CLAUDE.md`, which imports `AGENTS.md`.
 
-### 3. Sync a source
+### Codex and other AGENTS-aware tools
 
-Pick the first path that matches what you want to import:
+Open the workspace folder and start from:
+
+- `AGENTS.md` for instructions
+- `INDEX.md` for the current snapshot of what is in the archive
+
+### Example prompts
+
+- What have I been saving about distributed systems in the last 6 months?
+- Summarize my recent Substack likes about local-first tools.
+- Find items that mention SQLite, FTS, or search infrastructure.
+- Which authors show up most often across my saved material?
+
+## Browsing In Obsidian
+
+Trove also works as a lightweight Obsidian-friendly workspace:
+
+- Open the same workspace folder in Obsidian
+- Start from `INDEX.md`
+- Browse `content/` markdown files with YAML frontmatter
+
+This is strongest after running hydration:
 
 ```bash
-# X: bookmarks + likes by default
-node dist/cli.js sync x --browser chrome --limit 20
-
-# Substack: saved + likes by default
-node dist/cli.js sync substack --browser chrome
-
-# GitHub: stars
-node dist/cli.js sync github --browser chrome
-
-# Hacker News: public favorites
-node dist/cli.js sync hn --user <username> --kind favorites
-
-# Claude: attach to a running Chromium instance
-node dist/cli.js sync claude --cdp-url http://127.0.0.1:9222
-
-# ChatGPT: attach to a running Chromium instance
-node dist/cli.js sync chatgpt --cdp-url http://127.0.0.1:9222
+cd ~/Trove
+trove hydrate --limit 50
 ```
 
-### 4. Search and inspect
-
-```bash
-node dist/cli.js hydrate --limit 20
-node dist/cli.js index
-node dist/cli.js search 'tags:bookmark'
-node dist/cli.js stats
-```
-
-Every `sync` run also refreshes:
-
-- `~/.trove/INDEX.md`
-- `~/.trove/AGENTS.md`
-- `~/.trove/CLAUDE.md`
-
-## Command Cheat Sheet
-
-The CLI name is `trove`. When running from this repository, replace `trove` with `node dist/cli.js`.
-
-### Core commands
-
-| Command | What it does |
-| --- | --- |
-| `trove init` | Create `~/.trove/` and initialize the local SQLite database |
-| `trove sync <source>` | Import content from a source into the archive |
-| `trove index` | Regenerate the vault catalog and agent guide files |
-| `trove hydrate` | Fetch readable content for external links and write markdown files |
-| `trove search <query>` | Run an SQLite FTS5 query across indexed items |
-| `trove stats` | Show archive counts and freshness |
-
-### Common defaults
-
-- `trove sync x` runs both `bookmarks` and `likes` unless you pass `--kind`
-- `trove sync substack` runs both `saved` and `likes` unless you pass `--kind`
-- `trove sync hn` runs both `favorites` and `favorite-comments` unless you pass `--kind`
-
-### Common flags
-
-| Flag | Use |
-| --- | --- |
-| `--browser <browser>` | Select the Chromium browser profile source, for example `chrome` or `dia` |
-| `--profile <profile>` | Select a non-default Chromium profile |
-| `--kind <kind>` | Choose a source mode instead of running the default set |
-| `--limit <number>` | Cap the number of imported items |
-| `--user <user>` | Provide a username for public-user sources such as `hn` |
-| `--cdp-url <url>` | Attach to a running browser for `claude` and `chatgpt` |
-| `--headful` | Show the browser while Trove discovers an authenticated request shape |
-| `--debug-raw-pages` | Keep full X GraphQL page payloads for debugging |
+Current limitation: `content/` is best for article-style pages and exported chats today. Native pages from hosts such as X, GitHub, Claude, ChatGPT, and Hacker News are not fully converted into note-per-item markdown yet.
 
 ## Supported Sources
 
@@ -145,58 +147,87 @@ The CLI name is `trove`. When running from this repository, replace `trove` with
 | `claude` | chat export | live CDP session | Working | requires a running Chromium instance with remote debugging |
 | `chatgpt` | chat export | live CDP session | Working | requires a running Chromium instance with remote debugging |
 
-### Browser and platform notes
+## Commands
+
+The installed CLI name is `trove`.
+
+| Command | What it does |
+| --- | --- |
+| `trove init` | Create an AI-ready workspace and initialize the database |
+| `trove sync <source>` | Import content from a source into the workspace |
+| `trove hydrate` | Fetch readable content for external links and write markdown files |
+| `trove search <query>` | Search indexed items with SQLite FTS5 |
+| `trove stats` | Show counts and freshness by source |
+| `trove index` | Regenerate `INDEX.md`, `AGENTS.md`, and `CLAUDE.md` manually |
+
+Common patterns:
+
+```bash
+# Create a workspace here
+trove init --here
+
+# Create a workspace somewhere specific
+trove init --path ~/Trove
+
+# Sync from anywhere into a specific workspace
+trove --home ~/Trove sync substack --browser chrome
+
+# Once you are inside the workspace, Trove auto-detects it
+cd ~/Trove
+trove search 'tags:bookmark'
+trove stats
+```
+
+## Storage and Path Options
+
+Trove supports three useful modes:
+
+- Visible workspace: `trove init --path ~/Trove`
+- Current directory workspace: `trove init --here`
+- Default hidden workspace: `trove init` which uses `~/.trove`
+
+Recommendation:
+
+- Use `~/Trove` if you want to open it directly in Claude Code or Obsidian
+- Use `--here` for project-specific research or a temporary working set
+- Use `~/.trove` only if you prefer app-style hidden storage
+
+If you are not inside the workspace, point commands at it with `--home <path>`.
+
+## Installation
+
+Recommended:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Lowside-Labs/Trove/main/install.sh | bash
+```
+
+The installer:
+
+- downloads the current `main` branch from GitHub
+- installs Trove under `~/.local/share/trove` by default
+- links the `trove` binary into `~/.local/bin`
+
+If `~/.local/bin` is not on your `PATH`, the installer tells you what to add.
+
+Manual install from source is still available if needed:
+
+```bash
+git clone https://github.com/Lowside-Labs/Trove.git
+cd Trove
+npm install
+npm run build
+node dist/cli.js --help
+```
+
+## Limitations
 
 - `Node 22+` is the supported runtime
+- Seamless Chromium cookie reuse is currently implemented only on macOS
 - `chrome` and `dia` are verified for cookie-backed sync
 - `brave` and `arc` are detected but still experimental
 - Some sources do not expose true saved or liked timestamps, so Trove stores the closest source-native timestamp available
-- The first hydration pass targets external article-style links rather than every native page type
-
-## Search
-
-Trove exposes SQLite FTS5 search directly.
-
-```bash
-node dist/cli.js search 'tags:bookmark'
-node dist/cli.js search 'tags:like'
-node dist/cli.js search 'sqlite vector search'
-node dist/cli.js search 'substack note'
-```
-
-Column-qualified queries such as `tags:bookmark` work because tags are indexed in the FTS table.
-
-## How It Works
-
-- Cookie-backed sources reuse your local authenticated Chromium session instead of asking for OAuth credentials
-- On macOS, Trove decrypts the selected browser's cookies via the Keychain and replays your own session against the source's web app
-- For `x`, Trove launches a short-lived Playwright session to discover the current GraphQL request shape, then paginates from plain `fetch`
-- `claude` and `chatgpt` sync attach to a running Chromium instance over CDP
-- `hn` sync reads public pages and does not require an authenticated browser session
-
-## Data Storage and Privacy
-
-By default, Trove stores data in `~/.trove/`:
-
-```text
-~/.trove/
-  AGENTS.md
-  CLAUDE.md
-  INDEX.md
-  data/
-    trove.db
-  raw/
-  content/
-  index/
-  logs/
-```
-
-- The SQLite database is the main local index
-- Raw JSONL artifacts are stored under `~/.trove/raw/`
-- `INDEX.md`, `AGENTS.md`, and `CLAUDE.md` are generated locally so agents can orient themselves immediately after a sync
-- Hydrated markdown files are stored under `~/.trove/content/`
-- Browser cookies are read locally and are not sent to any Trove-operated service
-- Raw artifacts may contain personal data from the synced source; sanitize them before sharing in issues, tests, or bug reports
+- Hydration currently targets external article-style links rather than every native page type
 
 ## Troubleshooting
 
@@ -213,10 +244,4 @@ npm run typecheck
 npm test
 ```
 
-If your local default Node version is newer than 22, run the test suite under Node 22 to avoid `better-sqlite3` ABI issues.
-
-## Roadmap
-
-- richer search and filter ergonomics
-- broader browser verification
-- non-macOS auth paths for cookie-backed sources
+If your default local Node version is newer than 22, run the test suite under Node 22 to avoid `better-sqlite3` ABI issues.

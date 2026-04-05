@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SearchResult } from "../types/item.js";
-import { TerminalOutput, formatRelativeTime, renderCommandReport, renderCommandRunReports, renderSearchResults, truncateText, wrapText } from "./output.js";
+import { TerminalOutput, formatRelativeTime, renderCommandReport, renderCommandRunReports, renderInitReport, renderSearchResults, truncateText, wrapText } from "./output.js";
 
 describe("output helpers", () => {
   it("wraps long text into readable lines", () => {
@@ -108,6 +108,48 @@ describe("output helpers", () => {
     expect(rendered).toContain("Index:");
     expect(rendered).toContain("/tmp/INDEX.md");
     expect(rendered).toContain("Agents can now start from INDEX.md.");
+  });
+
+  it("renders an agent-first init report", () => {
+    const lines: string[] = [];
+    const output = new TerminalOutput({
+      stdout: {
+        write: (chunk: string) => {
+          lines.push(chunk);
+          return true;
+        },
+        isTTY: false,
+      },
+      stderr: {
+        write: () => true,
+        isTTY: false,
+      },
+    });
+
+    renderInitReport(
+      output,
+      {
+        root: "/tmp/trove-workspace",
+        dataDir: "/tmp/trove-workspace/data",
+        rawDir: "/tmp/trove-workspace/raw",
+        contentDir: "/tmp/trove-workspace/content",
+        indexDir: "/tmp/trove-workspace/index",
+        logDir: "/tmp/trove-workspace/logs",
+        dbPath: "/tmp/trove-workspace/data/trove.db",
+      },
+      {
+        indexPath: "/tmp/trove-workspace/INDEX.md",
+        agentsPath: "/tmp/trove-workspace/AGENTS.md",
+        claudePath: "/tmp/trove-workspace/CLAUDE.md",
+      },
+    );
+
+    const rendered = lines.join("");
+    expect(rendered).toContain("Initialized Trove workspace in /tmp/trove-workspace.");
+    expect(rendered).toContain("AGENTS:");
+    expect(rendered).toContain("/tmp/trove-workspace/AGENTS.md");
+    expect(rendered).toContain("From inside this folder, `trove` commands target this workspace automatically.");
+    expect(rendered).toContain("cd /tmp/trove-workspace && claude");
   });
 
   it("renders multi-run command reports through the shared format", () => {

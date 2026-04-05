@@ -4,7 +4,7 @@ import { searchItems, withDatabase } from "../db/database.js";
 
 export function createSearchCommand() {
   return new Command("search")
-    .description("Run a full-text search against indexed Trove items.")
+    .description("Run a full-text search across the current Trove workspace.")
     .argument("<query>", "Full-text query")
     .option("-l, --limit <number>", "Maximum number of results", "10")
     .action((query, options) => {

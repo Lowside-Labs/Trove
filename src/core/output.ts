@@ -1,6 +1,7 @@
 import { styleText } from "node:util";
 import type { SearchResult } from "../types/item.js";
-import type { TrovePaths } from "./paths.js";
+import { isDefaultTroveRoot, type TrovePaths } from "./paths.js";
+import type { VaultArtifacts } from "./vault.js";
 
 export type OutputTone = "default" | "muted" | "info" | "success" | "warning" | "danger" | "accent";
 
@@ -179,23 +180,35 @@ export class TerminalOutput {
   }
 }
 
-export function renderInitReport(output: TerminalOutput, paths: TrovePaths): void {
-  output.success(`Initialized Trove in ${paths.root}.`);
+export function renderInitReport(output: TerminalOutput, paths: TrovePaths, vaultArtifacts: VaultArtifacts): void {
+  const quotedRoot = shellQuote(paths.root);
+  const syncCommand = `trove sync <source>`;
+  const openCommand = `cd ${quotedRoot} && claude`;
+
+  output.success(`Initialized Trove workspace in ${paths.root}.`);
   output.blank();
   output.writeSummarySections([
     {
-      title: "Paths",
+      title: "Workspace",
       entries: [
         { label: "Root", value: paths.root },
-        { label: "Database", value: paths.dbPath },
-        { label: "Raw", value: paths.rawDir, tone: "muted" },
+        { label: "AGENTS", value: vaultArtifacts.agentsPath },
+        { label: "CLAUDE", value: vaultArtifacts.claudePath },
+        { label: "Index", value: vaultArtifacts.indexPath },
         { label: "Content", value: paths.contentDir, tone: "muted" },
-        { label: "Logs", value: paths.logDir, tone: "muted" },
+        { label: "Database", value: paths.dbPath, tone: "muted" },
       ],
     },
   ]);
   output.blank();
-  output.line(output.toned('Next: run `trove sync <source>` and then `trove search "<query>"`.', "muted"));
+  output.line(output.toned(`From inside this folder, \`trove\` commands target this workspace automatically.`, "muted"));
+  output.line(output.toned(`Next: run \`${syncCommand}\`, then open the folder in your agent.`, "muted"));
+  output.line(output.toned(`Claude Code: \`${openCommand}\``, "muted"));
+  output.line(output.toned(`From anywhere: \`trove --home ${quotedRoot} <command>\``, "muted"));
+
+  if (isDefaultTroveRoot(paths.root)) {
+    output.line(output.toned("Tip: a visible folder such as `~/Trove` is easier to open in Claude Code or Obsidian than `~/.trove`.", "muted"));
+  }
 }
 
 export function renderSearchResults(
@@ -328,7 +341,7 @@ export function renderCommandRunReports(output: TerminalOutput, source: string, 
   }
 
   output.blank();
-  output.line(output.toned('Next: use `trove search "<query>"` to inspect imported content.', "muted"));
+  output.line(output.toned('Next: open `INDEX.md`, `AGENTS.md`, or `CLAUDE.md`, or use `trove search "<query>"`.', "muted"));
 }
 
 export function buildBar(output: TerminalOutput, share: number, width: number, tone: OutputTone): string {
@@ -402,6 +415,14 @@ export function wrapText(text: string, width: number): string[] {
   }
 
   return lines;
+}
+
+function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_./:@%+-]+$/.test(value)) {
+    return value;
+  }
+
+  return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
 function splitWord(word: string, width: number): string[] {

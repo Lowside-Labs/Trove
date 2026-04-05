@@ -1,7 +1,7 @@
 {
   "name": "trove",
   "version": "0.1.0",
-  "description": "Local-first CLI for collecting, indexing, and searching saved web content.",
+  "description": "Turn your saved web material into a local knowledge workspace for AI agents.",
   "type": "module",
   "bin": {
     "trove": "./dist/cli.js"

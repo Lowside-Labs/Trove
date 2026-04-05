@@ -6,7 +6,7 @@ import { hydrateArchive } from "../core/hydrate.js";
 
 export function createHydrateCommand() {
   return new Command("hydrate")
-    .description("Fetch readable content for external links and write markdown files into the Trove vault.")
+    .description("Fetch readable content for external links and write markdown files into the Trove workspace.")
     .option("--limit <number>", "Maximum number of items to hydrate")
     .option("--source <source>", "Restrict hydration to a single source")
     .option("--force", "Re-hydrate items even when they already have content", false)
