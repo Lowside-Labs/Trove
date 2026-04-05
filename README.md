@@ -2,7 +2,7 @@
 
 Your saved web content, unified and searchable — for as long as you want it.
 
-Trove is a local-first CLI that pulls the things you've saved across the web into one searchable archive on your Mac. Twitter bookmarks today — Reddit saves, GitHub stars, and browsing history on the way — all collapsed into a single local SQLite database with full-text search. No cloud, no API keys, no subscription, no vendor lock-in.
+Trove is a local-first CLI that pulls the things you've saved across the web into one searchable archive on your Mac. X saves, Hacker News favorites, Substack saves, and AI chat history can all land in one local SQLite database with full-text search. No cloud, no API keys, no subscription, no vendor lock-in.
 
 Every platform has a "save for later" feature, and every platform makes it nearly impossible to find what you saved. Twitter bookmarks are unsearchable. Reddit saves get buried. GitHub stars pile up. Chrome history is a flat list. Your saves live in a dozen silos that don't talk to each other, and any one of them could disappear tomorrow. Trove gives you one local store for all of it, with ranked full-text search across the entire corpus, persisted in open formats you can read with any tool.
 
@@ -18,8 +18,10 @@ For X specifically, Trove launches a short-lived Playwright session to discover 
 - `commander`-based command surface
 - SQLite with FTS5 full-text search
 - Seamless Chromium cookie reuse on macOS (Chrome and Dia verified; Brave and Arc detected but not yet verified)
-- X bookmarks sync with live request-shape discovery, incremental cursor persistence, and raw JSONL archival of every API response
-- Demo source adapter to seed the database
+- X bookmarks and likes sync with live request-shape discovery, incremental cursor persistence, and raw JSONL archival of every API response
+- Hacker News favorites and favorite comments sync
+- Substack saved items sync
+- Claude and ChatGPT chat export through live browser attachment with Markdown output
 - Filesystem layout ready for the raw-content and hydrated-content pipelines
 
 ## Quick start
@@ -28,23 +30,26 @@ For X specifically, Trove launches a short-lived Playwright session to discover 
 npm install
 npm run build
 node dist/cli.js init
-node dist/cli.js sync demo
-node dist/cli.js search "browser"
+node dist/cli.js sync x --browser chrome
+node dist/cli.js search "bookmarks"
 ```
 
 Or in development:
 
 ```bash
 npm run dev -- init
-npm run dev -- sync demo
-npm run dev -- search "research memory"
+npm run dev -- sync x --browser chrome
+npm run dev -- search "bookmarks"
 ```
 
 ## Initial commands
 
 - `trove init`: create the local Trove data directory and initialize the SQLite database
-- `trove sync demo`: import a small demo corpus into the local database
 - `trove sync x --browser chrome`: import X bookmarks by reusing an authenticated Chromium browser session
+- `trove sync hn --user <username>`: import public Hacker News favorites
+- `trove sync substack --browser chrome`: import saved Substack posts
+- `trove sync claude --cdp-url http://127.0.0.1:9222`: export Claude chats from a live browser session
+- `trove sync chatgpt --cdp-url http://127.0.0.1:9222`: export ChatGPT chats from a live browser session
 - `trove search <query>`: run an FTS search against indexed items
 - `trove stats`: inspect item counts by source
 
@@ -64,9 +69,7 @@ By default, Trove stores data in `~/.trove/`:
 
 The SQLite database is the source of truth. The sibling directories are reserved for raw API payloads, hydrated readable content, derived indexes, and logs.
 
-## X bookmarks
-
-The first real source adapter is `x`.
+## X
 
 ```bash
 npm run dev -- sync x --browser chrome

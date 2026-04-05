@@ -3,7 +3,6 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { getSyncState, openDatabase, searchItems, upsertItems, upsertSyncState, withDatabase } from "./database.js";
-import { getDemoItems } from "../sources/demo.js";
 import type { TroveItem } from "../types/item.js";
 
 const roots: string[] = [];
@@ -20,7 +19,7 @@ describe("database", () => {
     roots.push(root);
 
     const db = openDatabase(root);
-    upsertItems(db, getDemoItems());
+    upsertItems(db, getFixtureItems());
 
     const results = searchItems(db, "browser", 5);
 
@@ -56,7 +55,7 @@ describe("database", () => {
 
     const items: TroveItem[] = [
       {
-        source: "demo",
+        source: "fixture",
         externalId: "stemming-1",
         title: "Distributed systems",
         url: "https://example.com/distributed",
@@ -65,7 +64,7 @@ describe("database", () => {
         tags: ["cafe"],
       },
       {
-        source: "demo",
+        source: "fixture",
         externalId: "accent-1",
         title: "Cafe notes",
         url: "https://example.com/cafe",
@@ -92,10 +91,45 @@ describe("database", () => {
     roots.push(root);
 
     const result = withDatabase((db) => {
-      upsertItems(db, getDemoItems());
+      upsertItems(db, getFixtureItems());
       return searchItems(db, "browser", 1).length;
     }, root);
 
     expect(result).toBe(1);
   });
 });
+
+function getFixtureItems(): TroveItem[] {
+  const now = new Date().toISOString();
+
+  return [
+    {
+      source: "fixture",
+      externalId: "browser-1",
+      title: "Browser cookie extraction patterns for local-first tools",
+      url: "https://example.com/browser-cookie-extraction",
+      excerpt: "Notes on extracting authenticated browser state without forcing a fresh login flow.",
+      content:
+        "A local-first sync tool should separate authentication strategy from source adapters. Cookie reuse can be fast, but it must be treated as a fragile capability and backed by more durable fallbacks.",
+      author: "Trove Test Fixture",
+      savedAt: "2026-04-01T18:30:00.000Z",
+      importedAt: now,
+      tags: ["auth", "browser", "local-first"],
+      raw: { platform: "fixture", kind: "bookmark" },
+    },
+    {
+      source: "fixture",
+      externalId: "history-1",
+      title: "Research memory and why browsing history matters",
+      url: "https://example.com/research-memory",
+      excerpt: "Turning scattered reading sessions into a structured research timeline.",
+      content:
+        "Browsing history is more than a log of URLs. It is a record of attention. When grouped into sessions and enriched with content, it becomes a useful memory system for future search and synthesis.",
+      author: "Trove Test Fixture",
+      savedAt: "2026-04-02T09:15:00.000Z",
+      importedAt: now,
+      tags: ["history", "memory", "research"],
+      raw: { platform: "fixture", kind: "visit" },
+    },
+  ];
+}

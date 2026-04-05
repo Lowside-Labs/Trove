@@ -3,7 +3,6 @@ import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
 import { syncClaudeChats } from "./claude.js";
 import { syncChatGptChats } from "./chatgpt.js";
-import { getDemoItems } from "./demo.js";
 import { syncHnFavorites } from "./hn/index.js";
 import { syncSubstackSaved } from "./substack.js";
 import { formatAvailableBrowserList, syncXBookmarks } from "./x.js";
@@ -49,12 +48,6 @@ export interface SyncSourceDefinition {
     scope: string;
   }): string[];
 }
-
-const demoSource: SyncSourceDefinition = {
-  id: "demo",
-  createScope: () => "default",
-  sync: async () => ({ items: getDemoItems(), rawPath: "" }),
-};
 
 const claudeSource: SyncSourceDefinition = {
   id: "claude",
@@ -222,7 +215,7 @@ const substackSource: SyncSourceDefinition = {
   },
 };
 
-const syncSources = [demoSource, claudeSource, chatGptSource, hnSource, substackSource, xSource];
+const syncSources = [claudeSource, chatGptSource, hnSource, substackSource, xSource];
 
 function normalizeXKind(kind?: string): "bookmarks" | "likes" {
   if (!kind || kind === "bookmarks" || kind === "bookmark") {
