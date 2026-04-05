@@ -1,14 +1,26 @@
 # Trove
 
-Trove is a local-first CLI for collecting, indexing, and searching saved web content.
+Your saved web content, unified and searchable — for as long as you want it.
 
-## What this scaffold includes
+Trove is a local-first CLI that pulls the things you've saved across the web into one searchable archive on your Mac. Twitter bookmarks today — Reddit saves, GitHub stars, and browsing history on the way — all collapsed into a single local SQLite database with full-text search. No cloud, no API keys, no subscription, no vendor lock-in.
 
-- TypeScript + ESM CLI entrypoint
-- `commander` command surface
-- SQLite storage with FTS5 search
-- A demo source adapter to seed the database
-- A filesystem layout helper for future raw-content and hydrated-content pipelines
+Every platform has a "save for later" feature, and every platform makes it nearly impossible to find what you saved. Twitter bookmarks are unsearchable. Reddit saves get buried. GitHub stars pile up. Chrome history is a flat list. Your saves live in a dozen silos that don't talk to each other, and any one of them could disappear tomorrow. Trove gives you one local store for all of it, with ranked full-text search across the entire corpus, persisted in open formats you can read with any tool.
+
+## How it works
+
+The trick that makes this feel seamless is **browser session reuse**. Instead of walking you through OAuth flows for every platform, Trove reads the authenticated cookies from your Chromium-based browser, decrypts them via the macOS Keychain, and replays your own browser session against each platform's internal APIs. You're already logged in — Trove just borrows the session for the length of a sync and discards it afterwards.
+
+For X specifically, Trove launches a short-lived Playwright session to discover the current Bookmarks GraphQL request shape, then replays pagination from plain Node fetch. This means Trove keeps working even when Twitter rotates its internal query IDs: it never hardcodes them, it re-discovers them on every sync.
+
+## What's here today
+
+- TypeScript + ESM, Node 22+
+- `commander`-based command surface
+- SQLite with FTS5 full-text search
+- Seamless Chromium cookie reuse on macOS (Chrome and Dia verified; Brave and Arc detected but not yet verified)
+- X bookmarks sync with live request-shape discovery, incremental cursor persistence, and raw JSONL archival of every API response
+- Demo source adapter to seed the database
+- Filesystem layout ready for the raw-content and hydrated-content pipelines
 
 ## Quick start
 
