@@ -3,7 +3,7 @@ import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright-core";
 import { ensureTroveDirs } from "../core/fs.js";
 import { createJsonlSink, createTimestampedFileName } from "../core/raw.js";
-import type { SyncProgressHandler } from "../core/progress.js";
+import type { ProgressHandler } from "../core/progress.js";
 import type { TroveItem } from "../types/item.js";
 
 const DEFAULT_CDP_URL = "http://127.0.0.1:9222";
@@ -15,7 +15,7 @@ const MAX_STALLED_LIST_PAGES = 3;
 interface ClaudeSyncOptions {
   cdpUrl?: string;
   limit?: number;
-  onProgress?: SyncProgressHandler;
+  onProgress?: ProgressHandler;
 }
 
 export interface ClaudeSyncResult {
@@ -181,7 +181,7 @@ async function fetchConversationSummaries(
   orgId: string,
   requestedLimit: number | undefined,
   rawSink: ReturnType<typeof createJsonlSink>,
-  onProgress?: SyncProgressHandler,
+  onProgress?: ProgressHandler,
 ): Promise<ClaudeConversationSummary[]> {
   const summaries: ClaudeConversationSummary[] = [];
   const seenIds = new Set<string>();
@@ -632,6 +632,7 @@ function toTroveItem(
 ): TroveItem {
   return {
     source: "claude",
+    kind: "chat",
     externalId: detail.id,
     title: detail.title,
     url: detail.url,
@@ -702,7 +703,7 @@ function readNumericIndex(value: unknown): number {
 }
 
 function emitProgress(
-  onProgress: SyncProgressHandler | undefined,
+  onProgress: ProgressHandler | undefined,
   phase: string,
   message: string,
   completed?: number,

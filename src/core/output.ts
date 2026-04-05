@@ -15,12 +15,15 @@ export interface SummarySection {
   entries: SummaryEntry[];
 }
 
-export interface SyncRunReport {
-  label: string;
-  count: number;
+export interface CommandReport {
   headline: string;
   sections: SummarySection[];
   notes?: string[];
+}
+
+export interface CommandRunReport extends CommandReport {
+  label: string;
+  count?: number;
 }
 
 export interface StatsReportRow {
@@ -271,8 +274,27 @@ export function renderStatsReport(output: TerminalOutput, report: StatsReport): 
   }
 }
 
-export function renderSyncReport(output: TerminalOutput, source: string, runs: SyncRunReport[]): void {
-  const totalCount = runs.reduce((sum, run) => sum + run.count, 0);
+export function renderCommandReport(output: TerminalOutput, report: CommandReport): void {
+  output.success(report.headline);
+  output.blank();
+
+  if (report.sections.length > 0) {
+    output.writeSummarySections(report.sections);
+  }
+
+  if (report.notes) {
+    if (report.sections.length > 0) {
+      output.blank();
+    }
+
+    for (const note of report.notes) {
+      output.line(output.toned(note, "muted"));
+    }
+  }
+}
+
+export function renderCommandRunReports(output: TerminalOutput, source: string, runs: CommandRunReport[]): void {
+  const totalCount = runs.reduce((sum, run) => sum + (run.count ?? 0), 0);
   const headline =
     runs.length === 1
       ? `Imported ${totalCount} item${totalCount === 1 ? "" : "s"} from ${source}.`
@@ -283,7 +305,11 @@ export function renderSyncReport(output: TerminalOutput, source: string, runs: S
 
   for (const [index, run] of runs.entries()) {
     const tone = getSourceTone(run.label);
-    output.line(`${output.badge(run.label.toUpperCase(), tone)} ${output.strong(`${run.count} item${run.count === 1 ? "" : "s"}`)}`);
+    const countLabel =
+      typeof run.count === "number"
+        ? `${run.count} item${run.count === 1 ? "" : "s"}`
+        : "completed";
+    output.line(`${output.badge(run.label.toUpperCase(), tone)} ${output.strong(countLabel)}`);
     output.line(`  ${run.headline}`);
 
     if (run.sections.length > 0) {

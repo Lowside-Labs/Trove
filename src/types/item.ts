@@ -2,6 +2,7 @@ export type ItemSource = string;
 
 export interface TroveItem {
   source: ItemSource;
+  kind: string;
   externalId: string;
   title: string;
   url: string;

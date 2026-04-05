@@ -1,4 +1,4 @@
-import type { SyncProgressHandler } from "../core/progress.js";
+import type { ProgressHandler } from "../core/progress.js";
 import path from "node:path";
 import { parse } from "node-html-parser";
 import { getChromiumSession, listChromiumBrowsers } from "../auth/chromium.js";
@@ -15,7 +15,7 @@ interface GitHubSyncOptions {
   kind?: string;
   limit?: number;
   cursor?: string;
-  onProgress?: SyncProgressHandler;
+  onProgress?: ProgressHandler;
 }
 
 export interface GitHubSyncResult {
@@ -240,6 +240,7 @@ function parseStarEntry(entry: ReturnType<typeof parse>): { item: TroveItem; raw
   const forkCount = readMetric(entry, '/forks');
   const item: TroveItem = {
     source: "github",
+    kind: "star",
     externalId: fullName,
     title: fullName,
     url,
@@ -290,7 +291,7 @@ function normalizeKind(kind?: string): "stars" {
 }
 
 function emitProgress(
-  onProgress: SyncProgressHandler | undefined,
+  onProgress: ProgressHandler | undefined,
   phase: string,
   message: string,
   completed?: number,

@@ -1,11 +1,13 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   getArchiveOverview,
   getSourceStats,
   getSyncState,
+  listItems,
   openDatabase,
   searchItems,
   upsertItems,
@@ -114,6 +116,7 @@ describe("database", () => {
     const items: TroveItem[] = [
       {
         source: "fixture",
+        kind: "bookmark",
         externalId: "stemming-1",
         title: "Distributed systems",
         url: "https://example.com/distributed",
@@ -123,6 +126,7 @@ describe("database", () => {
       },
       {
         source: "fixture",
+        kind: "bookmark",
         externalId: "accent-1",
         title: "Cafe notes",
         url: "https://example.com/cafe",
@@ -155,6 +159,65 @@ describe("database", () => {
 
     expect(result).toBe(1);
   });
+
+  it("migrates legacy items tables by adding and backfilling kind", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "trove-test-"));
+    roots.push(root);
+
+    const dataDir = path.join(root, "data");
+    fs.mkdirSync(dataDir, { recursive: true });
+    const legacyDb = new Database(path.join(dataDir, "trove.db"));
+
+    legacyDb.exec(`
+      CREATE TABLE items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source TEXT NOT NULL,
+        external_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        url TEXT NOT NULL,
+        excerpt TEXT,
+        content TEXT,
+        author TEXT,
+        saved_at TEXT NOT NULL,
+        imported_at TEXT NOT NULL,
+        tags_json TEXT,
+        raw_json TEXT,
+        UNIQUE(source, external_id)
+      );
+    `);
+    legacyDb
+      .prepare(
+        `
+          INSERT INTO items (
+            source,
+            external_id,
+            title,
+            url,
+            saved_at,
+            imported_at,
+            tags_json,
+            raw_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        "x",
+        "bookmark:1",
+        "Legacy bookmark",
+        "https://example.com/legacy",
+        "2026-04-05T08:00:00.000Z",
+        "2026-04-05T08:00:00.000Z",
+        JSON.stringify(["x", "bookmark"]),
+        JSON.stringify({ kind: "bookmark" }),
+      );
+    legacyDb.close();
+
+    const db = openDatabase(root);
+    const items = listItems(db);
+
+    expect(items[0]?.kind).toBe("bookmark");
+    db.close();
+  });
 });
 
 function getFixtureItems(): TroveItem[] {
@@ -163,6 +226,7 @@ function getFixtureItems(): TroveItem[] {
   return [
     {
       source: "fixture",
+      kind: "bookmark",
       externalId: "browser-1",
       title: "Browser cookie extraction patterns for local-first tools",
       url: "https://example.com/browser-cookie-extraction",
@@ -177,6 +241,7 @@ function getFixtureItems(): TroveItem[] {
     },
     {
       source: "fixture",
+      kind: "visit",
       externalId: "history-1",
       title: "Research memory and why browsing history matters",
       url: "https://example.com/research-memory",

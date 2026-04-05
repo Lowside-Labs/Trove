@@ -1,8 +1,16 @@
 import { Command } from "commander";
-import { TerminalOutput, renderSyncReport, type SyncRunReport } from "../core/output.js";
-import { SyncDashboardRenderer, formatSyncRunLabel, type SyncProgressHandler } from "../core/progress.js";
+import { buildVaultSummarySection, runArchivePostProcessing } from "../core/archive.js";
+import { TerminalOutput, renderCommandRunReports, type CommandRunReport } from "../core/output.js";
+import { TaskDashboardRenderer, formatRunLabel, type ProgressHandler } from "../core/progress.js";
 import { getSyncState, upsertItems, upsertSyncState, withDatabase, type UpsertItemsResult } from "../db/database.js";
-import { getSyncSource, listSyncSourceIds, type SyncCommandOptions, type SyncSummary } from "../sources/index.js";
+import {
+  assertSupportedKind,
+  formatSupportedKindsHelp,
+  getSyncSource,
+  listSyncSourceIds,
+  type SyncCommandOptions,
+  type SyncSummary,
+} from "../sources/index.js";
 
 export function createSyncCommand() {
   return new Command("sync")
@@ -13,10 +21,7 @@ export function createSyncCommand() {
     .option("--limit <number>", "Maximum number of items to import")
     .option("--cdp-url <url>", "Attach to a live Chromium browser over CDP, for example http://127.0.0.1:9222")
     .option("--user <user>", "Account username for sources that sync public user data")
-    .option(
-      "--kind <kind>",
-      "Source-specific sync mode. Supported today: github: stars; hn: favorites | favorite-comments; substack: saved | likes; x: bookmarks | likes",
-    )
+    .option("--kind <kind>", `Source-specific sync mode. Supported today: ${formatSupportedKindsHelp()}`)
     .option("--headful", "Show the browser while Trove discovers the authenticated source request", false)
     .option("--debug-raw-pages", "Also store full raw GraphQL page payloads for debugging", false)
     .action(async (source, options) => {
@@ -29,23 +34,28 @@ export function createSyncCommand() {
         return;
       }
 
-      let progressRenderer: SyncDashboardRenderer | undefined;
+      let progressRenderer: TaskDashboardRenderer | undefined;
       let activeRunLabel: string | undefined;
 
       try {
         const limit = parseOptionalInteger(options.limit, "limit");
-        const commandOptions = options as SyncCommandOptions;
-        const runs = (syncSource.expandSyncRuns?.(commandOptions) ?? [commandOptions]).filter(Boolean);
-        const labels = runs.map((runOptions) => formatSyncRunLabel(source, runOptions.kind));
-        const reports: SyncRunReport[] = [];
+        const commandOptions: SyncCommandOptions = { ...(options as SyncCommandOptions) };
 
-        progressRenderer = new SyncDashboardRenderer(output, {
+        if (options.kind) {
+          commandOptions.kind = assertSupportedKind(syncSource, options.kind as string);
+        }
+
+        const runs = (syncSource.expandSyncRuns?.(commandOptions) ?? [commandOptions]).filter(Boolean);
+        const labels = runs.map((runOptions) => formatRunLabel(source, runOptions.kind));
+        const reports: CommandRunReport[] = [];
+
+        progressRenderer = new TaskDashboardRenderer(output, {
           title: `Sync ${source}`,
           plannedRuns: labels,
         });
 
         for (const runOptions of runs) {
-          const label = formatSyncRunLabel(source, runOptions.kind);
+          const label = formatRunLabel(source, runOptions.kind);
           activeRunLabel = label;
           progressRenderer.startRun(label);
 
@@ -58,8 +68,11 @@ export function createSyncCommand() {
           activeRunLabel = undefined;
         }
 
+        const vaultArtifacts = runArchivePostProcessing();
         progressRenderer.commit();
-        renderSyncReport(output, source, reports);
+        renderCommandRunReports(output, source, reports);
+        output.blank();
+        output.writeSummarySections([buildVaultSummarySection(vaultArtifacts)]);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
 
@@ -79,7 +92,7 @@ async function runSingleSync(
   syncSource: NonNullable<ReturnType<typeof getSyncSource>>,
   commandOptions: SyncCommandOptions,
   limit: number | undefined,
-  onProgress?: SyncProgressHandler,
+  onProgress?: ProgressHandler,
 ): Promise<{ count: number; summary?: SyncSummary }> {
   const scope = syncSource.createScope(commandOptions);
   const state = syncSource.shouldPersistState ? withDatabase((db) => getSyncState(db, sourceId, scope)) : null;
@@ -141,7 +154,7 @@ function formatPersistenceMessage(result: UpsertItemsResult): string {
   return `Indexed ${insertedLabel} item${result.insertedCount === 1 ? "" : "s"} in SQLite (${updatedLabel})`;
 }
 
-function toSyncRunReport(label: string, count: number, summary?: SyncSummary): SyncRunReport {
+function toSyncRunReport(label: string, count: number, summary?: SyncSummary): CommandRunReport {
   return {
     label,
     count,

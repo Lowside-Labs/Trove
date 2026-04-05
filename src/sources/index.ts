@@ -1,5 +1,5 @@
-import type { SyncProgressHandler } from "../core/progress.js";
-import type { SummarySection } from "../core/output.js";
+import type { ProgressHandler } from "../core/progress.js";
+import type { CommandReport } from "../core/output.js";
 import type { SyncStateRecord } from "../db/database.js";
 import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
@@ -29,14 +29,25 @@ export interface SyncSourceResult {
   contentPath?: string;
 }
 
-export interface SyncSummary {
-  headline: string;
-  sections: SummarySection[];
-  notes?: string[];
+export type SyncSummary = CommandReport;
+
+export interface SyncKindMetadata {
+  id: string;
+  aliases?: string[];
+  default?: boolean;
+}
+
+export interface SyncSourceMetadata {
+  displayName: string;
+  authMode: "cookie" | "public" | "cdp";
+  kinds: SyncKindMetadata[];
+  requiresBrowser?: boolean;
+  requiresUser?: boolean;
 }
 
 export interface SyncSourceDefinition {
   id: string;
+  metadata: SyncSourceMetadata;
   expandSyncRuns?(options: SyncCommandOptions): SyncCommandOptions[];
   createScope(options: SyncCommandOptions): string;
   shouldPersistState?: boolean;
@@ -44,7 +55,7 @@ export interface SyncSourceDefinition {
     options: SyncCommandOptions;
     state: SyncStateRecord | null;
     limit?: number;
-    onProgress?: SyncProgressHandler;
+    onProgress?: ProgressHandler;
   }): Promise<SyncSourceResult>;
   buildSyncState?(args: {
     options: SyncCommandOptions;
@@ -62,6 +73,11 @@ export interface SyncSourceDefinition {
 
 const claudeSource: SyncSourceDefinition = {
   id: "claude",
+  metadata: {
+    displayName: "Claude",
+    authMode: "cdp",
+    kinds: [],
+  },
   expandSyncRuns(options) {
     return [options];
   },
@@ -97,6 +113,11 @@ const claudeSource: SyncSourceDefinition = {
 
 const chatGptSource: SyncSourceDefinition = {
   id: "chatgpt",
+  metadata: {
+    displayName: "ChatGPT",
+    authMode: "cdp",
+    kinds: [],
+  },
   expandSyncRuns(options) {
     return [options];
   },
@@ -132,8 +153,14 @@ const chatGptSource: SyncSourceDefinition = {
 
 const githubSource: SyncSourceDefinition = {
   id: "github",
+  metadata: {
+    displayName: "GitHub",
+    authMode: "cookie",
+    kinds: [{ id: "stars", aliases: ["star"], default: true }],
+    requiresBrowser: true,
+  },
   expandSyncRuns(options) {
-    return options.kind ? [options] : [{ ...options, kind: "stars" }];
+    return expandKindRuns(this.metadata, options);
   },
   createScope(options) {
     return `${options.browser}:${options.profile ?? "Default"}:stars`;
@@ -186,8 +213,17 @@ const githubSource: SyncSourceDefinition = {
 
 const xSource: SyncSourceDefinition = {
   id: "x",
+  metadata: {
+    displayName: "X",
+    authMode: "cookie",
+    kinds: [
+      { id: "bookmarks", aliases: ["bookmark"], default: true },
+      { id: "likes", aliases: ["like"], default: true },
+    ],
+    requiresBrowser: true,
+  },
   expandSyncRuns(options) {
-    return options.kind ? [options] : [{ ...options, kind: "bookmarks" }, { ...options, kind: "likes" }];
+    return expandKindRuns(this.metadata, options);
   },
   createScope(options) {
     return `${options.browser}:${options.profile ?? "Default"}:${normalizeXKind(options.kind)}`;
@@ -252,12 +288,17 @@ const xSource: SyncSourceDefinition = {
 
 const hnSource: SyncSourceDefinition = {
   id: "hn",
+  metadata: {
+    displayName: "Hacker News",
+    authMode: "public",
+    kinds: [
+      { id: "favorites", default: true },
+      { id: "favorite-comments", default: true },
+    ],
+    requiresUser: true,
+  },
   expandSyncRuns(options) {
-    if (options.kind) {
-      return [options];
-    }
-
-    return [{ ...options, kind: "favorites" }, { ...options, kind: "favorite-comments" }];
+    return expandKindRuns(this.metadata, options);
   },
   createScope(options) {
     return `${options.user ?? "unknown"}:${options.kind ?? "favorites"}`;
@@ -308,8 +349,17 @@ const hnSource: SyncSourceDefinition = {
 
 const substackSource: SyncSourceDefinition = {
   id: "substack",
+  metadata: {
+    displayName: "Substack",
+    authMode: "cookie",
+    kinds: [
+      { id: "saved", default: true },
+      { id: "likes", aliases: ["like"], default: true },
+    ],
+    requiresBrowser: true,
+  },
   expandSyncRuns(options) {
-    return options.kind ? [options] : [{ ...options, kind: "saved" }, { ...options, kind: "likes" }];
+    return expandKindRuns(this.metadata, options);
   },
   createScope(options) {
     return `${options.browser}:${options.profile ?? "Default"}:${options.kind ?? "saved"}`;
@@ -378,4 +428,67 @@ export function getSyncSource(id: string): SyncSourceDefinition | undefined {
 
 export function listSyncSourceIds(): string[] {
   return syncSources.map((source) => source.id);
+}
+
+export function listSyncSources(): SyncSourceDefinition[] {
+  return [...syncSources];
+}
+
+export function canonicalizeKind(source: SyncSourceDefinition, kind?: string): string | undefined {
+  if (!kind) {
+    return undefined;
+  }
+
+  for (const entry of source.metadata.kinds) {
+    if (entry.id === kind || entry.aliases?.includes(kind)) {
+      return entry.id;
+    }
+  }
+
+  return undefined;
+}
+
+export function assertSupportedKind(source: SyncSourceDefinition, kind: string): string {
+  const canonicalKind = canonicalizeKind(source, kind);
+
+  if (canonicalKind) {
+    return canonicalKind;
+  }
+
+  throw new Error(
+    `Unsupported kind "${kind}" for source "${source.id}". Supported kinds: ${source.metadata.kinds.map((entry) => entry.id).join(", ")}.`,
+  );
+}
+
+export function formatSupportedKindsHelp(): string {
+  return syncSources
+    .filter((source) => source.metadata.kinds.length > 0)
+    .map((source) => `${source.id}: ${source.metadata.kinds.map((entry) => entry.id).join(" | ")}`)
+    .join("; ");
+}
+
+function expandKindRuns(metadata: SyncSourceMetadata, options: SyncCommandOptions): SyncCommandOptions[] {
+  const canonicalKind = options.kind ? canonicalizeMetadataKind(metadata, options.kind) ?? options.kind : undefined;
+
+  if (canonicalKind) {
+    return [{ ...options, kind: canonicalKind }];
+  }
+
+  const defaultKinds = metadata.kinds.filter((entry) => entry.default).map((entry) => entry.id);
+
+  if (defaultKinds.length === 0) {
+    return [options];
+  }
+
+  return defaultKinds.map((kind) => ({ ...options, kind }));
+}
+
+function canonicalizeMetadataKind(metadata: SyncSourceMetadata, kind: string): string | undefined {
+  for (const entry of metadata.kinds) {
+    if (entry.id === kind || entry.aliases?.includes(kind)) {
+      return entry.id;
+    }
+  }
+
+  return undefined;
 }

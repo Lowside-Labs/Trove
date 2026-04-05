@@ -1,19 +1,19 @@
 import readline from "node:readline";
 import type { TerminalOutput } from "./output.js";
 
-export interface SyncProgressEvent {
+export interface ProgressEvent {
   phase: string;
   message: string;
   completed?: number;
   total?: number;
 }
 
-export type SyncProgressHandler = (event: SyncProgressEvent) => void;
+export type ProgressHandler = (event: ProgressEvent) => void;
 
 export type RunStatus = "pending" | "running" | "complete" | "failed";
 export type PhaseStatus = "pending" | "running" | "complete" | "failed";
 
-export interface SyncPhaseSnapshot {
+export interface ProgressPhaseSnapshot {
   id: string;
   label: string;
   status: PhaseStatus;
@@ -22,7 +22,7 @@ export interface SyncPhaseSnapshot {
   total?: number;
 }
 
-export interface SyncRunSnapshot {
+export interface ProgressRunSnapshot {
   label: string;
   status: RunStatus;
   startedAt?: number;
@@ -30,13 +30,13 @@ export interface SyncRunSnapshot {
   itemCount?: number;
   errorMessage?: string;
   activePhaseId?: string;
-  phases: SyncPhaseSnapshot[];
+  phases: ProgressPhaseSnapshot[];
 }
 
 const SPINNER_FRAMES = ["-", "\\", "|", "/"];
 
-export class SyncDashboardRenderer {
-  private readonly runs = new Map<string, SyncRunSnapshot>();
+export class TaskDashboardRenderer {
+  private readonly runs = new Map<string, ProgressRunSnapshot>();
   private readonly order: string[];
   private readonly output: TerminalOutput;
   private readonly stdout = process.stdout;
@@ -48,7 +48,7 @@ export class SyncDashboardRenderer {
 
   constructor(output: TerminalOutput, options?: { title?: string; plannedRuns?: string[] }) {
     this.output = output;
-    this.title = options?.title ?? "Sync";
+    this.title = options?.title ?? "Task";
     this.order = [...(options?.plannedRuns ?? [])];
 
     for (const label of this.order) {
@@ -68,7 +68,7 @@ export class SyncDashboardRenderer {
     }
   }
 
-  update(label: string, event: SyncProgressEvent): void {
+  update(label: string, event: ProgressEvent): void {
     const run = this.ensureRun(label);
 
     if (run.status === "pending") {
@@ -183,7 +183,7 @@ export class SyncDashboardRenderer {
     this.renderedLineCount = 0;
   }
 
-  private ensureRun(label: string): SyncRunSnapshot {
+  private ensureRun(label: string): ProgressRunSnapshot {
     if (!this.runs.has(label)) {
       this.runs.set(label, createRunState(label));
       this.order.push(label);
@@ -248,11 +248,11 @@ export class SyncDashboardRenderer {
     return this.getOrderedRuns().some((run) => run.status === "running");
   }
 
-  private getOrderedRuns(): SyncRunSnapshot[] {
-    return this.order.map((label) => this.runs.get(label)).filter((run): run is SyncRunSnapshot => Boolean(run));
+  private getOrderedRuns(): ProgressRunSnapshot[] {
+    return this.order.map((label) => this.runs.get(label)).filter((run): run is ProgressRunSnapshot => Boolean(run));
   }
 
-  private logPlainProgress(label: string, phase: SyncPhaseSnapshot, event: SyncProgressEvent): void {
+  private logPlainProgress(label: string, phase: ProgressPhaseSnapshot, event: ProgressEvent): void {
     const counters =
       typeof event.completed === "number" && typeof event.total === "number"
         ? ` (${event.completed}/${event.total})`
@@ -278,14 +278,14 @@ export class SyncDashboardRenderer {
   }
 }
 
-export function formatSyncRunLabel(source: string, kind?: string): string {
+export function formatRunLabel(source: string, kind?: string): string {
   return kind ? `${source}/${kind}` : source;
 }
 
 export function buildDashboardLines(
   output: TerminalOutput,
   title: string,
-  runs: SyncRunSnapshot[],
+  runs: ProgressRunSnapshot[],
   spinnerIndex: number,
 ): string[] {
   const completedCount = runs.filter((run) => run.status === "complete").length;
@@ -313,7 +313,7 @@ export function buildDashboardLines(
   return lines;
 }
 
-function createRunState(label: string): SyncRunSnapshot {
+function createRunState(label: string): ProgressRunSnapshot {
   return {
     label,
     status: "pending",
@@ -321,7 +321,7 @@ function createRunState(label: string): SyncRunSnapshot {
   };
 }
 
-function renderRunLine(output: TerminalOutput, run: SyncRunSnapshot): string {
+function renderRunLine(output: TerminalOutput, run: ProgressRunSnapshot): string {
   const tone = run.status === "failed" ? "danger" : run.status === "complete" ? "success" : run.status === "running" ? "info" : "muted";
   const rightSide = run.status === "complete"
     ? `${run.itemCount ?? 0} item${run.itemCount === 1 ? "" : "s"} | ${formatElapsed(run)}`
@@ -334,7 +334,7 @@ function renderRunLine(output: TerminalOutput, run: SyncRunSnapshot): string {
   return `${output.badge(run.status.toUpperCase(), tone)} ${output.strong(run.label)} ${output.toned(rightSide, "muted")}`;
 }
 
-function renderPhaseLine(output: TerminalOutput, phase: SyncPhaseSnapshot, spinnerIndex: number): string {
+function renderPhaseLine(output: TerminalOutput, phase: ProgressPhaseSnapshot, spinnerIndex: number): string {
   const counters =
     typeof phase.completed === "number" && typeof phase.total === "number"
       ? ` (${phase.completed}/${phase.total})`
@@ -360,7 +360,7 @@ function renderStatusSymbol(status: PhaseStatus | RunStatus, spinnerIndex: numbe
   }
 }
 
-function formatElapsed(run: SyncRunSnapshot): string {
+function formatElapsed(run: ProgressRunSnapshot): string {
   if (!run.startedAt) {
     return "0.0s";
   }
@@ -373,12 +373,22 @@ function formatPhaseLabel(phase: string): string {
   switch (phase) {
     case "bootstrap":
       return "Prepare";
+    case "scan":
+      return "Scan";
     case "seed":
       return "Discover";
+    case "fetch":
+      return "Fetch";
+    case "extract":
+      return "Extract";
     case "page":
       return "Fetch pages";
     case "detail":
       return "Render";
+    case "persist":
+      return "Persist";
+    case "index":
+      return "Refresh";
     default:
       return phase
         .split(/[-_]/)

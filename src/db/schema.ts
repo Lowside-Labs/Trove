@@ -1,12 +1,13 @@
 export const ITEMS_FTS_TOKENIZER = "porter unicode61 remove_diacritics 2";
 
-export const schemaSql = `
+export const baseSchemaSql = `
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   source TEXT NOT NULL,
+  kind TEXT,
   external_id TEXT NOT NULL,
   title TEXT NOT NULL,
   url TEXT NOT NULL,
@@ -28,7 +29,9 @@ CREATE TABLE IF NOT EXISTS sync_state (
   metadata_json TEXT,
   PRIMARY KEY (source, scope)
 );
+`;
 
+export const ftsSchemaSql = `
 CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
   title,
   excerpt,
@@ -56,3 +59,5 @@ CREATE TRIGGER IF NOT EXISTS items_au AFTER UPDATE ON items BEGIN
   VALUES (new.id, new.title, new.excerpt, new.content, new.tags_json);
 END;
 `;
+
+export const schemaSql = `${baseSchemaSql}\n${ftsSchemaSql}`;

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { chromium, type Page, type Request, type Response } from "playwright-core";
 import { createJsonlSink, createTimestampedFileName } from "../core/raw.js";
-import type { SyncProgressHandler } from "../core/progress.js";
+import type { ProgressHandler } from "../core/progress.js";
 import { getChromiumSession, listChromiumBrowsers } from "../auth/chromium.js";
 import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
@@ -22,7 +22,7 @@ interface XSyncOptions {
   cursor?: string;
   debugRawPages?: boolean;
   kind?: string;
-  onProgress?: SyncProgressHandler;
+  onProgress?: ProgressHandler;
 }
 
 export interface XSyncResult {
@@ -446,6 +446,7 @@ function normalizeTweet(tweet: unknown, kind: XSyncKind): TroveItem | null {
 
   const item: TroveItem = {
     source: "x",
+    kind: actionTag,
     externalId: buildItemExternalId(restId, kind),
     title: `${titlePrefix}: ${truncate(text, 80)}`,
     url,
@@ -830,7 +831,7 @@ function normalizeSyncKind(kind?: string): XSyncKind {
 }
 
 function emitProgress(
-  onProgress: SyncProgressHandler | undefined,
+  onProgress: ProgressHandler | undefined,
   phase: string,
   message: string,
   completed?: number,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SearchResult } from "../types/item.js";
-import { TerminalOutput, formatRelativeTime, renderSearchResults, truncateText, wrapText } from "./output.js";
+import { TerminalOutput, formatRelativeTime, renderCommandReport, renderCommandRunReports, renderSearchResults, truncateText, wrapText } from "./output.js";
 
 describe("output helpers", () => {
   it("wraps long text into readable lines", () => {
@@ -42,6 +42,7 @@ describe("output helpers", () => {
       {
         id: 1,
         source: "x",
+        kind: "bookmark",
         externalId: "bookmark-1",
         title: "Browser notes",
         url: "https://example.com/1",
@@ -54,6 +55,7 @@ describe("output helpers", () => {
       {
         id: 2,
         source: "x",
+        kind: "bookmark",
         externalId: "bookmark-2",
         title: "Browser details",
         url: "https://example.com/2",
@@ -71,5 +73,77 @@ describe("output helpers", () => {
     expect(rendered).toContain('Showing 2 results for "browser"');
     expect(rendered).not.toContain("Showing the requested limit");
     expect(rendered).not.toContain("2 matches");
+  });
+
+  it("renders the shared command report format", () => {
+    const lines: string[] = [];
+    const output = new TerminalOutput({
+      stdout: {
+        write: (chunk: string) => {
+          lines.push(chunk);
+          return true;
+        },
+        isTTY: false,
+      },
+      stderr: {
+        write: () => true,
+        isTTY: false,
+      },
+    });
+
+    renderCommandReport(output, {
+      headline: "Updated Trove vault artifacts.",
+      sections: [
+        {
+          title: "Files",
+          entries: [{ label: "Index", value: "/tmp/INDEX.md" }],
+        },
+      ],
+      notes: ["Agents can now start from INDEX.md."],
+    });
+
+    const rendered = lines.join("");
+    expect(rendered).toContain("Updated Trove vault artifacts.");
+    expect(rendered).toContain("Files");
+    expect(rendered).toContain("Index:");
+    expect(rendered).toContain("/tmp/INDEX.md");
+    expect(rendered).toContain("Agents can now start from INDEX.md.");
+  });
+
+  it("renders multi-run command reports through the shared format", () => {
+    const lines: string[] = [];
+    const output = new TerminalOutput({
+      stdout: {
+        write: (chunk: string) => {
+          lines.push(chunk);
+          return true;
+        },
+        isTTY: false,
+      },
+      stderr: {
+        write: () => true,
+        isTTY: false,
+      },
+    });
+
+    renderCommandRunReports(output, "x", [
+      {
+        label: "x/bookmarks",
+        count: 3,
+        headline: "Started a fresh X bookmarks sync.",
+        sections: [],
+      },
+      {
+        label: "x/likes",
+        count: 2,
+        headline: "Started a fresh X likes sync.",
+        sections: [],
+      },
+    ]);
+
+    const rendered = lines.join("");
+    expect(rendered).toContain("Completed 2 sync runs for x. Imported 5 total items.");
+    expect(rendered).toContain("X/BOOKMARKS");
+    expect(rendered).toContain("X/LIKES");
   });
 });

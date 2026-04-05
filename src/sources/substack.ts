@@ -1,7 +1,7 @@
 import path from "node:path";
 import { getChromiumSession } from "../auth/chromium.js";
 import { createJsonlSink, createTimestampedFileName } from "../core/raw.js";
-import type { SyncProgressHandler } from "../core/progress.js";
+import type { ProgressHandler } from "../core/progress.js";
 import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
 
@@ -14,7 +14,7 @@ interface SubstackSyncOptions {
   kind?: string;
   limit?: number;
   cursor?: string;
-  onProgress?: SyncProgressHandler;
+  onProgress?: ProgressHandler;
 }
 
 export interface SubstackSyncResult {
@@ -333,7 +333,7 @@ function normalizeKind(kind?: string): "saved" | "likes" {
 }
 
 function emitProgress(
-  onProgress: SyncProgressHandler | undefined,
+  onProgress: ProgressHandler | undefined,
   phase: string,
   message: string,
   completed?: number,
@@ -475,6 +475,7 @@ function normalizeLikedPost(
 
   return {
     source: "substack",
+    kind: "like",
     externalId: entityKey,
     title,
     url,
@@ -512,6 +513,7 @@ function normalizeLikedComment(entityKey: string, likedAt: string, comment: Reco
 
   return {
     source: "substack",
+    kind: "like",
     externalId: entityKey,
     title,
     url,
@@ -652,6 +654,7 @@ function normalizeSavedPost(
 
   return {
     source: "substack",
+    kind: "saved",
     externalId: String(post.id),
     title,
     url,

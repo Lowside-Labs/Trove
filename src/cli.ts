@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
+import { createHydrateCommand } from "./commands/hydrate.js";
+import { createIndexCommand } from "./commands/index.js";
 import { createInitCommand } from "./commands/init.js";
 import { createSearchCommand } from "./commands/search.js";
 import { createStatsCommand } from "./commands/stats.js";
@@ -13,6 +15,8 @@ const program = new Command()
 
 program.addCommand(createInitCommand());
 program.addCommand(createSyncCommand());
+program.addCommand(createIndexCommand());
+program.addCommand(createHydrateCommand());
 program.addCommand(createSearchCommand());
 program.addCommand(createStatsCommand());
 

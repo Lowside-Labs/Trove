@@ -36,6 +36,17 @@ Use TypeScript with ESM imports and 2-space indentation consistent with the exis
 
 No formatter or linter is currently configured, so match the surrounding style carefully.
 
+## Command UX Defaults
+
+Trove is a user-facing CLI. Long-running commands should not feel silent.
+
+- Prefer the shared progress primitives in `src/core/progress.ts` over ad hoc logging.
+- Use `TaskDashboardRenderer` with structured progress events for commands that may take noticeable time.
+- Prefer the shared command report contract in `src/core/output.ts` over command-specific summary formatting.
+- Commands that mutate archive state should run the shared post-processing hook in `src/core/archive.ts` rather than calling vault generation directly.
+- Reuse the shared vault summary section builder when reporting generated archive artifacts.
+- When adding a new source or mode, extend metadata in `src/sources/index.ts` and derive help text or validation from the registry instead of hardcoding strings elsewhere.
+
 ## Testing Guidelines
 
 Vitest is the test framework. Favor targeted unit and mocked integration tests over live network or browser dependencies.

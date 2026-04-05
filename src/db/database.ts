@@ -1,11 +1,12 @@
 import Database from "better-sqlite3";
 import { ensureTroveDirs } from "../core/fs.js";
-import { ITEMS_FTS_TOKENIZER, schemaSql } from "./schema.js";
+import { ITEMS_FTS_TOKENIZER, baseSchemaSql, schemaSql } from "./schema.js";
 import type { SearchResult, TroveItem } from "../types/item.js";
 
 interface ItemRow {
   id: number;
   source: string;
+  kind?: string | null;
   external_id: string;
   title: string;
   url: string;
@@ -15,6 +16,7 @@ interface ItemRow {
   saved_at: string;
   imported_at: string;
   tags_json: string | null;
+  raw_json?: string | null;
   rank?: number;
 }
 
@@ -42,6 +44,10 @@ interface MasterSqlRow {
   sql: string | null;
 }
 
+interface TableInfoRow {
+  name: string;
+}
+
 export interface SyncStateRecord {
   source: string;
   scope: string;
@@ -62,6 +68,15 @@ export interface ArchiveOverviewRecord {
   lastSyncedAt?: string;
 }
 
+export interface StoredItem extends TroveItem {
+  id: number;
+}
+
+export interface TopAuthorRecord {
+  author: string;
+  count: number;
+}
+
 export interface UpsertItemsResult {
   insertedCount: number;
   updatedCount: number;
@@ -71,7 +86,8 @@ export function openDatabase(root?: string): Database.Database {
   const paths = ensureTroveDirs(root);
   const db = new Database(paths.dbPath);
   db.pragma("journal_mode = WAL");
-  db.exec(schemaSql);
+  db.exec(baseSchemaSql);
+  ensureItemsSchema(db);
   ensureFtsSchema(db);
   return db;
 }
@@ -89,6 +105,7 @@ export function upsertItems(db: Database.Database, items: TroveItem[]): UpsertIt
   const statement = db.prepare(`
     INSERT INTO items (
       source,
+      kind,
       external_id,
       title,
       url,
@@ -101,6 +118,7 @@ export function upsertItems(db: Database.Database, items: TroveItem[]): UpsertIt
       raw_json
     ) VALUES (
       @source,
+      @kind,
       @externalId,
       @title,
       @url,
@@ -115,6 +133,7 @@ export function upsertItems(db: Database.Database, items: TroveItem[]): UpsertIt
     ON CONFLICT(source, external_id) DO UPDATE SET
       title = excluded.title,
       url = excluded.url,
+      kind = excluded.kind,
       excerpt = excluded.excerpt,
       content = excluded.content,
       author = excluded.author,
@@ -136,6 +155,7 @@ export function upsertItems(db: Database.Database, items: TroveItem[]): UpsertIt
 
       statement.run({
         source: item.source,
+        kind: item.kind,
         externalId: item.externalId,
         title: item.title,
         url: item.url,
@@ -167,6 +187,7 @@ export function searchItems(db: Database.Database, query: string, limit = 10): S
       SELECT
         items.id,
         items.source,
+        items.kind,
         items.external_id,
         items.title,
         items.url,
@@ -248,6 +269,113 @@ export function getArchiveOverview(db: Database.Database): ArchiveOverviewRecord
   };
 }
 
+export function listItems(
+  db: Database.Database,
+  options?: {
+    limit?: number;
+    source?: string;
+    missingContentOnly?: boolean;
+  },
+): StoredItem[] {
+  const params: Array<string | number> = [];
+  const conditions: string[] = [];
+
+  if (options?.source) {
+    conditions.push("source = ?");
+    params.push(options.source);
+  }
+
+  if (options?.missingContentOnly) {
+    conditions.push("(content IS NULL OR trim(content) = '')");
+  }
+
+  const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(" AND ")}` : "";
+  const limitClause = typeof options?.limit === "number" ? " LIMIT ?" : "";
+
+  if (typeof options?.limit === "number") {
+    params.push(options.limit);
+  }
+
+  const rows = db
+    .prepare(
+      `
+        SELECT
+          id,
+          source,
+          kind,
+          external_id,
+          title,
+          url,
+          excerpt,
+          content,
+          author,
+          saved_at,
+          imported_at,
+          tags_json,
+          raw_json
+        FROM items
+        ${whereClause}
+        ORDER BY saved_at DESC, id DESC
+        ${limitClause}
+      `,
+    )
+    .all(...params) as ItemRow[];
+
+  return rows.map(mapRowToStoredItem);
+}
+
+export function getTopAuthors(db: Database.Database, limit = 10): TopAuthorRecord[] {
+  return db
+    .prepare<[number], TopAuthorRecord>(
+      `
+        SELECT author, COUNT(*) AS count
+        FROM items
+        WHERE author IS NOT NULL AND trim(author) <> ''
+        GROUP BY author
+        ORDER BY count DESC, author ASC
+        LIMIT ?
+      `,
+    )
+    .all(limit);
+}
+
+export function updateItemHydration(
+  db: Database.Database,
+  itemId: number,
+  fields: {
+    content: string;
+    excerpt?: string;
+  },
+): void {
+  if (fields.excerpt !== undefined) {
+    db.prepare(
+      `
+        UPDATE items
+        SET content = @content,
+            excerpt = @excerpt
+        WHERE id = @itemId
+      `,
+    ).run({
+      itemId,
+      content: fields.content,
+      excerpt: fields.excerpt,
+    });
+
+    return;
+  }
+
+  db.prepare(
+    `
+      UPDATE items
+      SET content = @content
+      WHERE id = @itemId
+    `,
+  ).run({
+    itemId,
+    content: fields.content,
+  });
+}
+
 export function getSyncState(db: Database.Database, source: string, scope: string): SyncStateRecord | null {
   const row = db
     .prepare<[string, string], SyncStateRow>(
@@ -302,6 +430,7 @@ function mapRowToSearchResult(row: ItemRow): SearchResult {
   const result: SearchResult = {
     id: row.id,
     source: row.source as SearchResult["source"],
+    kind: row.kind ?? deriveKindFromRow(row),
     externalId: row.external_id,
     title: row.title,
     url: row.url,
@@ -326,6 +455,38 @@ function mapRowToSearchResult(row: ItemRow): SearchResult {
   return result;
 }
 
+function mapRowToStoredItem(row: ItemRow): StoredItem {
+  const item: StoredItem = {
+    id: row.id,
+    source: row.source,
+    kind: row.kind ?? deriveKindFromRow(row),
+    externalId: row.external_id,
+    title: row.title,
+    url: row.url,
+    savedAt: row.saved_at,
+    importedAt: row.imported_at,
+    tags: row.tags_json ? (JSON.parse(row.tags_json) as string[]) : [],
+  };
+
+  if (row.excerpt !== null) {
+    item.excerpt = row.excerpt;
+  }
+
+  if (row.content !== null) {
+    item.content = row.content;
+  }
+
+  if (row.author !== null) {
+    item.author = row.author;
+  }
+
+  if (row.raw_json !== null && row.raw_json !== undefined) {
+    item.raw = JSON.parse(row.raw_json) as Record<string, unknown>;
+  }
+
+  return item;
+}
+
 function ensureFtsSchema(db: Database.Database): void {
   const row = db
     .prepare<[string], MasterSqlRow>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?")
@@ -342,5 +503,50 @@ function ensureFtsSchema(db: Database.Database): void {
     DROP TABLE IF EXISTS items_fts;
   `);
   db.exec(schemaSql);
-  db.prepare("INSERT INTO items_fts(items_fts) VALUES('rebuild')").run();
+  db.prepare(
+    `
+      INSERT INTO items_fts(rowid, title, excerpt, content, tags)
+      SELECT id, title, excerpt, content, tags_json
+      FROM items
+    `,
+  ).run();
+}
+
+function ensureItemsSchema(db: Database.Database): void {
+  const columns = db.prepare<[], TableInfoRow>("PRAGMA table_info(items)").all();
+  const hasKindColumn = columns.some((column) => column.name === "kind");
+
+  if (!hasKindColumn) {
+    db.exec("ALTER TABLE items ADD COLUMN kind TEXT");
+  }
+
+  db.exec(`
+    UPDATE items
+    SET kind = CASE
+      WHEN json_extract(raw_json, '$.kind') IS NOT NULL THEN json_extract(raw_json, '$.kind')
+      WHEN source IN ('claude', 'chatgpt') THEN 'chat'
+      ELSE source
+    END
+    WHERE kind IS NULL OR trim(kind) = '';
+  `);
+}
+
+function deriveKindFromRow(row: Pick<ItemRow, "source" | "raw_json">): string {
+  if (row.raw_json) {
+    try {
+      const raw = JSON.parse(row.raw_json) as Record<string, unknown>;
+
+      if (typeof raw.kind === "string" && raw.kind.length > 0) {
+        return raw.kind;
+      }
+    } catch {
+      // Ignore invalid raw_json here and fall back to the source-derived kind.
+    }
+  }
+
+  if (row.source === "claude" || row.source === "chatgpt") {
+    return "chat";
+  }
+
+  return row.source;
 }

@@ -1,6 +1,6 @@
 import { parse } from "node-html-parser";
 import { createJsonlSink, createTimestampedFileName } from "../../core/raw.js";
-import type { SyncProgressHandler } from "../../core/progress.js";
+import type { ProgressHandler } from "../../core/progress.js";
 import type { TroveItem } from "../../types/item.js";
 
 const HN_BASE_URL = "https://news.ycombinator.com";
@@ -12,7 +12,7 @@ interface HnSyncOptions {
   kind?: string;
   limit?: number;
   cursor?: string;
-  onProgress?: SyncProgressHandler;
+  onProgress?: ProgressHandler;
 }
 
 export interface HnSyncResult {
@@ -162,6 +162,7 @@ function parseFavoriteStoryRow(row: ReturnType<typeof parse>): TroveItem | null 
 
   return {
     source: "hn",
+    kind: "favorite",
     externalId: id,
     title,
     url,
@@ -215,6 +216,7 @@ function parseFavoriteCommentRow(row: ReturnType<typeof parse>): TroveItem | nul
 
   return {
     source: "hn",
+    kind: "favorite-comment",
     externalId: id,
     title: `Comment on ${storyTitle}`,
     url,
@@ -281,7 +283,7 @@ function readSavedAt(ageNode: { getAttribute(name: string): string | undefined }
 }
 
 function emitProgress(
-  onProgress: SyncProgressHandler | undefined,
+  onProgress: ProgressHandler | undefined,
   phase: string,
   message: string,
   completed?: number,

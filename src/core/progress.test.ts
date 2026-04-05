@@ -5,6 +5,11 @@ import { __internal } from "./progress.js";
 describe("progress dashboard", () => {
   it("maps known phase ids to friendlier labels", () => {
     expect(__internal.formatPhaseLabel("bootstrap")).toBe("Prepare");
+    expect(__internal.formatPhaseLabel("scan")).toBe("Scan");
+    expect(__internal.formatPhaseLabel("fetch")).toBe("Fetch");
+    expect(__internal.formatPhaseLabel("extract")).toBe("Extract");
+    expect(__internal.formatPhaseLabel("persist")).toBe("Persist");
+    expect(__internal.formatPhaseLabel("index")).toBe("Refresh");
     expect(__internal.formatPhaseLabel("detail")).toBe("Render");
     expect(__internal.formatPhaseLabel("seed_request")).toBe("Seed Request");
   });
