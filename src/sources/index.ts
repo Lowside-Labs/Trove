@@ -2,6 +2,7 @@ import type { SyncStateRecord } from "../db/database.js";
 import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
 import { syncClaudeChats } from "./claude.js";
+import { syncChatGptChats } from "./chatgpt.js";
 import { getDemoItems } from "./demo.js";
 import { syncHnFavorites } from "./hn/index.js";
 import { syncSubstackSaved } from "./substack.js";
@@ -75,10 +76,30 @@ const claudeSource: SyncSourceDefinition = {
   },
 };
 
+const chatGptSource: SyncSourceDefinition = {
+  id: "chatgpt",
+  createScope(options) {
+    return options.cdpUrl ?? "http://127.0.0.1:9222";
+  },
+  async sync({ options, limit }) {
+    return syncChatGptChats({
+      ...(options.cdpUrl ? { cdpUrl: options.cdpUrl } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+    });
+  },
+  getSummaryLines({ result, scope }) {
+    return [
+      `Fetched ChatGPT chats through live browser attachment at ${scope}.`,
+      `ChatGPT raw JSONL: ${result.rawPath}`,
+      `ChatGPT Markdown: ${result.contentPath}`,
+    ];
+  },
+};
+
 const xSource: SyncSourceDefinition = {
   id: "x",
   createScope(options) {
-    return `${options.browser}:${options.profile ?? "Default"}`;
+    return `${options.browser}:${options.profile ?? "Default"}:${normalizeXKind(options.kind)}`;
   },
   shouldPersistState: true,
   async sync({ options, state, limit }) {
@@ -91,9 +112,12 @@ const xSource: SyncSourceDefinition = {
       ...(options.headful ? { headful: true } : {}),
       ...(state?.cursor ? { cursor: state.cursor } : {}),
       ...(options.debugRawPages ? { debugRawPages: true } : {}),
+      ...(options.kind ? { kind: options.kind } : {}),
     });
   },
   buildSyncState({ options, importedCount, result, scope }) {
+    const kind = normalizeXKind(options.kind);
+
     return {
       source: "x",
       scope,
@@ -101,14 +125,17 @@ const xSource: SyncSourceDefinition = {
       metadata: {
         browserId: options.browser,
         profile: options.profile ?? "Default",
+        kind,
         lastImportCount: importedCount,
       },
     };
   },
   getSummaryLines({ options, state, result, scope }) {
+    const kind = normalizeXKind(options.kind);
+    const label = kind === "likes" ? "Likes" : "Bookmarks";
     const lines = [state?.cursor ? `Resumed from saved cursor for ${scope}.` : `Started fresh sync for ${scope}.`];
 
-    lines.push(`Bookmarks JSONL: ${result.rawPath}`);
+    lines.push(`${label} JSONL: ${result.rawPath}`);
 
     if (result.debugRawPagesPath) {
       lines.push(`Debug raw pages: ${result.debugRawPagesPath}`);
@@ -195,7 +222,19 @@ const substackSource: SyncSourceDefinition = {
   },
 };
 
-const syncSources = [demoSource, claudeSource, hnSource, substackSource, xSource];
+const syncSources = [demoSource, claudeSource, chatGptSource, hnSource, substackSource, xSource];
+
+function normalizeXKind(kind?: string): "bookmarks" | "likes" {
+  if (!kind || kind === "bookmarks" || kind === "bookmark") {
+    return "bookmarks";
+  }
+
+  if (kind === "likes" || kind === "like") {
+    return "likes";
+  }
+
+  return "bookmarks";
+}
 
 export function getSyncSource(id: string): SyncSourceDefinition | undefined {
   return syncSources.find((source) => source.id === id);

@@ -72,39 +72,34 @@ export async function syncClaudeChats(options: ClaudeSyncOptions): Promise<Claud
   fs.mkdirSync(contentDir, { recursive: true });
 
   const browser = await chromium.connectOverCDP(cdpUrl);
+  const page = await getClaudePage(browser);
+  const orgId = await discoverOrganizationId(page);
+  const requestedLimit = options.limit;
+  const summaries = await fetchConversationSummaries(page, orgId, requestedLimit, rawSink);
 
-  try {
-    const page = await getClaudePage(browser);
-    const orgId = await discoverOrganizationId(page);
-    const requestedLimit = options.limit;
-    const summaries = await fetchConversationSummaries(page, orgId, requestedLimit, rawSink);
+  const items: TroveItem[] = [];
 
-    const items: TroveItem[] = [];
+  for (const summary of summaries) {
+    const detailResponse = await fetchClaudeJson(
+      page,
+      `/api/organizations/${orgId}/chat_conversations/${summary.id}?tree=True&rendering_mode=messages&render_all_tools=true&consistency=eventual`,
+    );
+    assertSuccessfulResponse(detailResponse, `Claude conversation ${summary.id}`);
 
-    for (const summary of summaries) {
-      const detailResponse = await fetchClaudeJson(
-        page,
-        `/api/organizations/${orgId}/chat_conversations/${summary.id}?tree=True&rendering_mode=messages&render_all_tools=true&consistency=eventual`,
-      );
-      assertSuccessfulResponse(detailResponse, `Claude conversation ${summary.id}`);
+    const detail = parseConversationDetail(detailResponse.body);
+    rawSink.append({
+      kind: "detail",
+      orgId,
+      conversationId: summary.id,
+      payload: detailResponse.body as Record<string, unknown>,
+    });
 
-      const detail = parseConversationDetail(detailResponse.body);
-      rawSink.append({
-        kind: "detail",
-        orgId,
-        conversationId: summary.id,
-        payload: detailResponse.body as Record<string, unknown>,
-      });
-
-      const markdown = renderConversationMarkdown(detail);
-      const markdownPath = writeConversationMarkdown(contentDir, detail, markdown);
-      items.push(toTroveItem(summary, detail, markdown, markdownPath));
-    }
-
-    return { items, rawPath: rawSink.path, contentPath: contentDir };
-  } finally {
-    await browser.close();
+    const markdown = renderConversationMarkdown(detail);
+    const markdownPath = writeConversationMarkdown(contentDir, detail, markdown);
+    items.push(toTroveItem(summary, detail, markdown, markdownPath));
   }
+
+  return { items, rawPath: rawSink.path, contentPath: contentDir };
 }
 
 async function getClaudePage(browser: Browser): Promise<Page> {
