@@ -1,0 +1,48 @@
+{
+  "name": "trove",
+  "version": "0.1.0",
+  "description": "Local-first CLI for collecting, indexing, and searching saved web content.",
+  "type": "module",
+  "bin": {
+    "trove": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/cli.ts --format esm --target node22 --dts --clean",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "cli",
+    "typescript",
+    "sqlite",
+    "search",
+    "bookmarks"
+  ],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@commander-js/extra-typings": "^14.0.0",
+    "@inquirer/prompts": "^8.3.2",
+    "better-sqlite3": "^12.4.1",
+    "commander": "^14.0.3",
+    "p-queue": "^9.1.1",
+    "p-retry": "^7.1.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.5.2",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "vitest": "^3.2.4"
+  },
+  "packageManager": "npm@10.9.3"
+}
