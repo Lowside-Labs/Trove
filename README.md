@@ -42,6 +42,8 @@ That's it. Five commands from zero to asking your AI about everything you've sav
 
 Requires `Node 22+`.
 
+If you use `nvm` or `mise`/`asdf`-style tooling that reads version files, this repo also includes `.nvmrc` and `.node-version`.
+
 ## How It Works
 
 1. `trove init` creates a workspace with a SQLite database and agent guide files.
@@ -62,28 +64,28 @@ Optional: `trove hydrate` fetches linked articles and writes them as markdown. `
 
 ## Supported Sources
 
-| Source | Modes | Auth method | Notes |
-| --- | --- | --- | --- |
-| `x` | `bookmarks`, `likes` | Chromium cookie reuse | macOS only today |
-| `instagram` | `saved` | Chromium cookie reuse | macOS only today |
-| `substack` | `saved`, `likes` | Chromium cookie reuse | macOS only today |
-| `github` | `stars` | Chromium cookie reuse | macOS only today |
-| `hn` | `favorites`, `favorite-comments` | public web | no browser needed |
-| `claude` | chat export | active Chrome tab or CDP | macOS: prefers an open Google Chrome tab; enable `View > Developer > Allow JavaScript from Apple Events` |
-| `chatgpt` | chat export | active Chrome tab or CDP | macOS: prefers an open Google Chrome tab; enable `View > Developer > Allow JavaScript from Apple Events` |
+| Source      | Modes                            | Auth method              | Notes                                                                                                    |
+| ----------- | -------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `x`         | `bookmarks`, `likes`             | Chromium cookie reuse    | macOS only today                                                                                         |
+| `instagram` | `saved`                          | Chromium cookie reuse    | macOS only today                                                                                         |
+| `substack`  | `saved`, `likes`                 | Chromium cookie reuse    | macOS only today                                                                                         |
+| `github`    | `stars`                          | Chromium cookie reuse    | macOS only today                                                                                         |
+| `hn`        | `favorites`, `favorite-comments` | public web               | no browser needed                                                                                        |
+| `claude`    | chat export                      | active Chrome tab or CDP | macOS: prefers an open Google Chrome tab; enable `View > Developer > Allow JavaScript from Apple Events` |
+| `chatgpt`   | chat export                      | active Chrome tab or CDP | macOS: prefers an open Google Chrome tab; enable `View > Developer > Allow JavaScript from Apple Events` |
 
 ## Commands
 
 The installed CLI name is `trove`.
 
-| Command | What it does |
-| --- | --- |
-| `trove init` | Create an AI-ready workspace and initialize the database |
-| `trove sync <source>` | Import content from a source into the workspace |
-| `trove hydrate` | Fetch readable content for external links and write markdown files |
-| `trove search <query>` | Search indexed items with SQLite FTS5 |
-| `trove stats` | Show counts and freshness by source |
-| `trove index` | Regenerate `INDEX.md`, `AGENTS.md`, and `CLAUDE.md` manually |
+| Command                | What it does                                                       |
+| ---------------------- | ------------------------------------------------------------------ |
+| `trove init`           | Create an AI-ready workspace and initialize the database           |
+| `trove sync <source>`  | Import content from a source into the workspace                    |
+| `trove hydrate`        | Fetch readable content for external links and write markdown files |
+| `trove search <query>` | Search indexed items with SQLite FTS5                              |
+| `trove stats`          | Show counts and freshness by source                                |
+| `trove index`          | Regenerate `INDEX.md`, `AGENTS.md`, and `CLAUDE.md` manually       |
 
 ## Installation
 
@@ -106,9 +108,9 @@ Manual install from source is still available if needed:
 ```bash
 git clone https://github.com/Lowside-Labs/Trove.git
 cd Trove
-npm install
-npm run build
-node dist/cli.js --help
+pnpm install
+pnpm build
+node packages/trove-cli/dist/cli.js --help
 ```
 
 ## Limitations
@@ -124,15 +126,17 @@ node dist/cli.js --help
 
 - If cookie-backed sync says no cookies were found, confirm that you are logged into the target service in the selected browser profile
 - If a browser-backed source fails on Linux or Windows, that is expected today; cookie reuse is only implemented on macOS
-- If `npm test` fails with a `better-sqlite3` native-module mismatch, verify that you are using Node 22 as declared in `package.json`
+- If `pnpm test` fails with a `better-sqlite3` native-module mismatch, verify that you are using Node 22 as declared in `package.json`
 - On macOS, `claude` and `chatgpt` prefer an open Google Chrome tab. In Chrome, enable `View > Developer > Allow JavaScript from Apple Events`. If that path is unavailable, use `--cdp-url <url>` to attach manually.
 
 ## Development
 
 ```bash
-npm install
-npm run typecheck
-npm test
+pnpm install
+pnpm lint
+pnpm format:check
+pnpm typecheck
+pnpm test
 ```
 
 If your default local Node version is newer than 22, run the test suite under Node 22 to avoid `better-sqlite3` ABI issues.
@@ -141,13 +145,13 @@ For a faster local CLI loop, use the repo-scoped dev wrapper:
 
 ```bash
 # Creates or reuses .tmp/local-dev/workspace
-npm run dev:local -- sync substack
+pnpm dev:local -- sync substack
 
 # See the isolated workspace and config paths
-npm run dev:local -- where
+pnpm dev:local -- where
 
 # Reset the local dev workspace and remembered browser choices
-npm run dev:local -- reset
+pnpm dev:local -- reset
 ```
 
-`npm run dev:local` keeps your real `HOME` so Chromium cookies still resolve, but isolates `XDG_CONFIG_HOME` and the Trove workspace under `.tmp/local-dev/` for repeatable testing.
+`pnpm dev:local` keeps your real `HOME` so Chromium cookies still resolve, but isolates `XDG_CONFIG_HOME` and the Trove workspace under `.tmp/local-dev/` for repeatable testing.

@@ -1,68 +1,33 @@
 {
-  "name": "trove",
-  "version": "0.1.0",
-  "description": "Turn your saved web material into a local knowledge workspace for AI agents.",
-  "type": "module",
-  "bin": {
-    "trove": "./dist/cli.js"
-  },
-  "files": [
-    "dist"
-  ],
+  "name": "trove-workspace",
+  "private": true,
   "scripts": {
-    "build": "tsup src/cli.ts --format esm --target node22 --dts --clean",
-    "dev": "tsx src/cli.ts",
-    "dev:local": "tsx scripts/dev-local.ts",
-    "reset-local": "tsx scripts/reset-local.ts",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "build": "turbo run build",
+    "dev": "node scripts/run-trove-entry.mjs src/cli.ts",
+    "dev:local": "node scripts/run-trove-entry.mjs scripts/dev-local.ts",
+    "reset-local": "node scripts/run-trove-entry.mjs scripts/reset-local.ts",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm format:check",
+    "clean": "turbo run clean && rm -rf node_modules .turbo"
   },
-  "keywords": [
-    "cli",
-    "typescript",
-    "sqlite",
-    "search",
-    "bookmarks",
-    "archive",
-    "substack",
-    "hacker-news",
-    "x"
-  ],
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Lowside-Labs/Trove.git"
-  },
-  "homepage": "https://github.com/Lowside-Labs/Trove",
-  "bugs": {
-    "url": "https://github.com/Lowside-Labs/Trove/issues"
+  "devDependencies": {
+    "oxfmt": "^0.43.0",
+    "oxlint": "^1.58.0",
+    "turbo": "^2.9.4"
   },
   "engines": {
     "node": ">=22.0.0"
   },
-  "dependencies": {
-    "@commander-js/extra-typings": "^14.0.0",
-    "@inquirer/prompts": "^8.3.2",
-    "@mozilla/readability": "^0.6.0",
-    "better-sqlite3": "^12.4.1",
-    "commander": "^14.0.3",
-    "jsdom": "^27.0.1",
-    "node-html-parser": "^7.1.0",
-    "p-queue": "^9.1.1",
-    "p-retry": "^7.1.0",
-    "playwright-core": "^1.59.1",
-    "turndown": "^7.2.4",
-    "zod": "^4.1.12"
-  },
-  "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/jsdom": "^28.0.1",
-    "@types/node": "^25.5.2",
-    "@types/turndown": "^5.0.6",
-    "tsup": "^8.5.1",
-    "tsx": "^4.21.0",
-    "typescript": "^6.0.2",
-    "vitest": "^3.2.4"
-  },
-  "packageManager": "npm@10.9.3"
+  "packageManager": "pnpm@10.9.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  }
 }

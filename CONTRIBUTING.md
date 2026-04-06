@@ -7,28 +7,30 @@ Thanks for contributing to Trove.
 ```bash
 git clone https://github.com/Lowside-Labs/Trove.git
 cd Trove
-npm install
+pnpm install
 ```
 
-Trove targets `Node 22+`. If your default local Node is newer, use Node 22 when running tests that load `better-sqlite3`.
+Trove targets `Node 22+`. This repo includes `.nvmrc` and `.node-version` to make that easier. If your default local Node is newer, use Node 22 when running tests that load `better-sqlite3`.
 
 ## Common commands
 
 ```bash
-npm run build
-npm run typecheck
-npm test
+pnpm build
+pnpm lint
+pnpm format:check
+pnpm typecheck
+pnpm test
 ```
 
 If the database tests fail with a native-module ABI mismatch, switch to Node 22 and rerun the suite.
 
 ## Project layout
 
-- `src/commands/`: CLI commands
-- `src/sources/`: source adapters and source-specific parsing
-- `src/auth/`: browser and cookie-loading code
-- `src/db/`: SQLite schema, persistence, and tests
-- `src/core/`: shared filesystem, output, and progress helpers
+- `packages/trove-cli/src/commands/`: CLI commands
+- `packages/trove-cli/src/sources/`: source adapters and source-specific parsing
+- `packages/trove-cli/src/auth/`: browser and cookie-loading code
+- `packages/trove-cli/src/db/`: SQLite schema, persistence, and tests
+- `packages/trove-cli/src/core/`: shared filesystem, output, and progress helpers
 
 ## Contribution guidelines
 
@@ -43,8 +45,10 @@ If the database tests fail with a native-module ABI mismatch, switch to Node 22 
 Before opening a PR:
 
 ```bash
-npm run typecheck
-npm test
+pnpm lint
+pnpm format:check
+pnpm typecheck
+pnpm test
 ```
 
 Include:

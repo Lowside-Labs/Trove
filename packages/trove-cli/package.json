@@ -1,0 +1,68 @@
+{
+  "name": "trove",
+  "version": "0.1.0",
+  "description": "Turn your saved web material into a local knowledge workspace for AI agents.",
+  "keywords": [
+    "archive",
+    "bookmarks",
+    "cli",
+    "hacker-news",
+    "search",
+    "sqlite",
+    "substack",
+    "typescript",
+    "x"
+  ],
+  "homepage": "https://github.com/Lowside-Labs/Trove",
+  "bugs": {
+    "url": "https://github.com/Lowside-Labs/Trove/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lowside-Labs/Trove.git"
+  },
+  "bin": {
+    "trove": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "tsup src/cli.ts --format esm --target node22 --dts --clean",
+    "dev": "tsx src/cli.ts",
+    "dev:local": "tsx scripts/dev-local.ts",
+    "reset-local": "tsx scripts/reset-local.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@commander-js/extra-typings": "^14.0.0",
+    "@inquirer/prompts": "^8.3.2",
+    "@mozilla/readability": "^0.6.0",
+    "better-sqlite3": "^12.4.1",
+    "commander": "^14.0.3",
+    "jsdom": "^27.0.1",
+    "node-html-parser": "^7.1.0",
+    "p-queue": "^9.1.1",
+    "p-retry": "^7.1.0",
+    "playwright-core": "^1.59.1",
+    "turndown": "^7.2.4",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/jsdom": "^28.0.1",
+    "@types/node": "^25.5.2",
+    "@types/turndown": "^5.0.6",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
