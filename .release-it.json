@@ -1,0 +1,22 @@
+{
+  "npm": false,
+  "git": {
+    "requireCleanWorkingDir": true,
+    "requireBranch": "main",
+    "commitMessage": "Release v${version}",
+    "tagName": "v${version}"
+  },
+  "github": {
+    "release": true
+  },
+  "plugins": {
+    "@release-it/bumper": {
+      "in": "packages/trove-cli/package.json",
+      "out": "packages/trove-cli/package.json"
+    }
+  },
+  "hooks": {
+    "before:init": "pnpm check",
+    "after:bump": "node scripts/update-changelog.mjs ${version}"
+  }
+}
