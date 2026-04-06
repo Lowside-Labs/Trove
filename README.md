@@ -25,7 +25,7 @@ curl -fsSL https://raw.githubusercontent.com/Lowside-Labs/Trove/main/install.sh 
 trove init --path ~/Trove
 
 # Trove remembers that workspace for future commands
-trove sync x --browser chrome --limit 20
+trove pull x --browser chrome --limit 20
 
 # Open the workspace in Claude Code
 cd ~/Trove && claude
@@ -37,7 +37,7 @@ The installer currently expects `Node 22+` to already be installed.
 ## How It Works
 
 1. `trove init` creates a workspace with a SQLite database and agent guide files.
-2. `trove sync <source>` imports your saved content.
+2. `trove pull <source>` imports your saved content.
 3. Open the workspace folder in Claude Code, Codex, or Obsidian.
 
 Optional: `trove hydrate` fetches linked articles and writes them as markdown. `trove search` queries the archive from the CLI.
@@ -70,7 +70,7 @@ The installed CLI name is `trove`.
 | Command | What it does |
 | --- | --- |
 | `trove init` | Create an AI-ready workspace and initialize the database |
-| `trove sync <source>` | Import content from a source into the workspace |
+| `trove pull <source>` | Pull content from a source into the workspace |
 | `trove hydrate` | Fetch readable content for external links and write markdown files |
 | `trove search <query>` | Search indexed items with SQLite FTS5 |
 | `trove stats` | Show counts and freshness by source |
@@ -132,7 +132,7 @@ For a faster local CLI loop, use the repo-scoped dev wrapper:
 
 ```bash
 # Creates or reuses .tmp/local-dev/workspace
-npm run dev:local -- sync substack
+npm run dev:local -- pull substack
 
 # See the isolated workspace and config paths
 npm run dev:local -- where
