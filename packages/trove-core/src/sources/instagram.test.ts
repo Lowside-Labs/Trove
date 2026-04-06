@@ -4,11 +4,11 @@ const sinks: Array<{ path: string; append: ReturnType<typeof vi.fn> }> = [];
 const getChromiumSession = vi.fn();
 const createTimestampedFileName = vi.fn(() => "test.jsonl");
 
-vi.mock("../../../trove-core/src/auth/chromium.js", () => ({
+vi.mock("../auth/chromium.js", () => ({
   getChromiumSession,
 }));
 
-vi.mock("../../../trove-core/src/core/raw.js", () => ({
+vi.mock("../core/raw.js", () => ({
   createJsonlSink: vi.fn((source: string, fileName: string) => {
     const sink = {
       path: `/tmp/${source}-${fileName}`,
