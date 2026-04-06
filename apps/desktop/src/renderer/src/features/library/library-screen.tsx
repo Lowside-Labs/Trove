@@ -1,5 +1,6 @@
 import { startTransition, useDeferredValue, useRef, useState } from "react";
 import type { WorkspaceSnapshot } from "trove-contracts";
+import { useInfiniteScroll } from "../../hooks/use-infinite-scroll";
 import { formatCount } from "../../lib/format";
 import { LibraryGrid } from "./library-grid";
 import { LibraryList } from "./library-list";
@@ -23,7 +24,13 @@ export function LibraryScreen({ snapshot }: LibraryScreenProps) {
   const libraryItems = useLibraryItems({
     ...(deferredSearchQuery ? { query: deferredSearchQuery } : {}),
     ...(selectedSource !== "all" ? { source: selectedSource } : {}),
-    limit: 60,
+    limit: 120,
+  });
+  const infiniteScroll = useInfiniteScroll({
+    enabled: !libraryItems.error && !libraryItems.isLoadingFirstPage,
+    hasMore: libraryItems.hasMore,
+    isLoading: libraryItems.isLoadingMore,
+    onLoadMore: libraryItems.loadMore,
   });
 
   const openItem = (url: string) => {
@@ -54,7 +61,7 @@ export function LibraryScreen({ snapshot }: LibraryScreenProps) {
 
       {libraryItems.error ? (
         <p className="py-12 text-center text-[13px] text-destructive">{libraryItems.error}</p>
-      ) : libraryItems.isLoading ? (
+      ) : libraryItems.isLoadingFirstPage ? (
         <p className="py-12 text-center text-[13px] text-muted-foreground">Loading...</p>
       ) : libraryItems.items.length === 0 ? (
         <p className="py-12 text-center text-[13px] text-muted-foreground">
@@ -66,7 +73,8 @@ export function LibraryScreen({ snapshot }: LibraryScreenProps) {
         <>
           {deferredSearchQuery ? (
             <p className="text-[13px] text-muted-foreground">
-              {formatCount(libraryItems.items.length)} results
+              {formatCount(libraryItems.items.length)}
+              {libraryItems.hasMore ? "+" : ""} results
             </p>
           ) : null}
           {viewMode === "cards" ? (
@@ -74,6 +82,18 @@ export function LibraryScreen({ snapshot }: LibraryScreenProps) {
           ) : (
             <LibraryList items={libraryItems.items} onOpenItem={openItem} />
           )}
+          <div
+            ref={infiniteScroll.sentinelRef}
+            className="flex min-h-16 items-center justify-center py-4"
+          >
+            {libraryItems.isLoadingMore ? (
+              <p className="text-[13px] text-muted-foreground">Loading more…</p>
+            ) : libraryItems.hasMore ? (
+              <p className="text-[13px] text-muted-foreground/70">Keep scrolling</p>
+            ) : (
+              <p className="text-[13px] text-muted-foreground/50">End of archive</p>
+            )}
+          </div>
         </>
       )}
     </div>

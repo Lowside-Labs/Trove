@@ -4,11 +4,13 @@ import type {
   LibraryItemDetail,
   LibraryItemSummary,
   ListLibraryItemsInput,
+  ListLibraryItemsResult,
+  SearchResult,
 } from "trove-contracts";
 import {
   getItemById,
-  listItems,
-  searchItems,
+  listItemsPage,
+  searchItemsPage,
   withDatabase,
   type StoredItem,
 } from "../db/database.js";
@@ -16,34 +18,44 @@ import {
 export function listLibraryItems(
   options: ListLibraryItemsInput = {},
   root?: string,
-): LibraryItemSummary[] {
-  const limit = options.limit ?? 50;
+): ListLibraryItemsResult {
+  const limit = options.limit ?? 100;
 
   return withDatabase((db) => {
     if (options.query) {
-      return searchItems(db, options.query, limit)
-        .filter((item) => (options.source ? item.source === options.source : true))
-        .map((item) => ({
-          id: item.id,
-          source: item.source,
-          kind: item.kind,
-          externalId: item.externalId,
-          title: item.title,
-          url: item.url,
-          excerpt: item.excerpt,
-          author: item.author,
-          savedAt: item.savedAt,
-          importedAt: item.importedAt ?? item.savedAt,
-          tags: item.tags ?? [],
-          hasContent: Boolean(item.content && item.content.trim().length > 0),
-          ...(item.raw ? { raw: item.raw } : {}),
-        }));
+      const offset = decodeSearchCursor(options.cursor);
+      const page = searchItemsPage(db, options.query, {
+        limit: limit + 1,
+        offset,
+        ...(options.source ? { source: options.source } : {}),
+      });
+      const hasMore = page.length > limit;
+      const items = page.slice(0, limit).map(mapSearchResultToSummary);
+
+      return {
+        items,
+        hasMore,
+        ...(hasMore
+          ? { nextCursor: encodeSearchCursor(offset + items.length) }
+          : {}),
+      };
     }
 
-    return listItems(db, {
-      limit,
+    const pageSize = limit + 1;
+    const page = listItemsPage(db, {
+      limit: pageSize,
       ...(options.source ? { source: options.source } : {}),
-    }).map(mapStoredItemToSummary);
+      ...(options.cursor ? { cursor: decodeBrowseCursor(options.cursor) } : {}),
+    });
+    const hasMore = page.length > limit;
+    const items = page.slice(0, limit).map(mapStoredItemToSummary);
+    const lastItem = items.at(-1);
+
+    return {
+      items,
+      hasMore,
+      ...(hasMore && lastItem ? { nextCursor: encodeBrowseCursor(lastItem) } : {}),
+    };
   }, root);
 }
 
@@ -58,6 +70,24 @@ export function getLibraryItem(
 }
 
 function mapStoredItemToSummary(item: StoredItem): LibraryItemSummary {
+  return {
+    id: item.id,
+    source: item.source,
+    kind: item.kind,
+    externalId: item.externalId,
+    title: item.title,
+    url: item.url,
+    excerpt: item.excerpt,
+    author: item.author,
+    savedAt: item.savedAt,
+    importedAt: item.importedAt ?? item.savedAt,
+    tags: item.tags ?? [],
+    hasContent: Boolean(item.content && item.content.trim().length > 0),
+    ...(item.raw ? { raw: item.raw } : {}),
+  };
+}
+
+function mapSearchResultToSummary(item: SearchResult): LibraryItemSummary {
   return {
     id: item.id,
     source: item.source,
@@ -95,4 +125,37 @@ function detectContentFormat(item: StoredItem): ContentFormat {
 
 function hasMarkdownArtifact(item: StoredItem): boolean {
   return typeof item.raw?.markdownPath === "string" && item.raw.markdownPath.length > 0;
+}
+
+function encodeBrowseCursor(item: Pick<LibraryItemSummary, "id" | "savedAt">): string {
+  return JSON.stringify({ savedAt: item.savedAt, id: item.id });
+}
+
+function decodeBrowseCursor(cursor: string): { savedAt: string; id: number } {
+  const parsed = JSON.parse(cursor) as { savedAt?: unknown; id?: unknown };
+  if (typeof parsed.savedAt !== "string" || typeof parsed.id !== "number") {
+    throw new Error("Invalid library cursor.");
+  }
+
+  return {
+    savedAt: parsed.savedAt,
+    id: parsed.id,
+  };
+}
+
+function encodeSearchCursor(offset: number): string {
+  return JSON.stringify({ offset });
+}
+
+function decodeSearchCursor(cursor?: string): number {
+  if (!cursor) {
+    return 0;
+  }
+
+  const parsed = JSON.parse(cursor) as { offset?: unknown };
+  if (typeof parsed.offset !== "number" || parsed.offset < 0) {
+    throw new Error("Invalid library cursor.");
+  }
+
+  return parsed.offset;
 }

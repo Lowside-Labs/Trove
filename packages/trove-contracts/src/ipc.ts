@@ -2,8 +2,8 @@ import { z } from "zod";
 import {
   getLibraryItemInputSchema,
   libraryItemDetailSchema,
-  libraryItemSummarySchema,
   listLibraryItemsInputSchema,
+  listLibraryItemsResultSchema,
   workspaceSnapshotSchema,
 } from "./desktop.js";
 
@@ -20,7 +20,7 @@ export const workspaceGetSnapshotRequestSchema = z.object({}).strict();
 export const workspaceGetSnapshotResponseSchema = workspaceSnapshotSchema;
 
 export const libraryListItemsRequestSchema = listLibraryItemsInputSchema;
-export const libraryListItemsResponseSchema = z.array(libraryItemSummarySchema);
+export const libraryListItemsResponseSchema = listLibraryItemsResultSchema;
 
 export const libraryGetItemRequestSchema = getLibraryItemInputSchema;
 export const libraryGetItemResponseSchema = libraryItemDetailSchema.nullable();

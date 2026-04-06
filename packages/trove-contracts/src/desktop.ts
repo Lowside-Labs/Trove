@@ -55,10 +55,19 @@ export type LibraryItemDetail = z.infer<typeof libraryItemDetailSchema>;
 export const listLibraryItemsInputSchema = z.object({
   query: z.string().min(1).optional(),
   source: z.string().min(1).optional(),
+  cursor: z.string().min(1).optional(),
   limit: z.number().int().positive().max(500).optional(),
 });
 
 export type ListLibraryItemsInput = z.infer<typeof listLibraryItemsInputSchema>;
+
+export const listLibraryItemsResultSchema = z.object({
+  items: z.array(libraryItemSummarySchema),
+  nextCursor: z.string().min(1).optional(),
+  hasMore: z.boolean(),
+});
+
+export type ListLibraryItemsResult = z.infer<typeof listLibraryItemsResultSchema>;
 
 export const getLibraryItemInputSchema = z.object({
   id: z.number().int().nonnegative(),

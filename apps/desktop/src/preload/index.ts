@@ -3,8 +3,8 @@ import { DESKTOP_IPC_CHANNELS } from "trove-contracts";
 import type {
   GetLibraryItemInput,
   LibraryItemDetail,
-  LibraryItemSummary,
   ListLibraryItemsInput,
+  ListLibraryItemsResult,
   ThemeGetResponse,
   ThemePreference,
   ThemeSetResponse,
@@ -22,7 +22,7 @@ const troveDesktop: TroveDesktopApi = {
   library: {
     async listItems(input: ListLibraryItemsInput = {}) {
       const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.libraryListItems, input);
-      return response as LibraryItemSummary[];
+      return response as ListLibraryItemsResult;
     },
     async getItem(input: GetLibraryItemInput) {
       const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.libraryGetItem, input);

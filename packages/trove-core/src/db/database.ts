@@ -87,6 +87,11 @@ export interface TopAuthorRecord {
   count: number;
 }
 
+export interface ItemCursor {
+  savedAt: string;
+  id: number;
+}
+
 export interface UpsertItemsResult {
   insertedCount: number;
   updatedCount: number;
@@ -220,6 +225,48 @@ export function searchItems(db: Database.Database, query: string, limit = 10): S
   return (statement.all(query, limit) as ItemRow[]).map(mapRowToSearchResult);
 }
 
+export function searchItemsPage(
+  db: Database.Database,
+  query: string,
+  options?: {
+    limit?: number;
+    offset?: number;
+    source?: string;
+  },
+): SearchResult[] {
+  const limit = options?.limit ?? 10;
+  const offset = options?.offset ?? 0;
+  const sourceClause = options?.source ? " AND items.source = ?" : "";
+  const statement = db.prepare(
+    `
+      SELECT
+        items.id,
+        items.source,
+        items.kind,
+        items.external_id,
+        items.title,
+        items.url,
+        items.excerpt,
+        items.content,
+        items.author,
+        items.saved_at,
+        items.imported_at,
+        items.tags_json,
+        items.raw_json,
+        bm25(items_fts) AS rank
+      FROM items_fts
+      JOIN items ON items.id = items_fts.rowid
+      WHERE items_fts MATCH ?
+      ${sourceClause}
+      ORDER BY rank
+      LIMIT ? OFFSET ?
+    `,
+  );
+
+  const params = options?.source ? [query, options.source, limit, offset] : [query, limit, offset];
+  return (statement.all(...params) as ItemRow[]).map(mapRowToSearchResult);
+}
+
 export function getSourceCounts(db: Database.Database): Array<{ source: string; count: number }> {
   return db
     .prepare(
@@ -348,6 +395,64 @@ export function listItems(
         ${whereClause}
         ORDER BY saved_at DESC, id DESC
         ${limitClause}
+      `,
+    )
+    .all(...params) as ItemRow[];
+
+  return rows.map(mapRowToStoredItem);
+}
+
+export function listItemsPage(
+  db: Database.Database,
+  options?: {
+    limit?: number;
+    source?: string;
+    missingContentOnly?: boolean;
+    cursor?: ItemCursor;
+  },
+): StoredItem[] {
+  const params: Array<string | number> = [];
+  const conditions: string[] = [];
+
+  if (options?.source) {
+    conditions.push("source = ?");
+    params.push(options.source);
+  }
+
+  if (options?.missingContentOnly) {
+    conditions.push("(content IS NULL OR trim(content) = '')");
+  }
+
+  if (options?.cursor) {
+    conditions.push("(saved_at < ? OR (saved_at = ? AND id < ?))");
+    params.push(options.cursor.savedAt, options.cursor.savedAt, options.cursor.id);
+  }
+
+  const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(" AND ")}` : "";
+  const limit = options?.limit ?? 50;
+  params.push(limit);
+
+  const rows = db
+    .prepare(
+      `
+        SELECT
+          id,
+          source,
+          kind,
+          external_id,
+          title,
+          url,
+          excerpt,
+          content,
+          author,
+          saved_at,
+          imported_at,
+          tags_json,
+          raw_json
+        FROM items
+        ${whereClause}
+        ORDER BY saved_at DESC, id DESC
+        LIMIT ?
       `,
     )
     .all(...params) as ItemRow[];

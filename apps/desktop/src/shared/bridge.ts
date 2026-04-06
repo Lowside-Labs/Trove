@@ -1,8 +1,8 @@
 import type {
   GetLibraryItemInput,
   LibraryItemDetail,
-  LibraryItemSummary,
   ListLibraryItemsInput,
+  ListLibraryItemsResult,
   ThemeGetResponse,
   ThemePreference,
   ThemeSetResponse,
@@ -14,7 +14,7 @@ export interface TroveDesktopApi {
     getSnapshot(): Promise<WorkspaceSnapshot>;
   };
   library: {
-    listItems(input?: ListLibraryItemsInput): Promise<LibraryItemSummary[]>;
+    listItems(input?: ListLibraryItemsInput): Promise<ListLibraryItemsResult>;
     getItem(input: GetLibraryItemInput): Promise<LibraryItemDetail | null>;
   };
   system: {

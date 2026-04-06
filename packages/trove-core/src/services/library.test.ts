@@ -23,10 +23,11 @@ describe("library services", () => {
     upsertItems(db, getFixtureItems());
     db.close();
 
-    const items = listLibraryItems({}, root);
+    const result = listLibraryItems({}, root);
 
-    expect(items).toHaveLength(2);
-    expect(items[0]).toMatchObject({
+    expect(result.items).toHaveLength(2);
+    expect(result.hasMore).toBe(false);
+    expect(result.items[0]).toMatchObject({
       source: "chatgpt",
       kind: "chat",
       hasContent: true,
@@ -58,7 +59,7 @@ describe("library services", () => {
     upsertItems(db, getFixtureItems());
     db.close();
 
-    const items = listLibraryItems(
+    const result = listLibraryItems(
       {
         query: "agent",
         source: "github",
@@ -66,8 +67,39 @@ describe("library services", () => {
       root,
     );
 
-    expect(items).toHaveLength(1);
-    expect(items[0]?.source).toBe("github");
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.source).toBe("github");
+  });
+
+  it("returns a cursor for follow-up browse pages", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "trove-library-pagination-test-"));
+    roots.push(root);
+
+    const db = openDatabase(root);
+    upsertItems(db, [
+      ...getFixtureItems(),
+      {
+        source: "substack",
+        kind: "saved",
+        externalId: "post-1",
+        title: "Third item",
+        url: "https://example.com/post-1",
+        savedAt: "2026-04-03T09:00:00.000Z",
+      },
+    ]);
+    db.close();
+
+    const firstPage = listLibraryItems({ limit: 2 }, root);
+
+    expect(firstPage.items).toHaveLength(2);
+    expect(firstPage.hasMore).toBe(true);
+    expect(firstPage.nextCursor).toBeDefined();
+
+    const secondPage = listLibraryItems({ limit: 2, cursor: firstPage.nextCursor }, root);
+
+    expect(secondPage.items).toHaveLength(1);
+    expect(secondPage.hasMore).toBe(false);
+    expect(secondPage.items[0]?.externalId).toBe("post-1");
   });
 });
 
