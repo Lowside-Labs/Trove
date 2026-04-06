@@ -1,1 +1,1 @@
-export type { ItemSource, SearchResult, TroveItem } from "../../../trove-contracts/src/index.js";
+export type { ItemSource, SearchResult, TroveItem } from "trove-contracts";

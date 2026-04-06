@@ -9,7 +9,7 @@ import { createSearchCommand } from "./commands/search.js";
 import { createStatsCommand } from "./commands/stats.js";
 import { createSyncCommand } from "./commands/sync.js";
 import { TerminalOutput } from "./core/output.js";
-import { resolveActiveWorkspace } from "../../trove-core/src/index.js";
+import { resolveActiveWorkspace } from "trove-core";
 
 const require = createRequire(import.meta.url);
 const packageJson = require("../package.json") as { version: string };

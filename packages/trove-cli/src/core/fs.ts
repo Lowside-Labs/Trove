@@ -1,1 +1,1 @@
-export { ensureTroveDirs } from "../../../trove-core/src/index.js";
+export { ensureTroveDirs } from "trove-core";

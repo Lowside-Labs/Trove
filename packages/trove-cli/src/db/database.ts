@@ -11,7 +11,7 @@ export {
   upsertItems,
   upsertSyncState,
   withDatabase,
-} from "../../../trove-core/src/index.js";
+} from "trove-core";
 export type {
   ArchiveOverviewRecord,
   SourceStatsRecord,
@@ -19,4 +19,4 @@ export type {
   SyncStateRecord,
   TopAuthorRecord,
   UpsertItemsResult,
-} from "../../../trove-core/src/index.js";
+} from "trove-core";

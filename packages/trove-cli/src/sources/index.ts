@@ -6,7 +6,7 @@ export {
   listSyncSourceIds,
   listSyncSources,
   sources__internal as __internal,
-} from "../../../trove-core/src/index.js";
+} from "trove-core";
 export type {
   SyncCommandOptions,
   SyncKindMetadata,
@@ -14,4 +14,4 @@ export type {
   SyncSourceMetadata,
   SyncSourceResult,
   SyncSummary,
-} from "../../../trove-core/src/index.js";
+} from "trove-core";

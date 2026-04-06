@@ -8,7 +8,7 @@ import type {
   StatsReportRow,
   SummaryEntry,
   SummarySection,
-} from "../../../trove-contracts/src/index.js";
+} from "trove-contracts";
 import { isDefaultTroveRoot, type TrovePaths } from "./paths.js";
 import type { VaultArtifacts } from "./vault.js";
 export type {
@@ -19,7 +19,7 @@ export type {
   StatsReportRow,
   SummaryEntry,
   SummarySection,
-} from "../../../trove-contracts/src/index.js";
+} from "trove-contracts";
 
 interface StreamLike {
   write(chunk: string): boolean;

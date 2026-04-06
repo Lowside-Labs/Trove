@@ -1,2 +1,2 @@
-export { syncClaudeChats } from "../../../trove-core/src/index.js";
-export type { ClaudeSyncResult } from "../../../trove-core/src/index.js";
+export { syncClaudeChats } from "trove-core";
+export type { ClaudeSyncResult } from "trove-core";

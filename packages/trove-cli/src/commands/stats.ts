@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { TerminalOutput, renderStatsReport } from "../core/output.js";
-import { getWorkspaceStats } from "../../../trove-core/src/index.js";
+import { getWorkspaceStats } from "trove-core";
 
 export function createStatsCommand() {
   return new Command("stats")

@@ -1,7 +1,7 @@
 import readline from "node:readline";
-import type { ProgressEvent, ProgressHandler } from "../../../trove-contracts/src/index.js";
+import type { ProgressEvent, ProgressHandler } from "trove-contracts";
 import type { TerminalOutput } from "./output.js";
-export type { ProgressEvent, ProgressHandler } from "../../../trove-contracts/src/index.js";
+export type { ProgressEvent, ProgressHandler } from "trove-contracts";
 
 export type RunStatus = "pending" | "running" | "complete" | "failed";
 export type PhaseStatus = "pending" | "running" | "complete" | "failed";

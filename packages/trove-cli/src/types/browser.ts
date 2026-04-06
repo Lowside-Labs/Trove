@@ -1,1 +1,1 @@
-export * from "../../../trove-contracts/src/index.js";
+export * from "trove-contracts";

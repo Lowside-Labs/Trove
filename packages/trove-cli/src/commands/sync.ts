@@ -2,9 +2,9 @@ import { Command } from "commander";
 import { buildVaultSummarySection } from "../core/archive.js";
 import { TerminalOutput, renderCommandRunReports, type CommandRunReport } from "../core/output.js";
 import { TaskDashboardRenderer } from "../core/progress.js";
-import type { SyncCommandOptions, SyncSummary } from "../../../trove-contracts/src/index.js";
+import type { SyncCommandOptions, SyncSummary } from "trove-contracts";
 import { formatSupportedKindsHelp, listSyncSourceIds } from "../sources/index.js";
-import { getSyncRunLabels, syncSourceToWorkspace } from "../../../trove-core/src/index.js";
+import { getSyncRunLabels, syncSourceToWorkspace } from "trove-core";
 
 export function createSyncCommand() {
   return new Command("sync")

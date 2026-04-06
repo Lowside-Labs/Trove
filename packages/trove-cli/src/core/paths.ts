@@ -12,10 +12,10 @@ export {
   saveDefaultWorkspaceRoot,
   saveSourceBrowserTarget,
   workspaceExists,
-} from "../../../trove-core/src/index.js";
+} from "trove-core";
 export type {
   CommandWorkspaceResolution,
   ResolveWorkspaceRootOptions,
   SavedSourceBrowserTarget,
   TrovePaths,
-} from "../../../trove-core/src/index.js";
+} from "trove-core";

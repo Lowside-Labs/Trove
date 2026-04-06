@@ -4,4 +4,4 @@ export {
   renderMarkdownFrontmatter,
   slugify,
   writeHydratedMarkdown,
-} from "../../../trove-core/src/index.js";
+} from "trove-core";

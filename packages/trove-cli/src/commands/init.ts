@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { renderInitReport, TerminalOutput } from "../core/output.js";
-import { initializeWorkspace } from "../../../trove-core/src/index.js";
+import { initializeWorkspace } from "trove-core";
 
 export function createInitCommand() {
   return new Command("init")
