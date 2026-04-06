@@ -207,6 +207,7 @@ export function searchItems(db: Database.Database, query: string, limit = 10): S
         items.saved_at,
         items.imported_at,
         items.tags_json,
+        items.raw_json,
         bm25(items_fts) AS rank
       FROM items_fts
       JOIN items ON items.id = items_fts.rowid
@@ -511,6 +512,10 @@ function mapRowToSearchResult(row: ItemRow): SearchResult {
 
   if (row.author !== null) {
     result.author = row.author;
+  }
+
+  if (row.raw_json !== null && row.raw_json !== undefined) {
+    result.raw = JSON.parse(row.raw_json) as Record<string, unknown>;
   }
 
   return result;

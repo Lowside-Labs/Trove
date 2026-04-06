@@ -36,6 +36,7 @@ export function listLibraryItems(
           importedAt: item.importedAt ?? item.savedAt,
           tags: item.tags ?? [],
           hasContent: Boolean(item.content && item.content.trim().length > 0),
+          ...(item.raw ? { raw: item.raw } : {}),
         }));
     }
 
@@ -70,6 +71,7 @@ function mapStoredItemToSummary(item: StoredItem): LibraryItemSummary {
     importedAt: item.importedAt ?? item.savedAt,
     tags: item.tags ?? [],
     hasContent: Boolean(item.content && item.content.trim().length > 0),
+    ...(item.raw ? { raw: item.raw } : {}),
   };
 }
 

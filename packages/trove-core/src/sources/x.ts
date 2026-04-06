@@ -560,6 +560,7 @@ function normalizeTweet(tweet: unknown, kind: XSyncKind): TroveItem | null {
       kind: actionTag,
       savedAtSource: "tweet.created_at",
       ...(screenName ? { screenName } : {}),
+      ...(author?.profileImageUrl ? { profileImageUrl: author.profileImageUrl } : {}),
       favoriteCount: readNumber(legacy, "favorite_count"),
       retweetCount: readNumber(legacy, "retweet_count"),
     },
@@ -635,7 +636,7 @@ function extractTweetText(tweet: Record<string, unknown>): string | null {
 
 function extractTweetAuthor(
   tweet: Record<string, unknown>,
-): { name?: string; screenName: string } | null {
+): { name?: string; screenName: string; profileImageUrl?: string } | null {
   for (const candidate of collectAuthorCandidates(tweet)) {
     const user = unwrapUser(candidate);
     const userLegacy = asRecord(user?.legacy);
@@ -646,11 +647,18 @@ function extractTweetAuthor(
       continue;
     }
 
-    const author: { name?: string; screenName: string } = { screenName };
+    const author: { name?: string; screenName: string; profileImageUrl?: string } = { screenName };
     const name = readString(userLegacy, "name") ?? readString(asRecord(user?.core), "name");
 
     if (name) {
       author.name = name;
+    }
+
+    const profileImageUrl =
+      readString(userLegacy, "profile_image_url_https") ??
+      readString(asRecord(user?.avatar), "image_url");
+    if (profileImageUrl) {
+      author.profileImageUrl = profileImageUrl;
     }
 
     return author;

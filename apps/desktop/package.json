@@ -9,7 +9,7 @@
     "rebuild:native": "node scripts/rebuild-native.mjs",
     "predev": "pnpm --filter trove-contracts build && pnpm --filter trove-core build && pnpm rebuild:native",
     "build": "electron-vite build --outDir dist",
-    "dev": "electron-vite dev",
+    "dev": "TROVE_HOME=../../.tmp/local-dev/workspace electron-vite dev",
     "prebuild": "pnpm --filter trove-contracts build && pnpm --filter trove-core build && pnpm rebuild:native",
     "preview": "electron-vite preview --outDir dist",
     "prepreview": "pnpm --filter trove-contracts build && pnpm --filter trove-core build && pnpm rebuild:native",
@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",
+    "@ridemountainpig/svgl-react": "^1.0.16",
     "central-icons": "npm:@central-icons-react/round-outlined-radius-3-stroke-1.5@^1.1.179",
     "central-icons-bold": "npm:@central-icons-react/round-outlined-radius-3-stroke-2@^1.1.179",
     "central-icons-filled": "npm:@central-icons-react/round-filled-radius-3-stroke-1.5@^1.1.179",

@@ -40,6 +40,7 @@ export const libraryItemSummarySchema = z.object({
   importedAt: z.string().min(1),
   tags: z.array(z.string().min(1)),
   hasContent: z.boolean(),
+  raw: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type LibraryItemSummary = z.infer<typeof libraryItemSummarySchema>;

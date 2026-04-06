@@ -23,7 +23,7 @@ export function ItemDetailPanel({
     return (
       <aside className="trove-panel flex min-h-[24rem] items-center justify-center rounded-[2rem] p-8">
         <div className="max-w-sm space-y-3 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500">
+          <p className="text-xs font-semibold tracking-wide text-zinc-500">
             Reader
           </p>
           <h2 className="font-serif text-4xl leading-none tracking-[-0.05em] text-zinc-950">
@@ -41,7 +41,7 @@ export function ItemDetailPanel({
     <aside className="trove-panel flex min-h-[24rem] flex-col rounded-[2rem] p-6 lg:sticky lg:top-6 lg:max-h-[calc(100vh-10rem)]">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-zinc-500">
+          <p className="text-xs font-semibold tracking-wide text-zinc-500">
             {activeItem.source}
           </p>
           <h2 className="font-serif text-4xl leading-[0.95] tracking-[-0.05em] text-zinc-950">

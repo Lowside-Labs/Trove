@@ -29,6 +29,9 @@ importers:
       '@base-ui/react':
         specifier: ^1.3.0
         version: 1.3.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@ridemountainpig/svgl-react':
+        specifier: ^1.0.16
+        version: 1.0.16(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       central-icons:
         specifier: npm:@central-icons-react/round-outlined-radius-3-stroke-1.5@^1.1.179
         version: '@central-icons-react/round-outlined-radius-3-stroke-1.5@1.1.179(react@19.2.4)'
@@ -1208,6 +1211,12 @@ packages:
     engines: {node: ^20.9.0 || >=22.0.0}
     peerDependencies:
       release-it: '>=18.0.0 || >=19.0.0'
+
+  '@ridemountainpig/svgl-react@1.0.16':
+    resolution: {integrity: sha512-3vKZ3EejjrltqBW+po8dj2bz0qZcb11CaTTTWtp6zFozQwiDDWTXbVSlBl5W/ER41rt04mW23GYlV+g5Zd2r5w==}
+    peerDependencies:
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0
 
   '@rolldown/pluginutils@1.0.0-rc.3':
     resolution: {integrity: sha512-eybk3TjzzzV97Dlj5c+XrBFW57eTNhzod66y9HrBlzJ6NsCrWCp/2kaPS3K9wJmurBC0Tdw4yPjXKZqlznim3Q==}
@@ -4385,6 +4394,11 @@ snapshots:
       lodash-es: 4.18.1
       release-it: 19.2.4(@types/node@25.5.2)
       semver: 7.7.4
+
+  '@ridemountainpig/svgl-react@1.0.16(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
 
   '@rolldown/pluginutils@1.0.0-rc.3': {}
 

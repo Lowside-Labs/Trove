@@ -1,4 +1,5 @@
 import type { LibraryItemSummary } from "trove-contracts";
+import { getSourceConfig, SourceIcon } from "./source-registry";
 
 interface LibraryCardProps {
   item: LibraryItemSummary;
@@ -6,23 +7,25 @@ interface LibraryCardProps {
 }
 
 export function LibraryCard({ item, onOpen }: LibraryCardProps) {
+  const source = getSourceConfig(item.source);
+  const Content = source.Content;
+  const showFooter = item.source !== "x";
+
   return (
     <button
-      className="flex flex-col gap-3 rounded-xl bg-card p-5 text-left transition-colors hover:bg-accent"
+      className="flex flex-col gap-3 rounded-2xl bg-card p-5 text-left transition-colors hover:bg-accent"
       type="button"
       onClick={onOpen}
     >
-      <h3 className="text-[15px] font-semibold leading-snug text-card-foreground">
-        {item.title}
-      </h3>
-      {item.excerpt ? (
-        <p className="line-clamp-3 text-[13px] leading-relaxed text-muted-foreground">
-          {item.excerpt}
-        </p>
+      <Content item={item} />
+      {showFooter ? (
+        <div className="mt-auto flex items-center gap-1.5 pt-1 text-muted-foreground/60">
+          {source.isKnown ? (
+            <SourceIcon config={source.icons} className="size-3.5" />
+          ) : null}
+          <span className="text-[11px] font-medium">{source.displayName}</span>
+        </div>
       ) : null}
-      <span className="mt-auto pt-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/60">
-        {item.source}
-      </span>
     </button>
   );
 }
