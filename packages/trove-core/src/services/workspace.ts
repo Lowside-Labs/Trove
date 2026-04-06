@@ -1,14 +1,27 @@
-import type { CommandWorkspaceResolution, TrovePaths } from "../core/paths.js";
+import type {
+  CommandWorkspaceResolution,
+  TrovePaths,
+  SavedSourceBrowserTarget,
+} from "../core/paths.js";
 import { runArchivePostProcessing } from "../core/archive.js";
 import { ensureTroveDirs } from "../core/fs.js";
 import {
   getDefaultTroveRoot,
+  getSavedSourceBrowserTarget,
+  getTrovePaths,
   resolveCommandWorkspace,
   resolveWorkspaceRoot,
   saveDefaultWorkspaceRoot,
 } from "../core/paths.js";
-import { withDatabase } from "../db/database.js";
+import {
+  getArchiveOverview,
+  getSourceCounts,
+  getSourceSyncRecords,
+  withDatabase,
+} from "../db/database.js";
 import type { VaultArtifacts } from "../core/vault.js";
+import type { SourceStatus, WorkspaceOverview } from "trove-contracts";
+import { listSyncSources } from "../sources/index.js";
 
 export interface InitializeWorkspaceOptions {
   path?: string;
@@ -19,6 +32,10 @@ export interface InitializeWorkspaceOptions {
 export interface InitializeWorkspaceResult {
   paths: TrovePaths;
   vaultArtifacts: VaultArtifacts;
+}
+
+export interface WorkspaceBrowserTarget extends SavedSourceBrowserTarget {
+  sourceId: string;
 }
 
 export function resolveActiveWorkspace(
@@ -51,4 +68,61 @@ export function initializeWorkspace(
     paths,
     vaultArtifacts,
   };
+}
+
+export function getWorkspaceOverview(root?: string): WorkspaceOverview {
+  const paths = getTrovePaths(root);
+
+  return withDatabase((db) => {
+    const overview = getArchiveOverview(db);
+
+    return {
+      root: paths.root,
+      totalItems: overview.totalItems,
+      totalSources: overview.totalSources,
+      ...(overview.lastSyncedAt ? { lastSyncedAt: overview.lastSyncedAt } : {}),
+    };
+  }, paths.root);
+}
+
+export function getWorkspaceSourceStatuses(root?: string): SourceStatus[] {
+  const paths = getTrovePaths(root);
+
+  return withDatabase((db) => {
+    const countsBySource = new Map(
+      getSourceCounts(db).map((record) => [record.source, record.count] as const),
+    );
+    const syncBySource = new Map(
+      getSourceSyncRecords(db).map((record) => [record.source, record.lastSyncedAt] as const),
+    );
+
+    return listSyncSources().map((source) => ({
+      id: source.id,
+      displayName: source.metadata.displayName,
+      authMode: source.metadata.authMode,
+      itemCount: countsBySource.get(source.id) ?? 0,
+      kinds: source.metadata.kinds,
+      ...(syncBySource.get(source.id) ? { lastSyncedAt: syncBySource.get(source.id) } : {}),
+      ...(source.metadata.requiresBrowser ? { requiresBrowser: true } : {}),
+      ...(source.metadata.requiresUser ? { requiresUser: true } : {}),
+    }));
+  }, paths.root);
+}
+
+export function getSavedBrowserTargets(): WorkspaceBrowserTarget[] {
+  return listSyncSources()
+    .map((source) => {
+      const target = getSavedSourceBrowserTarget(source.id);
+
+      if (!target) {
+        return null;
+      }
+
+      return {
+        sourceId: source.id,
+        browserId: target.browserId,
+        ...(target.profile ? { profile: target.profile } : {}),
+      } satisfies WorkspaceBrowserTarget;
+    })
+    .filter((value): value is WorkspaceBrowserTarget => value !== null);
 }

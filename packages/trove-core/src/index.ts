@@ -1,3 +1,4 @@
+export * from "./services/library.js";
 export * from "./services/search.js";
 export * from "./services/stats.js";
 export * from "./services/sync.js";
@@ -60,7 +61,9 @@ export { generateVaultArtifacts, __internal as vault__internal } from "./core/va
 export type { VaultArtifacts } from "./core/vault.js";
 export {
   getArchiveOverview,
+  getItemById,
   getSourceCounts,
+  getSourceSyncRecords,
   getSourceStats,
   getSyncState,
   getTopAuthors,
@@ -74,6 +77,7 @@ export {
 } from "./db/database.js";
 export type {
   ArchiveOverviewRecord,
+  SourceSyncRecord,
   SourceStatsRecord,
   StoredItem,
   SyncStateRecord,

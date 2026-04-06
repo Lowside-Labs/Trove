@@ -34,6 +34,11 @@ interface SourceStatsRow {
   last_synced_at: string | null;
 }
 
+interface SourceSyncRow {
+  source: string;
+  last_synced_at: string | null;
+}
+
 interface ArchiveOverviewRow {
   total_items: number;
   total_sources: number;
@@ -59,6 +64,11 @@ export interface SyncStateRecord {
 export interface SourceStatsRecord {
   source: string;
   count: number;
+  lastSyncedAt?: string;
+}
+
+export interface SourceSyncRecord {
+  source: string;
   lastSyncedAt?: string;
 }
 
@@ -244,6 +254,24 @@ export function getSourceStats(db: Database.Database): SourceStatsRecord[] {
   }));
 }
 
+export function getSourceSyncRecords(db: Database.Database): SourceSyncRecord[] {
+  const rows = db
+    .prepare(
+      `
+        SELECT source, MAX(last_synced_at) AS last_synced_at
+        FROM sync_state
+        GROUP BY source
+        ORDER BY source ASC
+      `,
+    )
+    .all() as SourceSyncRow[];
+
+  return rows.map((row) => ({
+    source: row.source,
+    ...(row.last_synced_at ? { lastSyncedAt: row.last_synced_at } : {}),
+  }));
+}
+
 export function getArchiveOverview(db: Database.Database): ArchiveOverviewRecord {
   const row = db
     .prepare(
@@ -324,6 +352,33 @@ export function listItems(
     .all(...params) as ItemRow[];
 
   return rows.map(mapRowToStoredItem);
+}
+
+export function getItemById(db: Database.Database, itemId: number): StoredItem | null {
+  const row = db
+    .prepare<[number], ItemRow>(
+      `
+        SELECT
+          id,
+          source,
+          kind,
+          external_id,
+          title,
+          url,
+          excerpt,
+          content,
+          author,
+          saved_at,
+          imported_at,
+          tags_json,
+          raw_json
+        FROM items
+        WHERE id = ?
+      `,
+    )
+    .get(itemId);
+
+  return row ? mapRowToStoredItem(row) : null;
 }
 
 export function getTopAuthors(db: Database.Database, limit = 10): TopAuthorRecord[] {

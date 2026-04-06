@@ -5,6 +5,8 @@ import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   getArchiveOverview,
+  getItemById,
+  getSourceSyncRecords,
   getSourceStats,
   getSyncState,
   listItems,
@@ -76,6 +78,12 @@ describe("database", () => {
 
     expect(state?.cursor).toBe("cursor-123");
     expect(state?.metadata).toEqual({ browserId: "chrome" });
+    expect(getSourceSyncRecords(db)).toEqual([
+      {
+        source: "x",
+        lastSyncedAt: expect.any(String),
+      },
+    ]);
 
     db.close();
   });
@@ -216,6 +224,19 @@ describe("database", () => {
     const items = listItems(db);
 
     expect(items[0]?.kind).toBe("bookmark");
+    db.close();
+  });
+
+  it("fetches a stored item by id", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "trove-test-"));
+    roots.push(root);
+
+    const db = openDatabase(root);
+    upsertItems(db, getFixtureItems());
+
+    expect(getItemById(db, 1)?.externalId).toBe("browser-1");
+    expect(getItemById(db, 999)).toBeNull();
+
     db.close();
   });
 });
