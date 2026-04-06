@@ -1,4 +1,6 @@
 import { app, BrowserWindow } from "electron";
+import { registerLibraryIpcHandlers } from "./ipc/library";
+import { registerSystemIpcHandlers } from "./ipc/system";
 import { registerWorkspaceIpcHandlers } from "./ipc/workspace";
 import { createMainWindow } from "./windows";
 
@@ -18,6 +20,8 @@ function openMainWindow(): void {
 
 app.whenReady().then(() => {
   app.setName("Trove");
+  registerLibraryIpcHandlers();
+  registerSystemIpcHandlers();
   registerWorkspaceIpcHandlers();
   openMainWindow();
 

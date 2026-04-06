@@ -7,16 +7,14 @@ import {
 import {
   getWorkspaceOverview,
   getWorkspaceSourceStatuses,
-  resolveActiveWorkspace,
 } from "trove-core";
+import { resolveDesktopWorkspace } from "./resolve-workspace";
 
 export function registerWorkspaceIpcHandlers(): void {
   ipcMain.handle(DESKTOP_IPC_CHANNELS.workspaceGetSnapshot, (_event, input) => {
     workspaceGetSnapshotRequestSchema.parse(input ?? {});
 
-    const resolution = resolveActiveWorkspace({
-      ...(process.env.TROVE_HOME ? { home: process.env.TROVE_HOME } : {}),
-    });
+    const resolution = resolveDesktopWorkspace();
 
     if (!resolution.root) {
       return workspaceGetSnapshotResponseSchema.parse({

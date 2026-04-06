@@ -1,175 +1,50 @@
+@import "tailwindcss";
+
 :root {
-  color: #142019;
-  background:
-    radial-gradient(circle at top, rgba(216, 156, 91, 0.28), transparent 34%),
-    linear-gradient(180deg, #f4efe3 0%, #e7dfcf 100%);
-  font-family: "Avenir Next", "Segoe UI", sans-serif;
-  line-height: 1.5;
-  font-weight: 500;
+  color-scheme: light;
+  --trove-bg:
+    radial-gradient(circle at top, rgba(214, 151, 92, 0.24), transparent 34%),
+    radial-gradient(circle at right, rgba(43, 96, 74, 0.11), transparent 24%),
+    linear-gradient(180deg, #f6f0e6 0%, #ece3d2 100%);
+  --trove-ink: #17130d;
+  --trove-panel-bg: rgba(255, 252, 246, 0.72);
+  --trove-panel-border: rgba(32, 24, 13, 0.08);
+  --trove-panel-shadow: 0 24px 70px rgba(33, 24, 10, 0.09);
 }
 
-* {
-  box-sizing: border-box;
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--trove-bg);
+    color: var(--trove-ink);
+    font-family: "Avenir Next", "Segoe UI", sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button,
+  input {
+    font: inherit;
+  }
+
+  ::selection {
+    background: rgba(26, 22, 18, 0.15);
+  }
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  color: inherit;
-  background:
-    linear-gradient(135deg, rgba(20, 32, 25, 0.08), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(15, 81, 50, 0.16), transparent 32%);
-}
-
-code {
-  font-family: "SF Mono", "Monaco", "Consolas", monospace;
-}
-
-#root {
-  min-height: 100vh;
-}
-
-.shell {
-  min-height: 100vh;
-  padding: 32px;
-  display: grid;
-  gap: 24px;
-}
-
-.panel {
-  background: rgba(255, 251, 244, 0.86);
-  border: 1px solid rgba(20, 32, 25, 0.1);
-  border-radius: 28px;
-  box-shadow: 0 24px 60px rgba(20, 32, 25, 0.08);
+.trove-panel {
+  background: var(--trove-panel-bg);
+  border: 1px solid var(--trove-panel-border);
+  box-shadow: var(--trove-panel-shadow);
   backdrop-filter: blur(18px);
-}
-
-.hero {
-  padding: 36px;
-}
-
-.eyebrow {
-  margin: 0 0 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.78rem;
-  color: #6d5837;
-}
-
-h1,
-h2 {
-  margin: 0;
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-}
-
-h1 {
-  max-width: 14ch;
-  font-size: clamp(2.5rem, 5vw, 4.75rem);
-  line-height: 0.95;
-}
-
-h2 {
-  font-size: clamp(1.6rem, 3vw, 2.2rem);
-}
-
-.lede,
-.hint {
-  max-width: 70ch;
-  color: rgba(20, 32, 25, 0.78);
-}
-
-.metrics {
-  margin: 28px 0 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-}
-
-.metrics div,
-.source-card {
-  padding: 18px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.62);
-  border: 1px solid rgba(20, 32, 25, 0.08);
-}
-
-.metrics dt,
-.source-card dt {
-  font-size: 0.82rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(20, 32, 25, 0.56);
-}
-
-.metrics dd,
-.source-card dd {
-  margin: 8px 0 0;
-  font-size: 1.25rem;
-}
-
-.section-header {
-  padding: 28px 28px 0;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: end;
-}
-
-.source-grid {
-  padding: 24px 28px 28px;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-}
-
-.source-card header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: baseline;
-}
-
-.source-card dl {
-  margin: 18px 0 0;
-  display: grid;
-  gap: 12px;
-}
-
-.source-card dl div {
-  display: grid;
-  gap: 4px;
-}
-
-.source-name {
-  margin: 0;
-  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
-  font-size: 1.4rem;
-}
-
-.source-auth {
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.78rem;
-  color: #0f5132;
-}
-
-@media (max-width: 900px) {
-  .shell {
-    padding: 18px;
-  }
-
-  .hero,
-  .section-header,
-  .source-grid {
-    padding-left: 20px;
-    padding-right: 20px;
-  }
-
-  .section-header {
-    align-items: start;
-    flex-direction: column;
-  }
 }
