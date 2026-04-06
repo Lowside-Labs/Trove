@@ -6,13 +6,14 @@ import { createIndexCommand } from "./commands/index.js";
 import { createInitCommand } from "./commands/init.js";
 import { createSearchCommand } from "./commands/search.js";
 import { createStatsCommand } from "./commands/stats.js";
+import { createServeCommand } from "./commands/serve.js";
 import { createSyncCommand } from "./commands/sync.js";
 import { TerminalOutput } from "./core/output.js";
 import { resolveCommandWorkspace } from "./core/paths.js";
 
 const program = new Command()
   .name("trove")
-  .description("Turn your saved web material into a local knowledge workspace for AI agents.")
+  .description("A second brain from your digital life.")
   .option("--home <path>", "Path to the Trove workspace (overrides the remembered workspace)")
   .version("0.1.0");
 
@@ -40,6 +41,7 @@ program.addCommand(createSyncCommand());
 program.addCommand(createIndexCommand());
 program.addCommand(createHydrateCommand());
 program.addCommand(createSearchCommand());
+program.addCommand(createServeCommand());
 program.addCommand(createStatsCommand());
 
 await program.parseAsync();

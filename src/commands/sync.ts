@@ -16,7 +16,8 @@ import {
 
 export function createSyncCommand() {
   return new Command("sync")
-    .description("Sync content from a source into the Trove workspace.")
+    .alias("pull")
+    .description("Pull content from a source into the Trove workspace.")
     .argument("<source>", `Source adapter to run, currently: ${listSyncSourceIds().join(" | ")}`)
     .option("--browser <browser>", "Chromium browser id to use for seamless session reuse", "auto")
     .option("--profile <profile>", "Browser profile to read cookies from")
