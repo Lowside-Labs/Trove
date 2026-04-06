@@ -9,6 +9,8 @@ import {
   XDark,
   XLight,
 } from "@ridemountainpig/svgl-react";
+import { IconHackerNews } from "../../components/icons/icon-hackernews";
+import { IconSubstackDark, IconSubstackLight } from "../../components/icons/icon-substack";
 import { useIsDark } from "../../hooks/use-is-dark";
 import { BookmarkContent } from "./cards/bookmark-content";
 import { ConversationContent } from "./cards/conversation-content";
@@ -41,6 +43,16 @@ const registry: Record<string, SourceConfig> = {
   github: {
     displayName: "GitHub",
     icons: { light: GitHubLight, dark: GitHubDark },
+    Content: BookmarkContent,
+  },
+  substack: {
+    displayName: "Substack",
+    icons: { light: IconSubstackLight, dark: IconSubstackDark },
+    Content: BookmarkContent,
+  },
+  hackernews: {
+    displayName: "Hacker News",
+    icons: { light: IconHackerNews, dark: IconHackerNews },
     Content: BookmarkContent,
   },
 };

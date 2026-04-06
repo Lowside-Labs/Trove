@@ -39,6 +39,49 @@ if (command === "where") {
 fs.mkdirSync(sandboxRoot, { recursive: true });
 fs.mkdirSync(configHome, { recursive: true });
 
+// Ensure better-sqlite3 is compiled for system Node, not Electron's Node.
+// The desktop app's `rebuild:native` recompiles it for Electron, which breaks
+// the CLI. Detect the mismatch by trying to load the native binary, and
+// re-download the correct prebuild if it fails.
+ensureSystemNodeNative()
+
+function ensureSystemNodeNative(): void {
+  const betterSqlite3Dir = path.join(
+    repoRoot,
+    "node_modules/.pnpm/better-sqlite3@12.8.0/node_modules/better-sqlite3",
+  );
+  const nativePath = path.join(betterSqlite3Dir, "build/Release/better_sqlite3.node");
+
+  if (!fs.existsSync(nativePath)) {
+    rebuildForSystemNode(betterSqlite3Dir, nativePath);
+    return;
+  }
+
+  // Try loading the binary — if it was compiled for Electron it will throw
+  const check = spawnSync("node", ["-e", `process.dlopen({exports:{}}, ${JSON.stringify(nativePath)})`], {
+    stdio: "pipe",
+  });
+  if (check.status !== 0) {
+    rebuildForSystemNode(betterSqlite3Dir, nativePath);
+  }
+}
+
+function rebuildForSystemNode(betterSqlite3Dir: string, nativePath: string): void {
+  console.log("Rebuilding better-sqlite3 for system Node...");
+  if (fs.existsSync(nativePath)) {
+    fs.unlinkSync(nativePath);
+  }
+  // Run the package's own install script which downloads the correct prebuild
+  const result = spawnSync("npm", ["run", "install"], {
+    cwd: betterSqlite3Dir,
+    stdio: "inherit",
+  });
+  if (result.status !== 0) {
+    console.error("Failed to rebuild better-sqlite3 for system Node.");
+    process.exit(1);
+  }
+}
+
 if (command !== "init" && !workspaceExists(workspaceRoot)) {
   runCli(["init", "--path", workspaceRoot], "Failed to initialize the local dev workspace.");
 }
