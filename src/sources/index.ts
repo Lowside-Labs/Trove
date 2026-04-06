@@ -11,6 +11,7 @@ import { syncClaudeChats } from "./claude.js";
 import { syncChatGptChats } from "./chatgpt.js";
 import { formatAvailableGitHubBrowserList, syncGitHubStars, validateGitHubSession } from "./github.js";
 import { syncHnFavorites } from "./hn/index.js";
+import { syncInstagramSaved, validateInstagramSession } from "./instagram.js";
 import { syncSubstackSaved, validateSubstackSession } from "./substack.js";
 import { formatAvailableBrowserList, syncXBookmarks, validateXSession } from "./x.js";
 
@@ -473,6 +474,79 @@ const substackSource: SyncSourceDefinition = {
   },
 };
 
+const instagramSource: SyncSourceDefinition = {
+  id: "instagram",
+  metadata: {
+    displayName: "Instagram",
+    authMode: "cookie",
+    kinds: [{ id: "saved", default: true }],
+    requiresBrowser: true,
+  },
+  expandSyncRuns(options) {
+    return expandKindRuns(this.metadata, options);
+  },
+  async resolveOptions({ options, onProgress }) {
+    return resolveCookieBackedOptions(
+      "instagram",
+      options,
+      {
+        sourceLabel: "Instagram",
+        domains: ["https://www.instagram.com/"],
+        validateSession: validateInstagramSession,
+      },
+      onProgress,
+    );
+  },
+  createScope(options) {
+    return `${options.browser}:${options.profile ?? "Default"}:saved`;
+  },
+  shouldPersistState: true,
+  async sync({ options, state, limit, onProgress }) {
+    const browserId = options.browser as SupportedBrowserId;
+
+    return syncInstagramSaved({
+      browserId,
+      ...(options.profile ? { profile: options.profile } : {}),
+      ...(options.kind ? { kind: options.kind } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+      ...(state?.cursor ? { cursor: state.cursor } : {}),
+      ...(onProgress ? { onProgress } : {}),
+    });
+  },
+  buildSyncState({ options, importedCount, result, scope }) {
+    return {
+      source: "instagram",
+      scope,
+      ...(result.nextCursor ? { cursor: result.nextCursor } : {}),
+      metadata: {
+        browserId: options.browser,
+        profile: options.profile ?? "Default",
+        kind: "saved",
+        lastImportCount: importedCount,
+      },
+    };
+  },
+  getSummary({ state, result, scope }) {
+    return {
+      headline: state?.cursor ? "Resumed Instagram saved sync from a saved cursor." : "Started a fresh Instagram saved sync.",
+      sections: [
+        {
+          title: "Artifacts",
+          entries: [{ label: "Saved JSONL", value: result.rawPath }],
+        },
+        {
+          title: "Context",
+          entries: [
+            { label: "Scope", value: scope, tone: "muted" },
+            { label: "Browsers", value: formatAvailableBrowserList(), tone: "muted" },
+          ],
+        },
+      ],
+      notes: ["Saved timestamps currently use the original media timestamp because Instagram's saved feed does not expose exact saved-at times."],
+    };
+  },
+};
+
 interface CookieSourceAuthConfig {
   sourceLabel: string;
   domains: string[];
@@ -488,7 +562,7 @@ interface CookieProbeFailure extends CookieProbeCandidate {
   message: string;
 }
 
-const syncSources = [claudeSource, chatGptSource, githubSource, hnSource, substackSource, xSource];
+const syncSources = [claudeSource, chatGptSource, githubSource, hnSource, instagramSource, substackSource, xSource];
 
 function normalizeXKind(kind?: string): "bookmarks" | "likes" {
   if (!kind || kind === "bookmarks" || kind === "bookmark") {

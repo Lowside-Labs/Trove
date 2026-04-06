@@ -65,6 +65,7 @@ Optional: `trove hydrate` fetches linked articles and writes them as markdown. `
 | Source | Modes | Auth method | Notes |
 | --- | --- | --- | --- |
 | `x` | `bookmarks`, `likes` | Chromium cookie reuse | macOS only today |
+| `instagram` | `saved` | Chromium cookie reuse | macOS only today |
 | `substack` | `saved`, `likes` | Chromium cookie reuse | macOS only today |
 | `github` | `stars` | Chromium cookie reuse | macOS only today |
 | `hn` | `favorites`, `favorite-comments` | public web | no browser needed |

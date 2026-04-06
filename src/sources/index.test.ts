@@ -11,9 +11,13 @@ describe("source registry metadata", () => {
   });
 
   it("expands default kinds from source metadata", () => {
+    const instagramSource = getSyncSource("instagram");
     const substackSource = getSyncSource("substack");
     const hnSource = getSyncSource("hn");
 
+    expect(instagramSource?.expandSyncRuns?.({ browser: "chrome" })).toEqual([
+      { browser: "chrome", kind: "saved" },
+    ]);
     expect(substackSource?.expandSyncRuns?.({ browser: "chrome" })).toEqual([
       { browser: "chrome", kind: "saved" },
       { browser: "chrome", kind: "likes" },
@@ -26,6 +30,7 @@ describe("source registry metadata", () => {
 
   it("formats kind help text from source metadata", () => {
     expect(formatSupportedKindsHelp()).toContain("github: stars");
+    expect(formatSupportedKindsHelp()).toContain("instagram: saved");
     expect(formatSupportedKindsHelp()).toContain("x: bookmarks | likes");
     expect(formatSupportedKindsHelp()).toContain("substack: saved | likes");
   });

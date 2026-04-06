@@ -8,6 +8,7 @@ const listChromiumProfiles = vi.fn();
 const findAttachableCdpUrl = vi.fn();
 const getSavedSourceBrowserTarget = vi.fn();
 const validateGitHubSession = vi.fn();
+const validateInstagramSession = vi.fn();
 const validateSubstackSession = vi.fn();
 const validateXSession = vi.fn();
 
@@ -46,6 +47,11 @@ vi.mock("./github.js", () => ({
 
 vi.mock("./hn/index.js", () => ({
   syncHnFavorites: vi.fn(),
+}));
+
+vi.mock("./instagram.js", () => ({
+  syncInstagramSaved: vi.fn(),
+  validateInstagramSession,
 }));
 
 vi.mock("./substack.js", () => ({
