@@ -24,6 +24,7 @@ Keep tests close to the code they cover using `*.test.ts`.
 - `pnpm typecheck`: run `tsc --noEmit`.
 - `pnpm lint`: run `oxlint`.
 - `pnpm format:check`: run `oxfmt --check`.
+- `pnpm release <patch|minor|major|version>`: run the standardized release flow with `release-it`.
 
 Trove targets Node 22+. This repo includes `.nvmrc` and `.node-version`. If the default local Node version is newer, `better-sqlite3` may require rerunning tests under Node 22.
 
