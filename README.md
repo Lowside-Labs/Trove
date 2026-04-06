@@ -1,38 +1,46 @@
 # Trove
 
-![Trove repository artwork](assets/trove-thumbnail.jpg)
+**A second brain from your digital life.**
 
-You've been building a personal knowledge base for years, but it's invisible to your LLM.
+Everyone's talking about building a [second brain](https://x.com/karpathy/status/1908189593508421654) — a personal knowledge base you can hand to an AI agent. The problem is that yours already exists. It's just scattered — locked behind logins, siloed across platforms, and invisible to every AI tool you use.
 
-Every tweet you bookmarked. Every Substack post you saved for later. Every GitHub repo you starred at 2am. Every Hacker News thread you favorited, meaning to come back to. Every Claude conversation where you worked through a hard problem.
+Trove pulls all of it into one local folder with a single CLI. Then you point an AI agent at it.
 
-**Trove pulls all of it into one local folder and makes it visible to your AI.**
+### Sync
 
-Open it in Claude Code and start asking:
+```bash
+trove sync x          # X bookmarks + likes
+trove sync claude     # Claude chat exports
+trove sync chatgpt    # ChatGPT chat exports
+trove sync substack   # Substack saves + likes
+trove sync github     # GitHub stars
+trove sync hn         # Hacker News favorites
+```
 
-> *What have I been reading about local-first architecture?*
-> *Which authors show up most across my bookmarks and likes?*
-> *Summarize what I saved about AI coding tools this month.*
+Everything lands in one local folder — SQLite database + markdown files. No cloud, no account.
 
-Your AI finally knows what you know.
+### Ask
 
-## Quick Start
+Open the folder in Claude Code, Codex, or any AI agent:
+
+- **"What patterns show up across everything I've saved?"** — discover recurring interests you never explicitly tracked
+- **"Find everything related to [topic] across all my sources"** — get a synthesis across bookmarks, articles, and your own AI conversations in seconds
+- **"Draft something based on what I've been reading"** — get a first draft grounded in your actual sources, not generic training data
+- **"What repos or tools have I saved that are relevant to what I'm building?"** — get recommendations from your own history
+
+## Get Started
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Lowside-Labs/Trove/main/install.sh | bash
-
-# Create a visible workspace instead of the default ~/.trove
-trove init --path ~/Trove
-
-# Trove remembers that workspace for future commands
-trove sync x --browser chrome --limit 20
-
-# Open the workspace in Claude Code
-cd ~/Trove && claude
+trove init
+trove sync x
+trove sync claude
+cd ~/.trove && claude
 ```
 
-If you prefer the default hidden location, omit `--path ~/Trove` and Trove will use `~/.trove`.
-The installer currently expects `Node 22+` to already be installed.
+That's it. Five commands from zero to asking your AI about everything you've saved.
+
+Requires `Node 22+`.
 
 ## How It Works
 
