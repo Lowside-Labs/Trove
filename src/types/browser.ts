@@ -1,4 +1,6 @@
-export type SupportedBrowserId = "chrome" | "dia" | "brave" | "arc";
+export const SUPPORTED_BROWSER_IDS = ["chrome", "dia", "brave", "arc"] as const;
+
+export type SupportedBrowserId = (typeof SUPPORTED_BROWSER_IDS)[number];
 
 export interface BrowserDefinition {
   id: SupportedBrowserId;

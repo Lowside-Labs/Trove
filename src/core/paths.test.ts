@@ -4,11 +4,13 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   findTroveWorkspaceRoot,
+  getSavedSourceBrowserTarget,
   getSavedWorkspaceRoot,
   getTrovePaths,
   resolveCommandWorkspace,
   resolveWorkspaceRoot,
   saveDefaultWorkspaceRoot,
+  saveSourceBrowserTarget,
 } from "./paths.js";
 
 const roots: string[] = [];
@@ -77,6 +79,27 @@ describe("path helpers", () => {
     expect(resolveCommandWorkspace({ cwd })).toEqual({
       root: workspace,
       source: "saved",
+    });
+  });
+
+  it("persists per-source browser targets without overwriting the saved workspace", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "trove-paths-browser-target-test-"));
+    const workspace = path.join(root, "Trove");
+    roots.push(root);
+
+    process.env.HOME = root;
+    process.env.XDG_CONFIG_HOME = path.join(root, ".config");
+
+    saveDefaultWorkspaceRoot(workspace);
+    saveSourceBrowserTarget("substack", {
+      browserId: "dia",
+      profile: "Profile 2",
+    });
+
+    expect(getSavedWorkspaceRoot()).toBe(workspace);
+    expect(getSavedSourceBrowserTarget("substack")).toEqual({
+      browserId: "dia",
+      profile: "Profile 2",
     });
   });
 

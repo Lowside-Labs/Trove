@@ -122,6 +122,10 @@ export async function syncGitHubStars(options: GitHubSyncOptions): Promise<GitHu
   return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
 }
 
+export async function validateGitHubSession(cookieHeader: string): Promise<void> {
+  await fetchStarsPage(cookieHeader, `${GITHUB_BASE_URL}/stars`);
+}
+
 export function formatAvailableGitHubBrowserList(): string {
   return listChromiumBrowsers()
     .filter((browser) => browser.installed)

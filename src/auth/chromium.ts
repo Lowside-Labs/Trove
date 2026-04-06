@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import Database from "better-sqlite3";
-import type { BrowserDefinition, BrowserSession, ResolvedBrowserTarget, SupportedBrowserId } from "../types/browser.js";
+import { SUPPORTED_BROWSER_IDS, type BrowserDefinition, type BrowserSession, type ResolvedBrowserTarget, type SupportedBrowserId } from "../types/browser.js";
 
 const homeDir = os.homedir();
 const MACOS_SALT = "saltysalt";
@@ -94,6 +94,25 @@ export function listChromiumBrowsers(): Array<BrowserDefinition & { installed: b
 
     return result;
   });
+}
+
+export function isSupportedBrowserId(value: string): value is SupportedBrowserId {
+  return SUPPORTED_BROWSER_IDS.some((browserId) => browserId === value);
+}
+
+export function listChromiumProfiles(browserId: SupportedBrowserId): string[] {
+  const browser = browserDefinitions[browserId];
+
+  if (!browser || !fs.existsSync(browser.userDataDir)) {
+    return [];
+  }
+
+  return fs
+    .readdirSync(browser.userDataDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .filter((profile) => fs.existsSync(path.join(browser.userDataDir, profile, "Cookies")))
+    .sort((left, right) => compareChromiumProfiles(browser.defaultProfile, left, right));
 }
 
 export function resolveChromiumBrowser(browserId: SupportedBrowserId, profile?: string): ResolvedBrowserTarget {
@@ -305,10 +324,70 @@ function chromiumEpochToUnixSeconds(value: number): number {
   return Math.floor((value - CHROMIUM_EPOCH_OFFSET) / 1_000_000);
 }
 
+function compareChromiumProfiles(defaultProfile: string, left: string, right: string): number {
+  if (left === right) {
+    return 0;
+  }
+
+  if (left === defaultProfile) {
+    return -1;
+  }
+
+  if (right === defaultProfile) {
+    return 1;
+  }
+
+  const numberedComparison = compareNumberedProfiles(left, right);
+
+  if (numberedComparison !== null) {
+    return numberedComparison;
+  }
+
+  return left.localeCompare(right);
+}
+
+function compareNumberedProfiles(left: string, right: string): number | null {
+  const leftProfile = parseNumberedProfile(left);
+  const rightProfile = parseNumberedProfile(right);
+
+  if (!leftProfile && !rightProfile) {
+    return null;
+  }
+
+  if (!leftProfile) {
+    return 1;
+  }
+
+  if (!rightProfile) {
+    return -1;
+  }
+
+  if (leftProfile.label === rightProfile.label) {
+    return leftProfile.number - rightProfile.number;
+  }
+
+  return leftProfile.label.localeCompare(rightProfile.label);
+}
+
+function parseNumberedProfile(profile: string): { label: string; number: number } | null {
+  const match = profile.match(/^(Profile|Person)\s+(\d+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    label: match[1]!,
+    number: Number.parseInt(match[2]!, 10),
+  };
+}
+
 export const __internal = {
+  compareChromiumProfiles,
   copyCookiesDb,
   databaseHasHostKeyPrefix,
   decryptCookieValue,
   getMacosKeychainPassword,
   loadCookiesFromStore,
+  parseNumberedProfile,
 };

@@ -1,14 +1,16 @@
 import type { ProgressHandler } from "../core/progress.js";
 import type { CommandReport } from "../core/output.js";
+import { getSavedSourceBrowserTarget } from "../core/paths.js";
 import type { SyncStateRecord } from "../db/database.js";
-import type { SupportedBrowserId } from "../types/browser.js";
+import { getChromiumSession, isSupportedBrowserId, listChromiumBrowsers, listChromiumProfiles } from "../auth/chromium.js";
+import { SUPPORTED_BROWSER_IDS, type SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
 import { syncClaudeChats } from "./claude.js";
 import { syncChatGptChats } from "./chatgpt.js";
-import { formatAvailableGitHubBrowserList, syncGitHubStars } from "./github.js";
+import { formatAvailableGitHubBrowserList, syncGitHubStars, validateGitHubSession } from "./github.js";
 import { syncHnFavorites } from "./hn/index.js";
-import { syncSubstackSaved } from "./substack.js";
-import { formatAvailableBrowserList, syncXBookmarks } from "./x.js";
+import { syncSubstackSaved, validateSubstackSession } from "./substack.js";
+import { formatAvailableBrowserList, syncXBookmarks, validateXSession } from "./x.js";
 
 export interface SyncCommandOptions {
   browser: string;
@@ -49,6 +51,7 @@ export interface SyncSourceDefinition {
   id: string;
   metadata: SyncSourceMetadata;
   expandSyncRuns?(options: SyncCommandOptions): SyncCommandOptions[];
+  resolveOptions?(args: { options: SyncCommandOptions; onProgress?: ProgressHandler }): Promise<SyncCommandOptions>;
   createScope(options: SyncCommandOptions): string;
   shouldPersistState?: boolean;
   sync(args: {
@@ -162,6 +165,18 @@ const githubSource: SyncSourceDefinition = {
   expandSyncRuns(options) {
     return expandKindRuns(this.metadata, options);
   },
+  async resolveOptions({ options, onProgress }) {
+    return resolveCookieBackedOptions(
+      "github",
+      options,
+      {
+        sourceLabel: "GitHub",
+        domains: ["https://github.com/"],
+        validateSession: validateGitHubSession,
+      },
+      onProgress,
+    );
+  },
   createScope(options) {
     return `${options.browser}:${options.profile ?? "Default"}:stars`;
   },
@@ -224,6 +239,18 @@ const xSource: SyncSourceDefinition = {
   },
   expandSyncRuns(options) {
     return expandKindRuns(this.metadata, options);
+  },
+  async resolveOptions({ options, onProgress }) {
+    return resolveCookieBackedOptions(
+      "x",
+      options,
+      {
+        sourceLabel: "X",
+        domains: ["https://x.com/", "https://twitter.com/"],
+        validateSession: validateXSession,
+      },
+      onProgress,
+    );
   },
   createScope(options) {
     return `${options.browser}:${options.profile ?? "Default"}:${normalizeXKind(options.kind)}`;
@@ -361,6 +388,18 @@ const substackSource: SyncSourceDefinition = {
   expandSyncRuns(options) {
     return expandKindRuns(this.metadata, options);
   },
+  async resolveOptions({ options, onProgress }) {
+    return resolveCookieBackedOptions(
+      "substack",
+      options,
+      {
+        sourceLabel: "Substack",
+        domains: ["https://substack.com/", "https://www.substack.com/"],
+        validateSession: validateSubstackSession,
+      },
+      onProgress,
+    );
+  },
   createScope(options) {
     return `${options.browser}:${options.profile ?? "Default"}:${options.kind ?? "saved"}`;
   },
@@ -407,6 +446,21 @@ const substackSource: SyncSourceDefinition = {
     };
   },
 };
+
+interface CookieSourceAuthConfig {
+  sourceLabel: string;
+  domains: string[];
+  validateSession(cookieHeader: string): Promise<void>;
+}
+
+interface CookieProbeCandidate {
+  browserId: SupportedBrowserId;
+  profile?: string;
+}
+
+interface CookieProbeFailure extends CookieProbeCandidate {
+  message: string;
+}
 
 const syncSources = [claudeSource, chatGptSource, githubSource, hnSource, substackSource, xSource];
 
@@ -467,6 +521,207 @@ export function formatSupportedKindsHelp(): string {
     .join("; ");
 }
 
+async function resolveCookieBackedOptions(
+  sourceId: string,
+  options: SyncCommandOptions,
+  auth: CookieSourceAuthConfig,
+  onProgress?: ProgressHandler,
+): Promise<SyncCommandOptions> {
+  if (process.platform !== "darwin") {
+    throw new Error("The seamless Chromium session provider is only implemented for macOS right now.");
+  }
+
+  const requestedBrowser = normalizeRequestedBrowser(options.browser);
+  const rememberedTarget = getRememberedCookieTarget(sourceId, requestedBrowser);
+  const candidates = buildCookieProbeCandidates(requestedBrowser, options.profile, rememberedTarget);
+
+  if (candidates.length === 0) {
+    throw new Error(formatMissingChromiumCandidateError(auth.sourceLabel));
+  }
+
+  if (candidates.length > 1) {
+    onProgress?.({
+      phase: "bootstrap",
+      message: `Scanning Chromium sessions for ${auth.sourceLabel}`,
+    });
+  }
+
+  const failures: CookieProbeFailure[] = [];
+
+  for (const candidate of candidates) {
+    const label = formatCookieProbeLabel(candidate);
+    onProgress?.({
+      phase: "bootstrap",
+      message: `Checking ${label} for ${auth.sourceLabel}`,
+    });
+
+    try {
+      const session = await getChromiumSession(candidate.browserId, candidate.profile, auth.domains, auth.sourceLabel);
+      await auth.validateSession(session.cookieHeader);
+      onProgress?.({
+        phase: "bootstrap",
+        message: `Using ${label} for ${auth.sourceLabel}`,
+      });
+      return {
+        ...options,
+        browser: candidate.browserId,
+        ...(candidate.profile ? { profile: candidate.profile } : {}),
+      };
+    } catch (error) {
+      failures.push({
+        ...candidate,
+        message: compactErrorMessage(error),
+      });
+    }
+  }
+
+  throw new Error(formatCookieProbeError(auth.sourceLabel, failures));
+}
+
+function normalizeRequestedBrowser(browser: string | undefined): SupportedBrowserId | undefined {
+  const normalized = browser?.trim().toLowerCase();
+
+  if (!normalized || normalized === "auto") {
+    return undefined;
+  }
+
+  if (!isSupportedBrowserId(normalized)) {
+    throw new Error(`Unsupported browser "${browser}". Supported browsers: auto, ${SUPPORTED_BROWSER_IDS.join(", ")}.`);
+  }
+
+  return normalized;
+}
+
+function getRememberedCookieTarget(
+  sourceId: string,
+  requestedBrowser: SupportedBrowserId | undefined,
+): CookieProbeCandidate | undefined {
+  const target = getSavedSourceBrowserTarget(sourceId);
+
+  if (!target || !isSupportedBrowserId(target.browserId)) {
+    return undefined;
+  }
+
+  if (requestedBrowser && target.browserId !== requestedBrowser) {
+    return undefined;
+  }
+
+  return {
+    browserId: target.browserId,
+    ...(target.profile ? { profile: target.profile } : {}),
+  };
+}
+
+function buildCookieProbeCandidates(
+  requestedBrowser: SupportedBrowserId | undefined,
+  requestedProfile: string | undefined,
+  rememberedTarget: CookieProbeCandidate | undefined,
+): CookieProbeCandidate[] {
+  const candidates: CookieProbeCandidate[] = [];
+  const seen = new Set<string>();
+  const browsers = listChromiumBrowsers();
+  const selectedBrowsers = requestedBrowser
+    ? browsers.filter((browser) => browser.id === requestedBrowser)
+    : browsers
+        .filter((browser) => browser.installed)
+        .sort((left, right) => compareCookieProbeBrowsers(left, right, rememberedTarget?.browserId));
+
+  for (const browser of selectedBrowsers) {
+    const rememberedProfile = rememberedTarget?.browserId === browser.id ? rememberedTarget.profile : undefined;
+    const profiles = requestedProfile
+      ? [requestedProfile]
+      : prioritizeRememberedProfile(listChromiumProfiles(browser.id), rememberedProfile);
+
+    if (profiles.length === 0) {
+      if (requestedBrowser === browser.id) {
+        pushCookieProbeCandidate(candidates, seen, browser.id, rememberedProfile ?? browser.defaultProfile);
+      }
+      continue;
+    }
+
+    for (const profile of profiles) {
+      pushCookieProbeCandidate(candidates, seen, browser.id, profile);
+    }
+  }
+
+  if (!requestedBrowser && rememberedTarget) {
+    pushCookieProbeCandidate(candidates, seen, rememberedTarget.browserId, rememberedTarget.profile);
+  }
+
+  return candidates;
+}
+
+function compareCookieProbeBrowsers(
+  left: ReturnType<typeof listChromiumBrowsers>[number],
+  right: ReturnType<typeof listChromiumBrowsers>[number],
+  rememberedBrowserId?: SupportedBrowserId,
+): number {
+  if (rememberedBrowserId && left.id === rememberedBrowserId && right.id !== rememberedBrowserId) {
+    return -1;
+  }
+
+  if (rememberedBrowserId && right.id === rememberedBrowserId && left.id !== rememberedBrowserId) {
+    return 1;
+  }
+
+  if (left.cookieSupport !== right.cookieSupport) {
+    return left.cookieSupport === "verified" ? -1 : 1;
+  }
+
+  return SUPPORTED_BROWSER_IDS.indexOf(left.id) - SUPPORTED_BROWSER_IDS.indexOf(right.id);
+}
+
+function prioritizeRememberedProfile(profiles: string[], rememberedProfile?: string): string[] {
+  if (!rememberedProfile || !profiles.includes(rememberedProfile)) {
+    return profiles;
+  }
+
+  return [rememberedProfile, ...profiles.filter((profile) => profile !== rememberedProfile)];
+}
+
+function pushCookieProbeCandidate(
+  candidates: CookieProbeCandidate[],
+  seen: Set<string>,
+  browserId: SupportedBrowserId,
+  profile?: string,
+): void {
+  const key = `${browserId}:${profile ?? ""}`;
+
+  if (seen.has(key)) {
+    return;
+  }
+
+  seen.add(key);
+  candidates.push({
+    browserId,
+    ...(profile ? { profile } : {}),
+  });
+}
+
+function formatMissingChromiumCandidateError(sourceLabel: string): string {
+  const installedBrowsers = listChromiumBrowsers().filter((browser) => browser.installed);
+
+  if (installedBrowsers.length === 0) {
+    return `No supported Chromium browsers were found for ${sourceLabel}. Install Chrome, Dia, Brave, or Arc, or override the browser selection manually.`;
+  }
+
+  return `No Chromium profiles with cookies were found for ${sourceLabel}. Confirm that you have signed in through one of the installed browsers first.`;
+}
+
+function formatCookieProbeError(sourceLabel: string, failures: CookieProbeFailure[]): string {
+  const details = failures.map((failure) => `${formatCookieProbeLabel(failure)}: ${failure.message}`).join("; ");
+  return `Could not find an authenticated ${sourceLabel} session automatically. Checked ${details}.`;
+}
+
+function formatCookieProbeLabel(candidate: CookieProbeCandidate): string {
+  return `${candidate.browserId}/${candidate.profile ?? "Default"}`;
+}
+
+function compactErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replace(/\s+/g, " ").trim();
+}
+
 function expandKindRuns(metadata: SyncSourceMetadata, options: SyncCommandOptions): SyncCommandOptions[] {
   const canonicalKind = options.kind ? canonicalizeMetadataKind(metadata, options.kind) ?? options.kind : undefined;
 
@@ -492,3 +747,12 @@ function canonicalizeMetadataKind(metadata: SyncSourceMetadata, kind: string): s
 
   return undefined;
 }
+
+export const __internal = {
+  buildCookieProbeCandidates,
+  compactErrorMessage,
+  formatCookieProbeError,
+  normalizeRequestedBrowser,
+  prioritizeRememberedProfile,
+  resolveCookieBackedOptions,
+};

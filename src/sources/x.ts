@@ -181,6 +181,31 @@ export async function syncXBookmarks(options: XSyncOptions): Promise<XSyncResult
   }
 }
 
+export async function validateXSession(cookieHeader: string): Promise<void> {
+  const response = await fetch(X_BOOKMARKS_URL, {
+    headers: {
+      accept: "text/html,*/*",
+      cookie: cookieHeader,
+      "user-agent": "Mozilla/5.0",
+    },
+    redirect: "follow",
+  });
+  const html = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`X authentication check failed with ${response.status}: ${html.slice(0, 200)}`);
+  }
+
+  if (
+    response.url.includes("/i/flow/login") ||
+    response.url.includes("/login") ||
+    html.includes('href="/login"') ||
+    html.includes('data-testid="loginButton"')
+  ) {
+    throw new Error("X is not logged in in the selected browser profile.");
+  }
+}
+
 export function formatAvailableBrowserList(): string {
   return listChromiumBrowsers()
     .filter((browser) => browser.installed)

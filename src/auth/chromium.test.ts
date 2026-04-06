@@ -5,30 +5,35 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const execFile = vi.fn();
+const Database = vi.fn();
 const prepare = vi.fn();
 const close = vi.fn();
 const all = vi.fn();
 const get = vi.fn();
+const originalHome = process.env.HOME;
 
 vi.mock("node:child_process", () => ({
   execFile,
 }));
 
 vi.mock("better-sqlite3", () => ({
-  default: vi.fn().mockImplementation(() => ({
-    prepare,
-    close,
-  })),
+  default: Database,
 }));
 
 const roots: string[] = [];
 
 beforeEach(() => {
+  vi.resetModules();
+  Database.mockReset();
   execFile.mockReset();
   prepare.mockReset();
   close.mockReset();
   all.mockReset();
   get.mockReset();
+  Database.mockImplementation(() => ({
+    prepare,
+    close,
+  }));
   prepare.mockImplementation((sql: string) => {
     if (sql.includes("FROM meta")) {
       return { get };
@@ -45,6 +50,12 @@ afterEach(() => {
   for (const root of roots.splice(0)) {
     fs.rmSync(root, { recursive: true, force: true });
   }
+
+  if (originalHome === undefined) {
+    delete process.env.HOME;
+  } else {
+    process.env.HOME = originalHome;
+  }
 });
 
 function encryptCookieValue(value: string, decryptionKey: Buffer, includeHostKeyPrefix: boolean): Buffer {
@@ -58,6 +69,24 @@ function encryptCookieValue(value: string, decryptionKey: Buffer, includeHostKey
 }
 
 describe("chromium cookie loading", () => {
+  it("lists cookie-backed profiles with Default first and numbered profiles sorted", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "trove-chromium-profiles-test-"));
+    const chromeDir = path.join(root, "Library", "Application Support", "Google", "Chrome");
+    roots.push(root);
+
+    process.env.HOME = root;
+    for (const profile of ["Profile 10", "Profile 2", "Default", "Profile 1"]) {
+      fs.mkdirSync(path.join(chromeDir, profile), { recursive: true });
+      fs.writeFileSync(path.join(chromeDir, profile, "Cookies"), "placeholder");
+    }
+    fs.mkdirSync(path.join(chromeDir, "System Profile"), { recursive: true });
+
+    vi.resetModules();
+    const { listChromiumProfiles } = await import("./chromium.js");
+
+    expect(listChromiumProfiles("chrome")).toEqual(["Default", "Profile 1", "Profile 2", "Profile 10"]);
+  });
+
   it("removes the temporary cookies directory after reading the copied database", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "trove-chromium-test-"));
     roots.push(root);

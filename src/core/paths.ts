@@ -21,6 +21,12 @@ export interface ResolveWorkspaceRootOptions {
 
 interface TroveConfig {
   defaultWorkspace?: string;
+  sourceBrowserTargets?: Record<string, SavedSourceBrowserTarget>;
+}
+
+export interface SavedSourceBrowserTarget {
+  browserId: string;
+  profile?: string;
 }
 
 export interface CommandWorkspaceResolution {
@@ -65,35 +71,41 @@ export function workspaceExists(root: string): boolean {
 }
 
 export function getSavedWorkspaceRoot(): string | undefined {
-  const configPath = getTroveConfigPath();
-
-  if (!fs.existsSync(configPath)) {
-    return undefined;
-  }
-
-  try {
-    const parsed = JSON.parse(fs.readFileSync(configPath, "utf8")) as TroveConfig;
-    return typeof parsed.defaultWorkspace === "string" && parsed.defaultWorkspace.length > 0
-      ? path.resolve(parsed.defaultWorkspace)
-      : undefined;
-  } catch {
-    return undefined;
-  }
+  const parsed = readTroveConfig();
+  return typeof parsed.defaultWorkspace === "string" && parsed.defaultWorkspace.length > 0
+    ? path.resolve(parsed.defaultWorkspace)
+    : undefined;
 }
 
 export function saveDefaultWorkspaceRoot(root: string): void {
-  fs.mkdirSync(getTroveConfigDir(), { recursive: true });
-  fs.writeFileSync(
-    getTroveConfigPath(),
-    JSON.stringify(
-      {
-        defaultWorkspace: path.resolve(root),
-      } satisfies TroveConfig,
-      null,
-      2,
-    ),
-    "utf8",
-  );
+  const config = readTroveConfig();
+  config.defaultWorkspace = path.resolve(root);
+  writeTroveConfig(config);
+}
+
+export function getSavedSourceBrowserTarget(sourceId: string): SavedSourceBrowserTarget | undefined {
+  const config = readTroveConfig();
+  const target = config.sourceBrowserTargets?.[sourceId];
+
+  if (!target || typeof target.browserId !== "string" || target.browserId.length === 0) {
+    return undefined;
+  }
+
+  return {
+    browserId: target.browserId,
+    ...(typeof target.profile === "string" && target.profile.length > 0 ? { profile: target.profile } : {}),
+  };
+}
+
+export function saveSourceBrowserTarget(sourceId: string, target: SavedSourceBrowserTarget): void {
+  const config = readTroveConfig();
+  const sourceBrowserTargets = { ...(config.sourceBrowserTargets ?? {}) };
+  sourceBrowserTargets[sourceId] = {
+    browserId: target.browserId,
+    ...(target.profile ? { profile: target.profile } : {}),
+  };
+  config.sourceBrowserTargets = sourceBrowserTargets;
+  writeTroveConfig(config);
 }
 
 export function resolveWorkspaceRoot(options: ResolveWorkspaceRootOptions = {}): string | undefined {
@@ -196,4 +208,24 @@ export function getTrovePaths(root = process.env.TROVE_HOME): TrovePaths {
     logDir: path.join(resolvedRoot, "logs"),
     dbPath: path.join(resolvedRoot, "data", "trove.db"),
   };
+}
+
+function readTroveConfig(): TroveConfig {
+  const configPath = getTroveConfigPath();
+
+  if (!fs.existsSync(configPath)) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(configPath, "utf8")) as TroveConfig;
+    return typeof parsed === "object" && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeTroveConfig(config: TroveConfig): void {
+  fs.mkdirSync(getTroveConfigDir(), { recursive: true });
+  fs.writeFileSync(getTroveConfigPath(), JSON.stringify(config, null, 2), "utf8");
 }

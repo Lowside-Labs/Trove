@@ -12,6 +12,7 @@
   "scripts": {
     "build": "tsup src/cli.ts --format esm --target node22 --dts --clean",
     "dev": "tsx src/cli.ts",
+    "dev:local": "tsx scripts/dev-local.ts",
     "reset-local": "tsx scripts/reset-local.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

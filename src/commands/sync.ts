@@ -1,6 +1,8 @@
 import { Command } from "commander";
+import { isSupportedBrowserId } from "../auth/chromium.js";
 import { buildVaultSummarySection, runArchivePostProcessing } from "../core/archive.js";
 import { TerminalOutput, renderCommandRunReports, type CommandRunReport } from "../core/output.js";
+import { saveSourceBrowserTarget } from "../core/paths.js";
 import { TaskDashboardRenderer, formatRunLabel, type ProgressHandler } from "../core/progress.js";
 import { getSyncState, upsertItems, upsertSyncState, withDatabase, type UpsertItemsResult } from "../db/database.js";
 import {
@@ -16,7 +18,7 @@ export function createSyncCommand() {
   return new Command("sync")
     .description("Sync content from a source into the Trove workspace.")
     .argument("<source>", `Source adapter to run, currently: ${listSyncSourceIds().join(" | ")}`)
-    .option("--browser <browser>", "Chromium browser id to use for seamless session reuse", "chrome")
+    .option("--browser <browser>", "Chromium browser id to use for seamless session reuse", "auto")
     .option("--profile <profile>", "Browser profile to read cookies from")
     .option("--limit <number>", "Maximum number of items to import")
     .option("--cdp-url <url>", "Attach to a live Chromium browser over CDP, for example http://127.0.0.1:9222")
@@ -94,10 +96,16 @@ async function runSingleSync(
   limit: number | undefined,
   onProgress?: ProgressHandler,
 ): Promise<{ count: number; summary?: SyncSummary }> {
-  const scope = syncSource.createScope(commandOptions);
+  const resolvedOptions = syncSource.resolveOptions
+    ? await syncSource.resolveOptions({
+        options: commandOptions,
+        ...(onProgress ? { onProgress } : {}),
+      })
+    : commandOptions;
+  const scope = syncSource.createScope(resolvedOptions);
   const state = syncSource.shouldPersistState ? withDatabase((db) => getSyncState(db, sourceId, scope)) : null;
   const syncResult = await syncSource.sync({
-    options: commandOptions,
+    options: resolvedOptions,
     state,
     ...(limit !== undefined ? { limit } : {}),
     ...(onProgress ? { onProgress } : {}),
@@ -109,7 +117,7 @@ async function runSingleSync(
   const writeResult = withDatabase((db) => {
     const importResult = upsertItems(db, syncResult.items);
     const nextState = syncSource.buildSyncState?.({
-      options: commandOptions,
+      options: resolvedOptions,
       importedCount: importResult.insertedCount,
       result: syncResult,
       scope,
@@ -122,6 +130,12 @@ async function runSingleSync(
     return importResult;
   });
   const count = writeResult.insertedCount;
+  if (syncSource.metadata.authMode === "cookie" && isSupportedBrowserId(resolvedOptions.browser)) {
+    saveSourceBrowserTarget(sourceId, {
+      browserId: resolvedOptions.browser,
+      ...(resolvedOptions.profile ? { profile: resolvedOptions.profile } : {}),
+    });
+  }
   onProgress?.({
     phase: "persist",
     message: formatPersistenceMessage(writeResult),
@@ -130,7 +144,7 @@ async function runSingleSync(
   });
 
   const summary = syncSource.getSummary?.({
-    options: commandOptions,
+    options: resolvedOptions,
     state,
     result: syncResult,
     scope,

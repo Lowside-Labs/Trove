@@ -152,6 +152,10 @@ export async function syncSubstackSaved(options: SubstackSyncOptions): Promise<S
   return nextCursor ? { items, rawPath: rawSink.path, nextCursor } : { items, rawPath: rawSink.path };
 }
 
+export async function validateSubstackSession(cookieHeader: string): Promise<void> {
+  await fetchSavedPostsPage(cookieHeader, 0, 1);
+}
+
 async function syncSubstackLikes(
   cookieHeader: string,
   rawSink: { path: string; append(entry: Record<string, unknown>): void },
