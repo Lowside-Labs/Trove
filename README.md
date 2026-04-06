@@ -97,9 +97,11 @@ curl -fsSL https://raw.githubusercontent.com/Lowside-Labs/Trove/main/install.sh 
 
 The installer:
 
-- downloads the current `main` branch from GitHub
+- downloads the latest GitHub release by default
 - installs Trove under `~/.local/share/trove` by default
 - links the `trove` binary into `~/.local/bin`
+
+To install a specific tagged release, set `TROVE_VERSION`, for example `TROVE_VERSION=v0.1.0`.
 
 If `~/.local/bin` is not on your `PATH`, the installer tells you what to add.
 
@@ -155,3 +157,15 @@ pnpm dev:local -- reset
 ```
 
 `pnpm dev:local` keeps your real `HOME` so Chromium cookies still resolve, but isolates `XDG_CONFIG_HOME` and the Trove workspace under `.tmp/local-dev/` for repeatable testing.
+
+## Releasing
+
+Trove uses `release-it` for lightweight release management.
+
+```bash
+pnpm release patch
+pnpm release minor
+pnpm release major
+```
+
+For the first tagged release, use an exact version such as `pnpm release 0.1.0`. See `RELEASING.md` for the full checklist.

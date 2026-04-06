@@ -6,6 +6,7 @@
     "dev": "node scripts/run-trove-entry.mjs src/cli.ts",
     "dev:local": "node scripts/run-trove-entry.mjs scripts/dev-local.ts",
     "reset-local": "node scripts/run-trove-entry.mjs scripts/reset-local.ts",
+    "release": "node scripts/run-release.mjs",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "lint": "oxlint .",
@@ -16,8 +17,10 @@
     "clean": "turbo run clean && rm -rf node_modules .turbo"
   },
   "devDependencies": {
+    "@release-it/bumper": "^7.0.5",
     "oxfmt": "^0.43.0",
     "oxlint": "^1.58.0",
+    "release-it": "^19.2.4",
     "turbo": "^2.9.4"
   },
   "engines": {

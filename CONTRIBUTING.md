@@ -24,6 +24,16 @@ pnpm test
 
 If the database tests fail with a native-module ABI mismatch, switch to Node 22 and rerun the suite.
 
+## Release workflow
+
+Use the repo release command rather than tagging manually:
+
+```bash
+pnpm release patch
+```
+
+See `RELEASING.md` for the full release process.
+
 ## Project layout
 
 - `packages/trove-cli/src/commands/`: CLI commands

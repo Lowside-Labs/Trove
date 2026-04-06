@@ -5,12 +5,13 @@ set -euo pipefail
 REPO_OWNER="${TROVE_REPO_OWNER:-Lowside-Labs}"
 REPO_NAME="${TROVE_REPO_NAME:-Trove}"
 REPO_BRANCH="${TROVE_REPO_BRANCH:-main}"
-ARCHIVE_URL="${TROVE_ARCHIVE_URL:-https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${REPO_BRANCH}.tar.gz}"
+TROVE_VERSION="${TROVE_VERSION:-}"
+ARCHIVE_URL="${TROVE_ARCHIVE_URL:-}"
 
 INSTALL_ROOT="${TROVE_INSTALL_ROOT:-${XDG_DATA_HOME:-$HOME/.local/share}/trove}"
 BIN_DIR="${TROVE_BIN_DIR:-$HOME/.local/bin}"
 TMP_DIR="$(mktemp -d)"
-SOURCE_DIR="${TMP_DIR}/${REPO_NAME}-${REPO_BRANCH}"
+SOURCE_DIR=""
 PACKAGE_MANAGER_CMD=()
 
 cleanup() {
@@ -51,12 +52,41 @@ resolve_package_manager() {
   fail "missing required command: pnpm (or corepack)"
 }
 
+resolve_archive_url() {
+  if [ -n "$ARCHIVE_URL" ]; then
+    return
+  fi
+
+  if [ -n "$TROVE_VERSION" ]; then
+    ARCHIVE_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/tags/${TROVE_VERSION}.tar.gz"
+    return
+  fi
+
+  local latest_tag=""
+  latest_tag="$(
+    curl -fsSL -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest" \
+      | node --input-type=module -e "let body=''; process.stdin.on('data', (chunk) => body += chunk); process.stdin.on('end', () => { try { const payload = JSON.parse(body); if (typeof payload.tag_name === 'string' && payload.tag_name.length > 0) process.stdout.write(payload.tag_name); } catch {} });"
+  )" || latest_tag=""
+
+  if [ -n "$latest_tag" ]; then
+    ARCHIVE_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/tags/${latest_tag}.tar.gz"
+    return
+  fi
+
+  ARCHIVE_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${REPO_BRANCH}.tar.gz"
+}
+
 download_source() {
   need_cmd curl
   need_cmd tar
 
   printf 'Downloading %s...\n' "$ARCHIVE_URL"
   curl -fsSL "$ARCHIVE_URL" | tar -xz -C "$TMP_DIR"
+  SOURCE_DIR="$(find "$TMP_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+
+  if [ -z "$SOURCE_DIR" ]; then
+    fail "could not determine extracted source directory"
+  fi
 }
 
 install_trove() {
@@ -101,6 +131,7 @@ main() {
   trap cleanup EXIT
   check_node
   resolve_package_manager
+  resolve_archive_url
   download_source
   install_trove
   print_next_steps

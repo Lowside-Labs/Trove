@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createRequire } from "node:module";
 import { Command } from "commander";
 import { createHydrateCommand } from "./commands/hydrate.js";
 import { createIndexCommand } from "./commands/index.js";
@@ -10,11 +11,14 @@ import { createSyncCommand } from "./commands/sync.js";
 import { TerminalOutput } from "./core/output.js";
 import { resolveCommandWorkspace } from "./core/paths.js";
 
+const require = createRequire(import.meta.url);
+const packageJson = require("../package.json") as { version: string };
+
 const program = new Command()
   .name("trove")
   .description("Turn your saved web material into a local knowledge workspace for AI agents.")
   .option("--home <path>", "Path to the Trove workspace (overrides the remembered workspace)")
-  .version("0.1.0");
+  .version(packageJson.version);
 
 program.hook("preAction", (_thisCommand, actionCommand) => {
   if (actionCommand.name() === "init") {
