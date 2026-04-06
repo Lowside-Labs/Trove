@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright-core";
+import { fetchJsonFromGoogleChromeTab, findGoogleChromeTab, type GoogleChromeFetchResponse, type GoogleChromeTabTarget } from "../auth/google-chrome.js";
 import { ensureTroveDirs } from "../core/fs.js";
 import { createJsonlSink, createTimestampedFileName } from "../core/raw.js";
 import type { ProgressHandler } from "../core/progress.js";
@@ -14,6 +15,7 @@ const MAX_STALLED_LIST_PAGES = 3;
 
 interface ClaudeSyncOptions {
   cdpUrl?: string;
+  sessionMode?: "cdp" | "chrome-live";
   limit?: number;
   onProgress?: ProgressHandler;
 }
@@ -68,12 +70,16 @@ interface ClaudeContentBlock {
 }
 
 export async function syncClaudeChats(options: ClaudeSyncOptions): Promise<ClaudeSyncResult> {
-  const cdpUrl = options.cdpUrl?.trim() || DEFAULT_CDP_URL;
   const rawSink = createJsonlSink("claude", createTimestampedFileName("live-browser"));
   const paths = ensureTroveDirs();
   const contentDir = path.join(paths.contentDir, "claude");
   fs.mkdirSync(contentDir, { recursive: true });
 
+  if (options.sessionMode === "chrome-live") {
+    return syncClaudeChatsFromChromeTab(rawSink, contentDir, options);
+  }
+
+  const cdpUrl = options.cdpUrl?.trim() || DEFAULT_CDP_URL;
   const browser = await chromium.connectOverCDP(cdpUrl);
   emitProgress(options.onProgress, "bootstrap", "Attaching to Claude browser session");
   const page = await getClaudePage(browser);
@@ -90,6 +96,52 @@ export async function syncClaudeChats(options: ClaudeSyncOptions): Promise<Claud
     emitProgress(options.onProgress, "detail", `Fetching Claude conversation ${completed + 1}`, completed, total);
     const detailResponse = await fetchClaudeJson(
       page,
+      `/api/organizations/${orgId}/chat_conversations/${summary.id}?tree=True&rendering_mode=messages&render_all_tools=true&consistency=eventual`,
+    );
+    assertSuccessfulResponse(detailResponse, `Claude conversation ${summary.id}`);
+
+    const detail = parseConversationDetail(detailResponse.body);
+    rawSink.append({
+      kind: "detail",
+      orgId,
+      conversationId: summary.id,
+      payload: detailResponse.body as Record<string, unknown>,
+    });
+
+    const markdown = renderConversationMarkdown(detail);
+    const markdownPath = writeConversationMarkdown(contentDir, detail, markdown);
+    items.push(toTroveItem(summary, detail, markdown, markdownPath));
+    completed += 1;
+    emitProgress(options.onProgress, "detail", `Rendered Claude conversation ${completed}`, completed, total);
+  }
+
+  return { items, rawPath: rawSink.path, contentPath: contentDir };
+}
+
+async function syncClaudeChatsFromChromeTab(
+  rawSink: ReturnType<typeof createJsonlSink>,
+  contentDir: string,
+  options: ClaudeSyncOptions,
+): Promise<ClaudeSyncResult> {
+  emitProgress(options.onProgress, "bootstrap", "Finding the active Google Chrome Claude tab");
+  const tab = await findGoogleChromeTab([CLAUDE_HOST]);
+
+  if (!tab) {
+    throw new Error("No open Google Chrome tab for Claude was found.");
+  }
+
+  emitProgress(options.onProgress, "bootstrap", "Discovering Claude organization from the active Google Chrome tab");
+  const orgId = await discoverOrganizationIdFromChromeTab(tab);
+  const requestedLimit = options.limit;
+  const summaries = await fetchConversationSummariesFromChromeTab(tab, orgId, requestedLimit, rawSink, options.onProgress);
+  const items: TroveItem[] = [];
+  const total = summaries.length;
+  let completed = 0;
+
+  for (const summary of summaries) {
+    emitProgress(options.onProgress, "detail", `Fetching Claude conversation ${completed + 1}`, completed, total);
+    const detailResponse = await fetchClaudeJsonFromChromeTab(
+      tab,
       `/api/organizations/${orgId}/chat_conversations/${summary.id}?tree=True&rendering_mode=messages&render_all_tools=true&consistency=eventual`,
     );
     assertSuccessfulResponse(detailResponse, `Claude conversation ${summary.id}`);
@@ -158,6 +210,24 @@ async function discoverOrganizationId(page: Page): Promise<string> {
   }
 
   throw new Error("Could not determine the active Claude organization id from the live browser session.");
+}
+
+async function discoverOrganizationIdFromChromeTab(tab: GoogleChromeTabTarget): Promise<string> {
+  const orgIdFromUrl = extractOrganizationIdFromText(tab.url);
+
+  if (orgIdFromUrl) {
+    return orgIdFromUrl;
+  }
+
+  const discoverableResponse = await fetchClaudeJsonFromChromeTab(tab, "/api/organizations/discoverable");
+  assertSuccessfulResponse(discoverableResponse, "Claude discoverable organizations");
+  const orgIdFromDiscoverable = extractOrganizationIdFromPayload(discoverableResponse.body);
+
+  if (orgIdFromDiscoverable) {
+    return orgIdFromDiscoverable;
+  }
+
+  throw new Error("Could not determine the active Claude organization id from the active Google Chrome tab.");
 }
 
 function extractOrganizationIdFromText(value: string): string | null {
@@ -237,6 +307,67 @@ async function fetchConversationSummaries(
   return requestedLimit === undefined ? summaries : summaries.slice(0, requestedLimit);
 }
 
+async function fetchConversationSummariesFromChromeTab(
+  tab: GoogleChromeTabTarget,
+  orgId: string,
+  requestedLimit: number | undefined,
+  rawSink: ReturnType<typeof createJsonlSink>,
+  onProgress?: ProgressHandler,
+): Promise<ClaudeConversationSummary[]> {
+  const summaries: ClaudeConversationSummary[] = [];
+  const seenIds = new Set<string>();
+  let offset = 0;
+  let hasMore = true;
+  let pageNumber = 1;
+  let stalledPages = 0;
+
+  while (hasMore && (requestedLimit === undefined || summaries.length < requestedLimit)) {
+    emitProgress(onProgress, "page", `Fetching Claude conversations page ${pageNumber}`, summaries.length);
+    const response = await fetchClaudeJsonFromChromeTab(
+      tab,
+      `/api/organizations/${orgId}/chat_conversations_v2?limit=${LIST_PAGE_SIZE}&offset=${offset}&starred=false&consistency=eventual`,
+    );
+    assertSuccessfulResponse(response, `Claude conversation list page at offset ${offset}`);
+    rawSink.append({
+      kind: "list",
+      orgId,
+      offset,
+      payload: response.body as Record<string, unknown>,
+    });
+
+    const pageSummaries = extractConversationSummaries(response.body);
+    let importedCount = 0;
+
+    for (const summary of pageSummaries) {
+      if (seenIds.has(summary.id)) {
+        continue;
+      }
+
+      summaries.push(summary);
+      seenIds.add(summary.id);
+      importedCount += 1;
+    }
+
+    hasMore = readHasMore(response.body);
+
+    if (pageSummaries.length === 0) {
+      break;
+    }
+
+    stalledPages = importedCount === 0 ? stalledPages + 1 : 0;
+
+    if (stalledPages >= MAX_STALLED_LIST_PAGES) {
+      break;
+    }
+
+    offset += LIST_PAGE_SIZE;
+    emitProgress(onProgress, "page", `Fetched Claude conversations page ${pageNumber}`, summaries.length);
+    pageNumber += 1;
+  }
+
+  return requestedLimit === undefined ? summaries : summaries.slice(0, requestedLimit);
+}
+
 async function fetchClaudeJson(page: Page, pathValue: string): Promise<ClaudeFetchResponse> {
   return page.evaluate(async (relativePath) => {
     const response = await fetch(relativePath, {
@@ -263,6 +394,15 @@ async function fetchClaudeJson(page: Page, pathValue: string): Promise<ClaudeFet
       };
     }
   }, pathValue);
+}
+
+async function fetchClaudeJsonFromChromeTab(tab: GoogleChromeTabTarget, pathValue: string): Promise<GoogleChromeFetchResponse> {
+  return fetchJsonFromGoogleChromeTab(tab, {
+    path: pathValue,
+    headers: {
+      accept: "application/json",
+    },
+  });
 }
 
 function assertSuccessfulResponse(response: ClaudeFetchResponse, label: string) {

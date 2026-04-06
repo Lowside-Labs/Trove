@@ -130,7 +130,7 @@ async function runSingleSync(
     return importResult;
   });
   const count = writeResult.insertedCount;
-  if (syncSource.metadata.authMode === "cookie" && isSupportedBrowserId(resolvedOptions.browser)) {
+  if ((syncSource.metadata.authMode === "cookie" || syncSource.metadata.authMode === "cdp") && isSupportedBrowserId(resolvedOptions.browser)) {
     saveSourceBrowserTarget(sourceId, {
       browserId: resolvedOptions.browser,
       ...(resolvedOptions.profile ? { profile: resolvedOptions.profile } : {}),

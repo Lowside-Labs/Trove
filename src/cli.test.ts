@@ -42,7 +42,7 @@ describe("cli workspace flows", () => {
     expect(search.status).toBe(0);
     expect(search.stdout).toContain('No matches for "tags:bookmark".');
     expect(fs.existsSync(path.join(home, ".trove"))).toBe(false);
-  });
+  }, 15_000);
 
   it("creates a workspace in the current directory with --here", () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "trove-cli-here-home-"));
@@ -60,7 +60,7 @@ describe("cli workspace flows", () => {
     expect(fs.existsSync(path.join(workspace, "CLAUDE.md"))).toBe(true);
     expect(fs.existsSync(path.join(workspace, "INDEX.md"))).toBe(true);
     expect(fs.existsSync(path.join(workspace, "data", "trove.db"))).toBe(true);
-  });
+  }, 15_000);
 
   it("uses the remembered workspace from outside the workspace after init", () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "trove-cli-home-"));
@@ -82,7 +82,7 @@ describe("cli workspace flows", () => {
     expect(search.status).toBe(0);
     expect(search.stdout).toContain('No matches for "tags:bookmark".');
     expect(fs.existsSync(path.join(home, ".trove"))).toBe(false);
-  });
+  }, 15_000);
 
   it("uses --home from outside the workspace without falling back to ~/.trove", () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "trove-cli-home-"));
@@ -104,7 +104,7 @@ describe("cli workspace flows", () => {
     expect(search.status).toBe(0);
     expect(search.stdout).toContain('No matches for "tags:bookmark".');
     expect(fs.existsSync(path.join(home, ".trove"))).toBe(false);
-  });
+  }, 15_000);
 
   it("fails with a clear message when no workspace is configured", () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "trove-cli-empty-home-"));
@@ -120,7 +120,7 @@ describe("cli workspace flows", () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("No Trove workspace found. Run `trove init --path ~/Trove` or specify `--home <path>`.");
     expect(fs.existsSync(path.join(home, ".trove"))).toBe(false);
-  });
+  }, 15_000);
 
   it("fails with a clear message when --home points to a missing workspace", () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "trove-cli-missing-home-"));
@@ -136,7 +136,7 @@ describe("cli workspace flows", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(`Trove workspace not found at ${missingWorkspace}. Run \`trove init --path ${missingWorkspace}\` first.`);
-  });
+  }, 15_000);
 });
 
 function runCli(

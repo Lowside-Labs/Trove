@@ -2,6 +2,8 @@ import type { ProgressHandler } from "../core/progress.js";
 import type { CommandReport } from "../core/output.js";
 import { getSavedSourceBrowserTarget } from "../core/paths.js";
 import type { SyncStateRecord } from "../db/database.js";
+import { findAttachableCdpUrl } from "../auth/cdp.js";
+import { findGoogleChromeTab } from "../auth/google-chrome.js";
 import { getChromiumSession, isSupportedBrowserId, listChromiumBrowsers, listChromiumProfiles } from "../auth/chromium.js";
 import { SUPPORTED_BROWSER_IDS, type SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
@@ -12,11 +14,15 @@ import { syncHnFavorites } from "./hn/index.js";
 import { syncSubstackSaved, validateSubstackSession } from "./substack.js";
 import { formatAvailableBrowserList, syncXBookmarks, validateXSession } from "./x.js";
 
+const CHATGPT_HOST = "chatgpt.com";
+const CLAUDE_HOST = "claude.ai";
+
 export interface SyncCommandOptions {
   browser: string;
   profile?: string;
   limit?: string;
   cdpUrl?: string;
+  sessionMode?: "cdp" | "chrome-live";
   headful?: boolean;
   debugRawPages?: boolean;
   user?: string;
@@ -85,18 +91,28 @@ const claudeSource: SyncSourceDefinition = {
     return [options];
   },
   createScope(options) {
-    return options.cdpUrl ?? "http://127.0.0.1:9222";
+    return formatInteractiveScope(options);
+  },
+  async resolveOptions({ options, onProgress }) {
+    return resolveInteractiveBrowserOptions(options, {
+      sourceLabel: "Claude",
+      chromeHosts: [CLAUDE_HOST],
+    }, onProgress);
   },
   async sync({ options, limit, onProgress }) {
     return syncClaudeChats({
       ...(options.cdpUrl ? { cdpUrl: options.cdpUrl } : {}),
+      ...(options.sessionMode ? { sessionMode: options.sessionMode } : {}),
       ...(limit !== undefined ? { limit } : {}),
       ...(onProgress ? { onProgress } : {}),
     });
   },
-  getSummary({ result, scope }) {
+  getSummary({ result, scope, options }) {
     return {
-      headline: "Fetched Claude chats through a live browser attachment.",
+      headline:
+        options.sessionMode === "chrome-live"
+          ? "Fetched Claude chats through the active Google Chrome tab."
+          : "Fetched Claude chats through a live browser attachment.",
       sections: [
         {
           title: "Artifacts",
@@ -107,7 +123,7 @@ const claudeSource: SyncSourceDefinition = {
         },
         {
           title: "Context",
-          entries: [{ label: "CDP URL", value: scope, tone: "muted" }],
+          entries: [{ label: "Session", value: scope, tone: "muted" }],
         },
       ],
     };
@@ -125,18 +141,28 @@ const chatGptSource: SyncSourceDefinition = {
     return [options];
   },
   createScope(options) {
-    return options.cdpUrl ?? "http://127.0.0.1:9222";
+    return formatInteractiveScope(options);
+  },
+  async resolveOptions({ options, onProgress }) {
+    return resolveInteractiveBrowserOptions(options, {
+      sourceLabel: "ChatGPT",
+      chromeHosts: [CHATGPT_HOST],
+    }, onProgress);
   },
   async sync({ options, limit, onProgress }) {
     return syncChatGptChats({
       ...(options.cdpUrl ? { cdpUrl: options.cdpUrl } : {}),
+      ...(options.sessionMode ? { sessionMode: options.sessionMode } : {}),
       ...(limit !== undefined ? { limit } : {}),
       ...(onProgress ? { onProgress } : {}),
     });
   },
-  getSummary({ result, scope }) {
+  getSummary({ result, scope, options }) {
     return {
-      headline: "Fetched ChatGPT chats through a live browser attachment.",
+      headline:
+        options.sessionMode === "chrome-live"
+          ? "Fetched ChatGPT chats through the active Google Chrome tab."
+          : "Fetched ChatGPT chats through a live browser attachment.",
       sections: [
         {
           title: "Artifacts",
@@ -147,7 +173,7 @@ const chatGptSource: SyncSourceDefinition = {
         },
         {
           title: "Context",
-          entries: [{ label: "CDP URL", value: scope, tone: "muted" }],
+          entries: [{ label: "Session", value: scope, tone: "muted" }],
         },
       ],
     };
@@ -576,6 +602,104 @@ async function resolveCookieBackedOptions(
   }
 
   throw new Error(formatCookieProbeError(auth.sourceLabel, failures));
+}
+
+function formatInteractiveScope(options: SyncCommandOptions): string {
+  if (options.sessionMode === "chrome-live") {
+    return "chrome-live:Google Chrome";
+  }
+
+  if (options.cdpUrl) {
+    return options.cdpUrl;
+  }
+
+  if (isSupportedBrowserId(options.browser)) {
+    return `${options.browser}:${options.profile ?? "Default"}`;
+  }
+
+  return "http://127.0.0.1:9222";
+}
+
+async function resolveInteractiveBrowserOptions(
+  options: SyncCommandOptions,
+  config: {
+    sourceLabel: string;
+    chromeHosts: string[];
+  },
+  onProgress?: ProgressHandler,
+): Promise<SyncCommandOptions> {
+  const explicitCdpUrl = options.cdpUrl?.trim();
+  let chromeDiscoveryError: string | undefined;
+
+  if (explicitCdpUrl) {
+    return {
+      ...options,
+      cdpUrl: explicitCdpUrl,
+      sessionMode: "cdp",
+    };
+  }
+
+  const requestedBrowser = normalizeRequestedBrowser(options.browser);
+  const canUseChromeLive = process.platform === "darwin" && (!requestedBrowser || requestedBrowser === "chrome") && !options.profile;
+
+  if (canUseChromeLive) {
+    onProgress?.({
+      phase: "bootstrap",
+      message: `Checking for an open Google Chrome tab for ${config.sourceLabel}`,
+    });
+
+    try {
+      const chromeTab = await findGoogleChromeTab(config.chromeHosts);
+
+      if (chromeTab) {
+        onProgress?.({
+          phase: "bootstrap",
+          message: `Using Google Chrome tab ${new URL(chromeTab.url).host} for ${config.sourceLabel}`,
+        });
+
+        return {
+          ...options,
+          browser: "chrome",
+          sessionMode: "chrome-live",
+        };
+      }
+    } catch (error) {
+      chromeDiscoveryError = compactErrorMessage(error);
+      onProgress?.({
+        phase: "bootstrap",
+        message: `Google Chrome tab detection failed for ${config.sourceLabel}; trying CDP fallback`,
+      });
+    }
+  }
+
+  onProgress?.({
+    phase: "bootstrap",
+    message: `Checking for an attachable ${config.sourceLabel} browser session`,
+  });
+
+  const attachableCdpUrl = await findAttachableCdpUrl();
+
+  if (attachableCdpUrl) {
+    onProgress?.({
+      phase: "bootstrap",
+      message: `Attaching to ${config.sourceLabel} browser session at ${attachableCdpUrl}`,
+    });
+
+    return {
+      ...options,
+      cdpUrl: attachableCdpUrl,
+      sessionMode: "cdp",
+    };
+  }
+
+  if (requestedBrowser && requestedBrowser !== "chrome") {
+    throw new Error(
+      `${config.sourceLabel} live-browser reuse currently supports an already-open Google Chrome tab on macOS. Open ${config.sourceLabel} in Chrome or pass \`--cdp-url <url>\` to attach manually.`,
+    );
+  }
+
+  const baseMessage = `No open Google Chrome tab for ${config.sourceLabel} was found, and no attachable CDP browser was detected. Open ${config.sourceLabel} in Google Chrome or pass \`--cdp-url <url>\`.`;
+  throw new Error(chromeDiscoveryError ? `${baseMessage} Google Chrome tab detection failed: ${chromeDiscoveryError}.` : baseMessage);
 }
 
 function normalizeRequestedBrowser(browser: string | undefined): SupportedBrowserId | undefined {
