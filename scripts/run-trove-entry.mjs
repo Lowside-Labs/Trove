@@ -28,10 +28,16 @@ if (!tsxPath) {
 }
 
 const forwardedArgs = rawArgs[0] === "--" ? rawArgs.slice(1) : rawArgs;
+const existingNodeOptions = process.env.NODE_OPTIONS?.trim();
 const result = spawnSync(tsxPath, [path.join(packageRoot, entryPath), ...forwardedArgs], {
   cwd: process.cwd(),
   stdio: "inherit",
-  env: process.env,
+  env: {
+    ...process.env,
+    NODE_OPTIONS: existingNodeOptions
+      ? `${existingNodeOptions} --conditions=development`
+      : "--conditions=development",
+  },
 });
 
 if (result.error) {

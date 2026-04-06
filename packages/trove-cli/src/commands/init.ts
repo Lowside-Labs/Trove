@@ -1,13 +1,6 @@
 import { Command } from "commander";
-import { runArchivePostProcessing } from "../core/archive.js";
 import { renderInitReport, TerminalOutput } from "../core/output.js";
-import { ensureTroveDirs } from "../core/fs.js";
-import {
-  getDefaultTroveRoot,
-  resolveWorkspaceRoot,
-  saveDefaultWorkspaceRoot,
-} from "../core/paths.js";
-import { withDatabase } from "../db/database.js";
+import { initializeWorkspace } from "trove-core";
 
 export function createInitCommand() {
   return new Command("init")
@@ -18,18 +11,10 @@ export function createInitCommand() {
       const output = new TerminalOutput();
 
       try {
-        const root =
-          resolveWorkspaceRoot({
-            path: options.path,
-            here: options.here,
-          }) ?? getDefaultTroveRoot();
-
-        process.env.TROVE_HOME = root;
-
-        const paths = ensureTroveDirs(root);
-        withDatabase(() => undefined, paths.root);
-        const vaultArtifacts = runArchivePostProcessing(paths.root);
-        saveDefaultWorkspaceRoot(paths.root);
+        const { paths, vaultArtifacts } = initializeWorkspace({
+          path: options.path,
+          here: options.here,
+        });
         renderInitReport(output, paths, vaultArtifacts);
       } catch (error) {
         output.error(error instanceof Error ? error.message : String(error));

@@ -164,6 +164,9 @@ function runCli(
     cwd: options?.cwd ?? packageRoot,
     env: {
       ...process.env,
+      NODE_OPTIONS: process.env.NODE_OPTIONS
+        ? `${process.env.NODE_OPTIONS} --conditions=development`
+        : "--conditions=development",
       ...options?.env,
     },
     encoding: "utf8",
