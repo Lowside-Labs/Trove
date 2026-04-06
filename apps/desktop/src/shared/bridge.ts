@@ -3,6 +3,9 @@ import type {
   LibraryItemDetail,
   LibraryItemSummary,
   ListLibraryItemsInput,
+  ThemeGetResponse,
+  ThemePreference,
+  ThemeSetResponse,
   WorkspaceSnapshot,
 } from "trove-contracts";
 
@@ -16,5 +19,9 @@ export interface TroveDesktopApi {
   };
   system: {
     openExternal(url: string): Promise<void>;
+  };
+  theme: {
+    get(): Promise<ThemeGetResponse>;
+    set(preference: ThemePreference): Promise<ThemeSetResponse>;
   };
 }

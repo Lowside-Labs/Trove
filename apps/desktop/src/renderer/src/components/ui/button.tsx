@@ -5,22 +5,21 @@ import { cn } from "../../lib/cn";
 
 const buttonVariants = cva(
   [
-    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full transition duration-200",
-    "cursor-pointer select-none touch-manipulation disabled:pointer-events-none disabled:opacity-45",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/40",
+    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg transition duration-150",
+    "cursor-pointer select-none touch-manipulation disabled:pointer-events-none disabled:opacity-40",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
   ],
   {
     variants: {
       variant: {
-        primary: "bg-zinc-950 text-white hover:bg-zinc-800",
-        secondary: "bg-white/75 text-zinc-900 ring-1 ring-black/8 hover:bg-white",
-        ghost: "bg-transparent text-zinc-700 hover:bg-black/5 hover:text-zinc-950",
-        chip: "bg-white/70 text-zinc-700 ring-1 ring-black/8 hover:bg-white data-[active=true]:bg-zinc-950 data-[active=true]:text-white",
+        primary: "bg-primary text-primary-foreground hover:bg-primary/90",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-accent",
+        ghost: "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
       },
       size: {
-        default: "h-11 px-5 text-sm font-medium",
-        sm: "h-9 px-4 text-sm font-medium",
-        icon: "size-11",
+        default: "h-9 px-4 text-[13px] font-medium",
+        sm: "h-8 px-3 text-[13px] font-medium",
+        icon: "size-9",
       },
     },
     defaultVariants: {

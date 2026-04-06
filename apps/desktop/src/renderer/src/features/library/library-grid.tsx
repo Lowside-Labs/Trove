@@ -3,19 +3,17 @@ import { LibraryCard } from "./library-card";
 
 interface LibraryGridProps {
   items: LibraryItemSummary[];
-  selectedItemId: number | null;
-  onSelect(itemId: number): void;
+  onOpenItem(url: string): void;
 }
 
-export function LibraryGrid({ items, onSelect, selectedItemId }: LibraryGridProps) {
+export function LibraryGrid({ items, onOpenItem }: LibraryGridProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((item) => (
         <LibraryCard
           key={item.id}
           item={item}
-          selected={item.id === selectedItemId}
-          onSelect={onSelect}
+          onOpen={() => onOpenItem(item.url)}
         />
       ))}
     </div>

@@ -1,54 +1,32 @@
 import type { LibraryItemSummary } from "trove-contracts";
-import { cn } from "../../lib/cn";
-import { formatDateTime } from "../../lib/format";
-import { getSourceVisuals } from "./source-visuals";
+import { formatDate } from "../../lib/format";
 
 interface LibraryListProps {
   items: LibraryItemSummary[];
-  selectedItemId: number | null;
-  onSelect(itemId: number): void;
+  onOpenItem(url: string): void;
 }
 
-export function LibraryList({ items, onSelect, selectedItemId }: LibraryListProps) {
+export function LibraryList({ items, onOpenItem }: LibraryListProps) {
   return (
-    <div className="trove-panel overflow-hidden rounded-[2rem]">
-      <div className="divide-y divide-black/6">
-        {items.map((item) => {
-          const visuals = getSourceVisuals(item.source);
-
-          return (
-            <button
-              key={item.id}
-              className={cn(
-                "flex w-full items-start gap-4 px-5 py-4 text-left transition hover:bg-white/50",
-                item.id === selectedItemId && "bg-black/5",
-              )}
-              type="button"
-              onClick={() => onSelect(item.id)}
-            >
-              <div className="min-w-0 flex-1 space-y-2">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span
-                    className={cn(
-                      "rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]",
-                      visuals.badge,
-                    )}
-                  >
-                    {item.source}
-                  </span>
-                  <span className="text-xs text-zinc-500">{formatDateTime(item.savedAt)}</span>
-                </div>
-                <h3 className="font-serif text-2xl leading-none tracking-[-0.04em] text-zinc-950">
-                  {item.title}
-                </h3>
-                <p className="line-clamp-2 text-sm leading-7 text-zinc-700">
-                  {item.excerpt || "Open the item to read the archived content in full."}
-                </p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+    <div className="divide-y divide-border">
+      {items.map((item) => (
+        <button
+          key={item.id}
+          className="flex w-full items-baseline gap-6 py-3 text-left transition-colors hover:bg-accent/50"
+          type="button"
+          onClick={() => onOpenItem(item.url)}
+        >
+          <span className="w-20 shrink-0 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/60">
+            {item.source}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-[15px] text-foreground">
+            {item.title}
+          </span>
+          <span className="shrink-0 text-[13px] text-muted-foreground">
+            {formatDate(item.savedAt)}
+          </span>
+        </button>
+      ))}
     </div>
   );
 }

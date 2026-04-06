@@ -1,4 +1,4 @@
-import { BrowserWindow, shell } from "electron";
+import { BrowserWindow, nativeTheme, shell } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,8 +10,9 @@ export function createMainWindow(): BrowserWindow {
     height: 900,
     minWidth: 1100,
     minHeight: 720,
-    backgroundColor: "#f4efe3",
-    title: "Trove Desktop",
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#1a1a1a" : "#ffffff",
+    title: "Trove",
+    ...(process.platform === "darwin" ? { titleBarStyle: "hiddenInset" as const } : {}),
     webPreferences: {
       preload: path.join(dirname, "../preload/index.mjs"),
       nodeIntegration: false,

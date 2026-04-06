@@ -5,6 +5,9 @@ import type {
   LibraryItemDetail,
   LibraryItemSummary,
   ListLibraryItemsInput,
+  ThemeGetResponse,
+  ThemePreference,
+  ThemeSetResponse,
   WorkspaceSnapshot,
 } from "trove-contracts";
 import type { TroveDesktopApi } from "../shared/bridge";
@@ -29,6 +32,16 @@ const troveDesktop: TroveDesktopApi = {
   system: {
     async openExternal(url: string) {
       await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.systemOpenExternal, { url });
+    },
+  },
+  theme: {
+    async get() {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.themeGet, {});
+      return response as ThemeGetResponse;
+    },
+    async set(preference: ThemePreference) {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.themeSet, { preference });
+      return response as ThemeSetResponse;
     },
   },
 };

@@ -12,6 +12,8 @@ export const DESKTOP_IPC_CHANNELS = {
   libraryListItems: "library:listItems",
   libraryGetItem: "library:getItem",
   systemOpenExternal: "system:openExternal",
+  themeGet: "theme:get",
+  themeSet: "theme:set",
 } as const;
 
 export const workspaceGetSnapshotRequestSchema = z.object({}).strict();
@@ -32,3 +34,22 @@ export const systemOpenExternalResponseSchema = z.object({
 
 export type SystemOpenExternalRequest = z.infer<typeof systemOpenExternalRequestSchema>;
 export type SystemOpenExternalResponse = z.infer<typeof systemOpenExternalResponseSchema>;
+
+export const themePreferenceSchema = z.enum(["system", "light", "dark"]);
+export type ThemePreference = z.infer<typeof themePreferenceSchema>;
+
+export const themeGetRequestSchema = z.object({}).strict();
+export const themeGetResponseSchema = z.object({
+  preference: themePreferenceSchema,
+  shouldUseDarkColors: z.boolean(),
+});
+export type ThemeGetResponse = z.infer<typeof themeGetResponseSchema>;
+
+export const themeSetRequestSchema = z.object({
+  preference: themePreferenceSchema,
+});
+export const themeSetResponseSchema = z.object({
+  preference: themePreferenceSchema,
+  shouldUseDarkColors: z.boolean(),
+});
+export type ThemeSetResponse = z.infer<typeof themeSetResponseSchema>;

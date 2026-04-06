@@ -9,8 +9,8 @@ interface AppShellProps {
 
 export function AppShell({ snapshot }: AppShellProps) {
   return (
-    <main className="min-h-screen px-6 py-6 lg:px-8">
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-[1600px] flex-col">
+    <main className="px-8 pb-8 pt-2">
+      <div className="mx-auto max-w-[1200px]">
         <LibraryScreen snapshot={snapshot} />
       </div>
     </main>

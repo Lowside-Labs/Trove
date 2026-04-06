@@ -5,15 +5,15 @@ import { cn } from "../../lib/cn";
 
 const inputVariants = cva(
   [
-    "w-full min-w-0 rounded-full border border-black/10 bg-white/78 px-5 text-zinc-950 shadow-sm outline-none transition",
-    "placeholder:text-zinc-500 focus-visible:border-black/20 focus-visible:ring-2 focus-visible:ring-black/10",
+    "w-full min-w-0 rounded-lg border border-input bg-secondary px-4 text-foreground outline-none transition",
+    "placeholder:text-muted-foreground focus:border-ring focus:bg-background focus:ring-2 focus:ring-ring/20",
     "disabled:pointer-events-none disabled:opacity-50",
   ],
   {
     variants: {
       size: {
-        default: "h-12 text-sm",
-        lg: "h-14 text-base",
+        default: "h-10 text-[14px]",
+        lg: "h-11 text-[15px]",
       },
     },
     defaultVariants: {
