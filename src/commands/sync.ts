@@ -15,8 +15,8 @@ import {
 } from "../sources/index.js";
 
 export function createSyncCommand() {
-  return new Command("sync")
-    .alias("pull")
+  return new Command("pull")
+    .alias("sync")
     .description("Pull content from a source into the Trove workspace.")
     .argument("<source>", `Source adapter to run, currently: ${listSyncSourceIds().join(" | ")}`)
     .option("--browser <browser>", "Chromium browser id to use for seamless session reuse", "auto")
