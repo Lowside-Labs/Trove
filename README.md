@@ -68,8 +68,8 @@ Optional: `trove hydrate` fetches linked articles and writes them as markdown. `
 | `substack` | `saved`, `likes` | Chromium cookie reuse | macOS only today |
 | `github` | `stars` | Chromium cookie reuse | macOS only today |
 | `hn` | `favorites`, `favorite-comments` | public web | no browser needed |
-| `claude` | chat export | live CDP session | attach to running browser |
-| `chatgpt` | chat export | live CDP session | attach to running browser |
+| `claude` | chat export | active Chrome tab or CDP | macOS: prefers an open Google Chrome tab; enable `View > Developer > Allow JavaScript from Apple Events` |
+| `chatgpt` | chat export | active Chrome tab or CDP | macOS: prefers an open Google Chrome tab; enable `View > Developer > Allow JavaScript from Apple Events` |
 
 ## Commands
 
@@ -124,7 +124,7 @@ node dist/cli.js --help
 - If cookie-backed sync says no cookies were found, confirm that you are logged into the target service in the selected browser profile
 - If a browser-backed source fails on Linux or Windows, that is expected today; cookie reuse is only implemented on macOS
 - If `npm test` fails with a `better-sqlite3` native-module mismatch, verify that you are using Node 22 as declared in `package.json`
-- If `claude` or `chatgpt` sync fails to attach, confirm that Chromium is already running with remote debugging enabled and that `--cdp-url` is correct
+- On macOS, `claude` and `chatgpt` prefer an open Google Chrome tab. In Chrome, enable `View > Developer > Allow JavaScript from Apple Events`. If that path is unavailable, use `--cdp-url <url>` to attach manually.
 
 ## Development
 
