@@ -6,11 +6,7 @@ You've been building a personal knowledge base for years, but it's invisible to 
 
 Every tweet you bookmarked. Every Substack post you saved for later. Every GitHub repo you starred at 2am. Every Hacker News thread you favorited, meaning to come back to. Every Claude conversation where you worked through a hard problem.
 
-That's hundreds of saves scattered across platforms that will never talk to each other. None of it is visible to the AI tools you use every day.
-
 **Trove pulls all of it into one local folder and makes it visible to your AI.**
-
-It syncs your saved content into a SQLite-indexed archive with full-text search, renders articles as markdown, and generates guide files (`CLAUDE.md`, `AGENTS.md`, `INDEX.md`) that let AI agents work with your collection as soon as they open the folder.
 
 Open it in Claude Code and start asking:
 
@@ -21,8 +17,6 @@ Open it in Claude Code and start asking:
 Your AI finally knows what you know.
 
 ## Quick Start
-
-The fastest agent-first path is:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Lowside-Labs/Trove/main/install.sh | bash
@@ -40,113 +34,34 @@ cd ~/Trove && claude
 If you prefer the default hidden location, omit `--path ~/Trove` and Trove will use `~/.trove`.
 The installer currently expects `Node 22+` to already be installed.
 
-## Table of Contents
-
-- [How It Works](#how-it-works)
-- [What Gets Created](#what-gets-created)
-- [Using It With Agents](#using-it-with-agents)
-- [Browsing In Obsidian](#browsing-in-obsidian)
-- [Supported Sources](#supported-sources)
-- [Commands](#commands)
-- [Installation](#installation)
-- [Storage and Path Options](#storage-and-path-options)
-- [Limitations](#limitations)
-- [Troubleshooting](#troubleshooting)
-- [Development](#development)
-
 ## How It Works
 
-1. `trove init` creates a workspace.
-2. `trove sync <source>` imports saved material into SQLite and raw artifacts.
-3. Trove remembers the workspace you initialized and uses it by default for future commands.
-4. Trove refreshes `INDEX.md`, `AGENTS.md`, and `CLAUDE.md` automatically after sync and hydrate runs.
-5. You open that folder in Claude Code, Codex, or another tool and ask questions over your own material.
+1. `trove init` creates a workspace with a SQLite database and agent guide files.
+2. `trove sync <source>` imports your saved content.
+3. Open the workspace folder in Claude Code, Codex, or Obsidian.
 
-Optional:
-
-- `trove hydrate` fetches article-style pages and writes markdown under `content/`
-- `trove search` lets you inspect results directly from the CLI
-
-## What Gets Created
-
-If you initialize a visible workspace such as `~/Trove`, the layout looks like this:
+Optional: `trove hydrate` fetches linked articles and writes them as markdown. `trove search` queries the archive from the CLI.
 
 ```text
 ~/Trove/
-  AGENTS.md
-  CLAUDE.md
-  INDEX.md
-  content/
-  data/
-    trove.db
-  raw/
-  index/
-  logs/
+  CLAUDE.md        # Claude Code reads this on launch
+  AGENTS.md        # Codex and other agent tools read this
+  INDEX.md         # snapshot of your collection
+  content/         # hydrated articles and exported chats
+  data/trove.db    # SQLite archive with FTS5 search
+  raw/             # source-native payloads
 ```
-
-What these files are for:
-
-- `AGENTS.md`: canonical instructions for AGENTS-aware tools
-- `CLAUDE.md`: Claude Code entry point that imports `AGENTS.md`
-- `INDEX.md`: source counts, recent items, top authors, and suggested questions
-- `content/`: markdown for hydrated articles and exported chats
-- `data/trove.db`: local SQLite archive and FTS5 search index
-- `raw/`: compact source-native payloads for inspection and debugging
-
-## Using It With Agents
-
-The workspace is designed to be the handoff point.
-
-### Claude Code
-
-```bash
-cd ~/Trove
-claude
-```
-
-Claude Code reads `CLAUDE.md`, which imports `AGENTS.md`.
-
-### Codex and other AGENTS-aware tools
-
-Open the workspace folder and start from:
-
-- `AGENTS.md` for instructions
-- `INDEX.md` for the current snapshot of what is in the archive
-
-### Example prompts
-
-- What have I been saving about distributed systems in the last 6 months?
-- Summarize my recent Substack likes about local-first tools.
-- Find items that mention SQLite, FTS, or search infrastructure.
-- Which authors show up most often across my saved material?
-
-## Browsing In Obsidian
-
-Trove also works as a lightweight Obsidian-friendly workspace:
-
-- Open the same workspace folder in Obsidian
-- Start from `INDEX.md`
-- Browse `content/` markdown files with YAML frontmatter
-
-This is strongest after running hydration:
-
-```bash
-cd ~/Trove
-trove hydrate --limit 50
-```
-
-Current limitation: `content/` is best for article-style pages and exported chats today. Native pages from hosts such as X, GitHub, Claude, ChatGPT, and Hacker News are not fully converted into note-per-item markdown yet.
 
 ## Supported Sources
 
-| Source | Modes | Auth method | Status | Notes |
-| --- | --- | --- | --- | --- |
-| `x` | `bookmarks`, `likes` | Chromium cookie reuse | Working | macOS only for cookie-backed sync today |
-| `substack` | `saved`, `likes` | Chromium cookie reuse | Working | likes include posts and notes/comments |
-| `github` | `stars` | Chromium cookie reuse | Working | authenticated stars page parsing |
-| `hn` | `favorites`, `favorite-comments` | public web | Working | no browser session required |
-| `claude` | chat export | live CDP session | Working | requires a running Chromium instance with remote debugging |
-| `chatgpt` | chat export | live CDP session | Working | requires a running Chromium instance with remote debugging |
+| Source | Modes | Auth method | Notes |
+| --- | --- | --- | --- |
+| `x` | `bookmarks`, `likes` | Chromium cookie reuse | macOS only today |
+| `substack` | `saved`, `likes` | Chromium cookie reuse | macOS only today |
+| `github` | `stars` | Chromium cookie reuse | macOS only today |
+| `hn` | `favorites`, `favorite-comments` | public web | no browser needed |
+| `claude` | chat export | live CDP session | attach to running browser |
+| `chatgpt` | chat export | live CDP session | attach to running browser |
 
 ## Commands
 
@@ -160,43 +75,6 @@ The installed CLI name is `trove`.
 | `trove search <query>` | Search indexed items with SQLite FTS5 |
 | `trove stats` | Show counts and freshness by source |
 | `trove index` | Regenerate `INDEX.md`, `AGENTS.md`, and `CLAUDE.md` manually |
-
-Common patterns:
-
-```bash
-# Create a workspace here
-trove init --here
-
-# Create a workspace somewhere specific
-trove init --path ~/Trove
-
-# After init, Trove remembers that workspace
-trove sync substack --browser chrome
-
-# You can also run commands inside the workspace
-cd ~/Trove
-trove search 'tags:bookmark'
-trove stats
-
-# Use --home when you want to override the remembered workspace
-trove --home ~/AnotherTrove search 'sqlite'
-```
-
-## Storage and Path Options
-
-Trove supports three useful modes:
-
-- Visible workspace: `trove init --path ~/Trove`
-- Current directory workspace: `trove init --here`
-- Default hidden workspace: `trove init` which uses `~/.trove`
-
-Recommendation:
-
-- Use `~/Trove` if you want to open it directly in Claude Code or Obsidian
-- Use `--here` for project-specific research or a temporary working set
-- Use `~/.trove` only if you prefer app-style hidden storage
-
-If you want to override the remembered workspace, use `--home <path>`.
 
 ## Installation
 
@@ -249,3 +127,18 @@ npm test
 ```
 
 If your default local Node version is newer than 22, run the test suite under Node 22 to avoid `better-sqlite3` ABI issues.
+
+For a faster local CLI loop, use the repo-scoped dev wrapper:
+
+```bash
+# Creates or reuses .tmp/local-dev/workspace
+npm run dev:local -- sync substack
+
+# See the isolated workspace and config paths
+npm run dev:local -- where
+
+# Reset the local dev workspace and remembered browser choices
+npm run dev:local -- reset
+```
+
+`npm run dev:local` keeps your real `HOME` so Chromium cookies still resolve, but isolates `XDG_CONFIG_HOME` and the Trove workspace under `.tmp/local-dev/` for repeatable testing.
