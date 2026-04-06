@@ -2,28 +2,32 @@
 
 ## Project Structure & Module Organization
 
-Trove is a TypeScript CLI with source under `src/`.
+Trove now uses pnpm workspaces with the CLI package under `packages/trove-cli/`.
 
-- `src/cli.ts`: CLI entrypoint.
-- `src/commands/`: command handlers such as `sync`, `search`, `stats`, and `init`.
-- `src/sources/`: source adapters and parsing logic. X bookmark and like logic lives in `x.ts`; related tests live beside it in `x.test.ts` and `x.sync.test.ts`.
-- `src/auth/`: browser session and cookie-loading code.
-- `src/db/`: SQLite access, schema, and DB tests.
-- `src/core/`: shared filesystem and raw-output helpers.
+- `packages/trove-cli/src/cli.ts`: CLI entrypoint.
+- `packages/trove-cli/src/commands/`: command handlers such as `sync`, `search`, `stats`, and `init`.
+- `packages/trove-cli/src/sources/`: source adapters and parsing logic. X bookmark and like logic lives in `x.ts`; related tests live beside it in `x.test.ts` and `x.sync.test.ts`.
+- `packages/trove-cli/src/auth/`: browser session and cookie-loading code.
+- `packages/trove-cli/src/db/`: SQLite access, schema, and DB tests.
+- `packages/trove-cli/src/core/`: shared filesystem and raw-output helpers.
+- `apps/`: reserved for future GUI and web apps.
+- `packages/`: shared packages and the CLI package.
 
 Keep tests close to the code they cover using `*.test.ts`.
 
 ## Build, Test, and Development Commands
 
-- `npm install`: install dependencies.
-- `npm run build`: bundle the CLI into `dist/` with `tsup`.
-- `npm run dev -- <command>`: run the CLI in development, for example `npm run dev -- sync demo`.
-- `npm test`: run the Vitest suite.
-- `npm run typecheck`: run `tsc --noEmit`.
+- `pnpm install`: install dependencies.
+- `pnpm build`: run the workspace build via Turbo.
+- `pnpm dev -- <command>`: run the CLI in development, for example `pnpm dev -- sync demo`.
+- `pnpm test`: run the Vitest suite.
+- `pnpm typecheck`: run `tsc --noEmit`.
+- `pnpm lint`: run `oxlint`.
+- `pnpm format:check`: run `oxfmt --check`.
 
-Trove targets Node 22+. If the default local Node version is newer, `better-sqlite3` may require rerunning tests under Node 22.
+Trove targets Node 22+. This repo includes `.nvmrc` and `.node-version`. If the default local Node version is newer, `better-sqlite3` may require rerunning tests under Node 22.
 
-Before opening a PR, run `npm test` and `npm run typecheck` under a compatible Node version.
+Before opening a PR, run `pnpm test` and `pnpm typecheck` under a compatible Node version.
 
 ## Coding Style & Naming Conventions
 
@@ -34,18 +38,18 @@ Use TypeScript with ESM imports and 2-space indentation consistent with the exis
 - Keep files focused and name them by responsibility, for example `database.ts`, `chromium.ts`, `x.ts`.
 - Co-locate narrow test-only exports under `__internal` when a small seam is needed.
 
-No formatter or linter is currently configured, so match the surrounding style carefully.
+Use `oxfmt` for formatting and `oxlint` for linting. Match the surrounding style, then run the repo checks.
 
 ## Command UX Defaults
 
 Trove is a user-facing CLI. Long-running commands should not feel silent.
 
-- Prefer the shared progress primitives in `src/core/progress.ts` over ad hoc logging.
+- Prefer the shared progress primitives in `packages/trove-cli/src/core/progress.ts` over ad hoc logging.
 - Use `TaskDashboardRenderer` with structured progress events for commands that may take noticeable time.
-- Prefer the shared command report contract in `src/core/output.ts` over command-specific summary formatting.
-- Commands that mutate archive state should run the shared post-processing hook in `src/core/archive.ts` rather than calling vault generation directly.
+- Prefer the shared command report contract in `packages/trove-cli/src/core/output.ts` over command-specific summary formatting.
+- Commands that mutate archive state should run the shared post-processing hook in `packages/trove-cli/src/core/archive.ts` rather than calling vault generation directly.
 - Reuse the shared vault summary section builder when reporting generated archive artifacts.
-- When adding a new source or mode, extend metadata in `src/sources/index.ts` and derive help text or validation from the registry instead of hardcoding strings elsewhere.
+- When adding a new source or mode, extend metadata in `packages/trove-cli/src/sources/index.ts` and derive help text or validation from the registry instead of hardcoding strings elsewhere.
 
 ## Testing Guidelines
 
@@ -66,7 +70,7 @@ Recent commits use short, imperative subjects, for example:
 Keep commits scoped to one concern. For pull requests, include:
 
 - a short summary of behavior changes
-- test results (`npm test`, `npm run typecheck`)
+- test results (`pnpm test`, `pnpm typecheck`)
 - linked issue or review context when relevant
 
 ## Security & Configuration Tips
