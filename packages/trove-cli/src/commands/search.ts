@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { TerminalOutput, renderSearchResults } from "../core/output.js";
-import { searchItems, withDatabase } from "../db/database.js";
+import { searchWorkspace } from "../../../trove-core/src/index.js";
 
 export function createSearchCommand() {
   return new Command("search")
@@ -17,7 +17,7 @@ export function createSearchCommand() {
         return;
       }
 
-      const results = withDatabase((db) => searchItems(db, query, limit));
+      const results = searchWorkspace(query, { limit });
       renderSearchResults(output, query, results, limit);
     });
 }

@@ -56,6 +56,12 @@ importers:
       playwright-core:
         specifier: ^1.59.1
         version: 1.59.1
+      trove-contracts:
+        specifier: workspace:*
+        version: link:../trove-contracts
+      trove-core:
+        specifier: workspace:*
+        version: link:../trove-core
       turndown:
         specifier: ^7.2.4
         version: 7.2.4
@@ -81,6 +87,76 @@ importers:
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@25.5.2)(jiti@2.6.1)(jsdom@27.4.0)(tsx@4.21.0)
+
+  packages/trove-contracts:
+    devDependencies:
+      '@types/node':
+        specifier: ^25.5.2
+        version: 25.5.2
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(tsx@4.21.0)(typescript@6.0.2)
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.2
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@25.5.2)(jiti@2.6.1)(jsdom@27.4.0)(tsx@4.21.0)
+
+  packages/trove-core:
+    dependencies:
+      '@mozilla/readability':
+        specifier: ^0.6.0
+        version: 0.6.0
+      better-sqlite3:
+        specifier: ^12.4.1
+        version: 12.8.0
+      jsdom:
+        specifier: ^27.0.1
+        version: 27.4.0
+      node-html-parser:
+        specifier: ^7.1.0
+        version: 7.1.0
+      p-queue:
+        specifier: ^9.1.1
+        version: 9.1.1
+      p-retry:
+        specifier: ^7.1.0
+        version: 7.1.1
+      playwright-core:
+        specifier: ^1.59.1
+        version: 1.59.1
+      trove-contracts:
+        specifier: workspace:*
+        version: link:../trove-contracts
+      turndown:
+        specifier: ^7.2.4
+        version: 7.2.4
+      zod:
+        specifier: ^4.1.12
+        version: 4.3.6
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
+      '@types/jsdom':
+        specifier: ^28.0.1
+        version: 28.0.1
+      '@types/node':
+        specifier: ^25.5.2
+        version: 25.5.2
+      '@types/turndown':
+        specifier: ^5.0.6
+        version: 5.0.6
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(tsx@4.21.0)(typescript@6.0.2)
       typescript:
         specifier: ^6.0.2
         version: 6.0.2

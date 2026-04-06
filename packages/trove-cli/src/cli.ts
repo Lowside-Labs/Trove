@@ -9,7 +9,7 @@ import { createSearchCommand } from "./commands/search.js";
 import { createStatsCommand } from "./commands/stats.js";
 import { createSyncCommand } from "./commands/sync.js";
 import { TerminalOutput } from "./core/output.js";
-import { resolveCommandWorkspace } from "./core/paths.js";
+import { resolveActiveWorkspace } from "../../trove-core/src/index.js";
 
 const require = createRequire(import.meta.url);
 const packageJson = require("../package.json") as { version: string };
@@ -26,7 +26,7 @@ program.hook("preAction", (_thisCommand, actionCommand) => {
   }
 
   const output = new TerminalOutput();
-  const resolution = resolveCommandWorkspace({
+  const resolution = resolveActiveWorkspace({
     home: actionCommand.optsWithGlobals().home,
   });
 

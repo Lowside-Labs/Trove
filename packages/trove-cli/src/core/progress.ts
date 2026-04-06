@@ -1,14 +1,7 @@
 import readline from "node:readline";
+import type { ProgressEvent, ProgressHandler } from "../../../trove-contracts/src/index.js";
 import type { TerminalOutput } from "./output.js";
-
-export interface ProgressEvent {
-  phase: string;
-  message: string;
-  completed?: number;
-  total?: number;
-}
-
-export type ProgressHandler = (event: ProgressEvent) => void;
+export type { ProgressEvent, ProgressHandler } from "../../../trove-contracts/src/index.js";
 
 export type RunStatus = "pending" | "running" | "complete" | "failed";
 export type PhaseStatus = "pending" | "running" | "complete" | "failed";

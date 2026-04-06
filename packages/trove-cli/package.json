@@ -49,6 +49,8 @@
     "p-queue": "^9.1.1",
     "p-retry": "^7.1.0",
     "playwright-core": "^1.59.1",
+    "trove-contracts": "workspace:*",
+    "trove-core": "workspace:*",
     "turndown": "^7.2.4",
     "zod": "^4.1.12"
   },

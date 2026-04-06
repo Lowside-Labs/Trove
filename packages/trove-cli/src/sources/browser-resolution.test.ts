@@ -14,54 +14,54 @@ const validateInstagramSession = vi.fn();
 const validateSubstackSession = vi.fn();
 const validateXSession = vi.fn();
 
-vi.mock("../auth/cdp.js", () => ({
+vi.mock("../../../trove-core/src/auth/cdp.js", () => ({
   findAttachableCdpUrl,
 }));
 
-vi.mock("../auth/google-chrome.js", () => ({
+vi.mock("../../../trove-core/src/auth/google-chrome.js", () => ({
   findGoogleChromeTab,
 }));
 
-vi.mock("../auth/chromium.js", () => ({
+vi.mock("../../../trove-core/src/auth/chromium.js", () => ({
   getChromiumSession,
   isSupportedBrowserId,
   listChromiumBrowsers,
   listChromiumProfiles,
 }));
 
-vi.mock("../core/paths.js", () => ({
+vi.mock("../../../trove-core/src/core/paths.js", () => ({
   getSavedSourceBrowserTarget,
 }));
 
-vi.mock("./claude.js", () => ({
+vi.mock("../../../trove-core/src/sources/claude.js", () => ({
   syncClaudeChats: vi.fn(),
 }));
 
-vi.mock("./chatgpt.js", () => ({
+vi.mock("../../../trove-core/src/sources/chatgpt.js", () => ({
   syncChatGptChats: vi.fn(),
 }));
 
-vi.mock("./github.js", () => ({
+vi.mock("../../../trove-core/src/sources/github.js", () => ({
   formatAvailableGitHubBrowserList: vi.fn(() => "chrome, dia"),
   syncGitHubStars: vi.fn(),
   validateGitHubSession,
 }));
 
-vi.mock("./hn/index.js", () => ({
+vi.mock("../../../trove-core/src/sources/hn/index.js", () => ({
   syncHnFavorites: vi.fn(),
 }));
 
-vi.mock("./instagram.js", () => ({
+vi.mock("../../../trove-core/src/sources/instagram.js", () => ({
   syncInstagramSaved: vi.fn(),
   validateInstagramSession,
 }));
 
-vi.mock("./substack.js", () => ({
+vi.mock("../../../trove-core/src/sources/substack.js", () => ({
   syncSubstackSaved: vi.fn(),
   validateSubstackSession,
 }));
 
-vi.mock("./x.js", () => ({
+vi.mock("../../../trove-core/src/sources/x.js", () => ({
   formatAvailableBrowserList: vi.fn(() => "chrome, dia"),
   syncXBookmarks: vi.fn(),
   validateXSession,

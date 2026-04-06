@@ -1,0 +1,47 @@
+{
+  "name": "trove-core",
+  "version": "0.1.0",
+  "description": "Shared Trove core services and source engine.",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --target node22 --dts --clean",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "better-sqlite3": "^12.4.1",
+    "jsdom": "^27.0.1",
+    "node-html-parser": "^7.1.0",
+    "p-queue": "^9.1.1",
+    "p-retry": "^7.1.0",
+    "playwright-core": "^1.59.1",
+    "trove-contracts": "workspace:*",
+    "turndown": "^7.2.4",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/jsdom": "^28.0.1",
+    "@types/node": "^25.5.2",
+    "@types/turndown": "^5.0.6",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
