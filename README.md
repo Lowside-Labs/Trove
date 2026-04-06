@@ -2,20 +2,23 @@
 
 ![Trove repository artwork](assets/trove-thumbnail.jpg)
 
-Trove turns the things you save on the web into a local knowledge workspace for AI agents.
+You've been building a personal knowledge base for years, but it's invisible to your LLM.
 
-Sync bookmarks, likes, stars, favorites, articles, and chats. Trove builds a folder your agent can actually use:
+Every tweet you bookmarked. Every Substack post you saved for later. Every GitHub repo you starred at 2am. Every Hacker News thread you favorited, meaning to come back to. Every Claude conversation where you worked through a hard problem.
 
-- `AGENTS.md` for Codex and other AGENTS-aware tools
-- `CLAUDE.md` for Claude Code
-- `INDEX.md` for a fast human and agent overview
-- Markdown content under `content/` for article-style browsing
+That's hundreds of saves scattered across platforms that will never talk to each other. None of it is visible to the AI tools you use every day.
 
-Use it to ask questions like:
+**Trove pulls all of it into one local folder and makes it visible to your AI.**
 
-- What have I been saving about local-first software?
-- Which authors or publications recur across my saved items?
-- Summarize the articles I saved recently about AI coding tools.
+It syncs your saved content into a SQLite-indexed archive with full-text search, renders articles as markdown, and generates guide files (`CLAUDE.md`, `AGENTS.md`, `INDEX.md`) that let AI agents work with your collection as soon as they open the folder.
+
+Open it in Claude Code and start asking:
+
+> *What have I been reading about local-first architecture?*
+> *Which authors show up most across my bookmarks and likes?*
+> *Summarize what I saved about AI coding tools this month.*
+
+Your AI finally knows what you know.
 
 ## Quick Start
 
@@ -224,7 +227,7 @@ node dist/cli.js --help
 ## Limitations
 
 - `Node 22+` is the supported runtime
-- Seamless Chromium cookie reuse is currently implemented only on macOS
+- Chromium cookie reuse is currently implemented only on macOS
 - `chrome` and `dia` are verified for cookie-backed sync
 - `brave` and `arc` are detected but still experimental
 - Some sources do not expose true saved or liked timestamps, so Trove stores the closest source-native timestamp available
@@ -233,7 +236,7 @@ node dist/cli.js --help
 ## Troubleshooting
 
 - If cookie-backed sync says no cookies were found, confirm that you are logged into the target service in the selected browser profile
-- If a browser-backed source fails on Linux or Windows, that is expected today; seamless cookie reuse is only implemented on macOS
+- If a browser-backed source fails on Linux or Windows, that is expected today; cookie reuse is only implemented on macOS
 - If `npm test` fails with a `better-sqlite3` native-module mismatch, verify that you are using Node 22 as declared in `package.json`
 - If `claude` or `chatgpt` sync fails to attach, confirm that Chromium is already running with remote debugging enabled and that `--cdp-url` is correct
 
