@@ -12,7 +12,7 @@ import { resolveCommandWorkspace } from "./core/paths.js";
 
 const program = new Command()
   .name("trove")
-  .description("Turn your saved web material into a local knowledge workspace for AI agents.")
+  .description("A second brain from your digital life.")
   .option("--home <path>", "Path to the Trove workspace (overrides the remembered workspace)")
   .version("0.1.0");
 

@@ -182,7 +182,7 @@ export class TerminalOutput {
 
 export function renderInitReport(output: TerminalOutput, paths: TrovePaths, vaultArtifacts: VaultArtifacts): void {
   const quotedRoot = shellQuote(paths.root);
-  const syncCommand = `trove sync <source>`;
+  const syncCommand = `trove pull <source>`;
   const openCommand = `cd ${quotedRoot} && claude`;
 
   output.success(`Initialized Trove workspace in ${paths.root}.`);

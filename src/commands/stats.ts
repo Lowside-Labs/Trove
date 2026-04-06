@@ -19,7 +19,7 @@ export function createStatsCommand() {
 
     if (report.rows.length === 0) {
       output.info("No items indexed yet.");
-      output.line(output.toned("Run `trove sync <source>` to start building the archive.", "muted"));
+      output.line(output.toned("Run `trove pull <source>` to start building the archive.", "muted"));
       return;
     }
 
