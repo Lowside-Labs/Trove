@@ -4,6 +4,7 @@ import {
   ClaudeAI,
   GitHubDark,
   GitHubLight,
+  Instagram,
   OpenAIDark,
   OpenAILight,
   XDark,
@@ -14,6 +15,7 @@ import { IconSubstackDark, IconSubstackLight } from "../../components/icons/icon
 import { useIsDark } from "../../hooks/use-is-dark";
 import { BookmarkContent } from "./cards/bookmark-content";
 import { ConversationContent } from "./cards/conversation-content";
+import { InstagramContent } from "./cards/instagram-content";
 import { TweetContent } from "./cards/tweet-content";
 
 type SvgComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -21,7 +23,7 @@ type SvgComponent = ComponentType<SVGProps<SVGSVGElement>>;
 export interface SourceConfig {
   displayName: string;
   icons: { light: SvgComponent; dark: SvgComponent };
-  Content: ComponentType<{ item: LibraryItemSummary }>;
+  Content: ComponentType<{ item: LibraryItemSummary; mediaActive?: boolean }>;
 }
 
 const registry: Record<string, SourceConfig> = {
@@ -54,6 +56,11 @@ const registry: Record<string, SourceConfig> = {
     displayName: "Hacker News",
     icons: { light: IconHackerNews, dark: IconHackerNews },
     Content: BookmarkContent,
+  },
+  instagram: {
+    displayName: "Instagram",
+    icons: { light: Instagram, dark: Instagram },
+    Content: InstagramContent,
   },
 };
 

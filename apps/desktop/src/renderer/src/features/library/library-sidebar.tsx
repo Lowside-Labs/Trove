@@ -25,7 +25,7 @@ export function LibrarySidebar({
     <aside className="flex h-full min-h-0 flex-col gap-10 px-8 pb-8 pt-8">
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto py-1" style={sourceScrollerMask}>
-          <nav className="flex flex-col py-2">
+          <nav className="flex flex-col">
             <SourceItem
               active={selectedSource === "all"}
               label="All"

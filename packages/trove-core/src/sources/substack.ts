@@ -348,8 +348,8 @@ function normalizeKind(kind?: string): "saved" | "likes" {
     return "saved";
   }
 
-  if (kind === "likes") {
-    return kind;
+  if (kind === "likes" || kind === "like") {
+    return "likes";
   }
 
   throw new Error('Substack sync kind must be "saved" or "likes".');

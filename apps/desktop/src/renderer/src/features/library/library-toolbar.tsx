@@ -41,7 +41,7 @@ export function LibraryToolbar({
 
   return (
     <header>
-      <div className="flex items-end gap-4">
+      <div className="flex items-center gap-4">
         <div className="flex-1">
           <Input
             className="border-0 placeholder:text-muted-foreground/45 focus:border-foreground/15"
@@ -53,7 +53,7 @@ export function LibraryToolbar({
             onChange={(event) => onSearchQueryChange(event.target.value)}
           />
         </div>
-        <div className="flex shrink-0 items-center gap-2 self-end pb-2">
+        <div className="flex shrink-0 items-center gap-2">
           {kindOptions.length > 1 ? (
             <Select.Root
               value={selectedKind ?? "__all"}

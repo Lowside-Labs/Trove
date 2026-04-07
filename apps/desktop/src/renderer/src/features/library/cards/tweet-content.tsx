@@ -1,7 +1,7 @@
 import type { LibraryItemSummary } from "trove-contracts";
-import IconPlayFilled from "central-icons-filled/IconPlay";
-import { formatCount } from "../../../lib/format";
 import { cn } from "../../../lib/cn";
+import { CardStats } from "./card-stats";
+import { InlineMediaPreview } from "./inline-media-preview";
 import { getTweetMedia } from "./tweet-media";
 
 interface TweetRaw {
@@ -13,9 +13,10 @@ interface TweetRaw {
 
 interface TweetContentProps {
   item: LibraryItemSummary;
+  mediaActive?: boolean;
 }
 
-export function TweetContent({ item }: TweetContentProps) {
+export function TweetContent({ item, mediaActive = false }: TweetContentProps) {
   const raw = (item.raw ?? {}) as TweetRaw;
   const handle = raw.screenName ?? item.author;
   const displayName = item.author;
@@ -85,34 +86,21 @@ export function TweetContent({ item }: TweetContentProps) {
                     : "aspect-square",
               )}
             >
-              <img
-                src={entry.url}
-                alt=""
-                className="size-full object-cover"
+              <InlineMediaPreview
+                active={mediaActive}
+                className="h-full w-full bg-muted"
+                mediaClassName="size-full"
+                showVideoBadge={entry.type !== "photo"}
+                imageUrl={entry.url}
+                {...(entry.videoUrl ? { videoUrl: entry.videoUrl } : {})}
               />
-              {entry.type !== "photo" ? (
-                <div className="pointer-events-none absolute inset-0 bg-black/8">
-                  <span className="absolute right-3 bottom-3 flex size-8 items-center justify-center rounded-full bg-black/65 text-white shadow-lg backdrop-blur-sm">
-                    <IconPlayFilled className="size-3.5" />
-                  </span>
-                </div>
-              ) : null}
             </div>
           ))}
         </div>
       ) : null}
 
       {/* Engagement stats */}
-      {hasStats ? (
-        <div className="flex items-center gap-3 text-[11px] text-muted-foreground/60">
-          {likes != null && likes > 0 ? (
-            <span>{formatCount(likes)} likes</span>
-          ) : null}
-          {retweets != null && retweets > 0 ? (
-            <span>{formatCount(retweets)} reposts</span>
-          ) : null}
-        </div>
-      ) : null}
+      {hasStats ? <CardStats items={[{ kind: "likes", value: likes }, { kind: "reposts", value: retweets }]} /> : null}
     </>
   );
 }

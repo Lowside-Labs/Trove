@@ -85,10 +85,12 @@ interface InstagramSavedMedia {
   user?: {
     username?: string;
     full_name?: string;
+    profile_pic_url?: string;
   };
   owner?: {
     username?: string;
     full_name?: string;
+    profile_pic_url?: string;
   };
   caption?: {
     text?: string;
@@ -392,6 +394,8 @@ function normalizeSavedMedia(
   const caption = cleanText(media?.caption?.text);
   const username = cleanText(media?.user?.username) ?? cleanText(media?.owner?.username);
   const fullName = cleanText(media?.user?.full_name) ?? cleanText(media?.owner?.full_name);
+  const profilePicUrl =
+    cleanText(media?.user?.profile_pic_url) ?? cleanText(media?.owner?.profile_pic_url);
   const author = fullName ?? username;
   const collectionIds = Array.isArray(media?.saved_collection_ids)
     ? (media.saved_collection_ids.map((value) => cleanText(value)).filter(Boolean) as string[])
@@ -430,6 +434,11 @@ function normalizeSavedMedia(
       playCount: typeof media?.play_count === "number" ? media.play_count : null,
       hasViewerSaved: media?.has_viewer_saved === true,
       username,
+      fullName,
+      profilePicUrl,
+      imageUrl: media?.image_versions2?.candidates?.[0]?.url ?? null,
+      videoUrl: media?.video_versions?.[0]?.url ?? null,
+      videoDuration: typeof media?.video_duration === "number" ? media.video_duration : null,
     },
   };
 
@@ -468,6 +477,8 @@ function buildSavedRawRecord(
     url: buildInstagramMediaUrl(code, productType, cleanText(media?.subtype_name_for_REST__)),
     username: cleanText(media?.user?.username) ?? cleanText(media?.owner?.username),
     fullName: cleanText(media?.user?.full_name) ?? cleanText(media?.owner?.full_name),
+    profilePicUrl:
+      cleanText(media?.user?.profile_pic_url) ?? cleanText(media?.owner?.profile_pic_url),
     captionText,
     takenAt: typeof media?.taken_at === "number" ? normalizeUnixSeconds(media.taken_at) : null,
     captionCreatedAt:

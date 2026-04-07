@@ -825,7 +825,30 @@ function extractMedia(legacy: Record<string, unknown> | null): Array<Record<stri
       type: readString(entry, "type") ?? "unknown",
       mediaUrl: readString(entry, "media_url_https") ?? readString(entry, "media_url"),
       expandedUrl: readString(entry, "expanded_url"),
+      videoUrl: readPreferredVideoUrl(entry),
     }));
+}
+
+function readPreferredVideoUrl(entry: Record<string, unknown>): string | undefined {
+  const videoInfo = asRecord(entry.video_info);
+  const variants = Array.isArray(videoInfo?.variants) ? videoInfo.variants : [];
+
+  const mp4Variants = variants
+    .map((variant) => asRecord(variant))
+    .filter((variant): variant is Record<string, unknown> => variant !== null)
+    .filter((variant) => readString(variant, "content_type") === "video/mp4");
+
+  if (mp4Variants.length === 0) {
+    return undefined;
+  }
+
+  const bestVariant = mp4Variants.sort((left, right) => {
+    const leftBitrate = readNumber(left, "bitrate") ?? 0;
+    const rightBitrate = readNumber(right, "bitrate") ?? 0;
+    return rightBitrate - leftBitrate;
+  });
+
+  return bestVariant[0] ? readString(bestVariant[0], "url") : undefined;
 }
 
 function truncate(value: string, length: number): string {

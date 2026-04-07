@@ -24,7 +24,7 @@ import {
   syncGitHubStars,
   validateGitHubSession,
 } from "./github.js";
-import { syncHnFavorites } from "./hn/index.js";
+import { syncHnFavorites, validateHnSession } from "./hn/index.js";
 import { syncInstagramSaved, validateInstagramSession } from "./instagram.js";
 import { syncSubstackSaved, validateSubstackSession } from "./substack.js";
 import { formatAvailableBrowserList, syncXBookmarks, validateXSession } from "./x.js";
@@ -265,8 +265,8 @@ const xSource: SyncSourceDefinition = {
     displayName: "X",
     authMode: "cookie",
     kinds: [
-      { id: "bookmarks", aliases: ["bookmark"], default: true },
-      { id: "likes", aliases: ["like"], default: true },
+      { id: "bookmark", aliases: ["bookmarks"], default: true },
+      { id: "like", aliases: ["likes"], default: true },
     ],
     requiresBrowser: true,
   },
@@ -352,24 +352,46 @@ const hnSource: SyncSourceDefinition = {
   id: "hn",
   metadata: {
     displayName: "Hacker News",
-    authMode: "public",
+    authMode: "cookie",
     kinds: [
-      { id: "favorites", default: true },
-      { id: "favorite-comments", default: true },
+      { id: "upvoted", default: true },
+      { id: "upvoted-comment", aliases: ["upvoted-comments"], default: true },
     ],
+    requiresBrowser: true,
     requiresUser: true,
   },
   expandSyncRuns(options) {
     return expandKindRuns(this.metadata, options);
   },
+  async resolveOptions({ options, onProgress }) {
+    return resolveCookieBackedOptions(
+      "hn",
+      options,
+      {
+        sourceLabel: "Hacker News",
+        domains: ["https://news.ycombinator.com/"],
+        validateSession: validateHnSession,
+      },
+      onProgress,
+    );
+  },
   createScope(options) {
-    return `${options.user ?? "unknown"}:${options.kind ?? "favorites"}`;
+    return `${options.browser}:${options.profile ?? "Default"}:${options.user ?? "unknown"}:${options.kind ?? "upvoted"}`;
   },
   shouldPersistState: true,
   async sync({ options, state, limit, onProgress }) {
+    const browserId = options.browser as SupportedBrowserId;
+    const session = await getChromiumSession(
+      browserId,
+      options.profile,
+      ["https://news.ycombinator.com/"],
+      "Hacker News",
+    );
+
     return syncHnFavorites({
       ...(options.user ? { user: options.user } : {}),
       ...(options.kind ? { kind: options.kind } : {}),
+      cookieHeader: session.cookieHeader,
       ...(limit !== undefined ? { limit } : {}),
       ...(state?.cursor ? { cursor: state.cursor } : {}),
       ...(onProgress ? { onProgress } : {}),
@@ -382,7 +404,7 @@ const hnSource: SyncSourceDefinition = {
       ...(result.nextCursor ? { cursor: result.nextCursor } : {}),
       metadata: {
         user: options.user,
-        kind: options.kind ?? "favorites",
+        kind: options.kind ?? "upvoted",
         lastImportCount: importedCount,
       },
     };
@@ -402,12 +424,12 @@ const hnSource: SyncSourceDefinition = {
           entries: [
             { label: "Scope", value: scope, tone: "muted" },
             { label: "User", value: options.user ?? "Unknown", tone: "muted" },
-            { label: "Kind", value: options.kind ?? "favorites", tone: "muted" },
+            { label: "Kind", value: options.kind ?? "upvoted", tone: "muted" },
           ],
         },
       ],
       notes: [
-        "Saved timestamps use the original HN item time because favorites pages do not expose favorited-at time.",
+        "Saved timestamps use the original HN item time because upvoted pages do not expose exact vote time.",
       ],
     };
   },
@@ -420,7 +442,7 @@ const substackSource: SyncSourceDefinition = {
     authMode: "cookie",
     kinds: [
       { id: "saved", default: true },
-      { id: "likes", aliases: ["like"], default: true },
+      { id: "like", aliases: ["likes"], default: true },
     ],
     requiresBrowser: true,
   },

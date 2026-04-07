@@ -80,7 +80,7 @@ describe("library services", () => {
       ...getFixtureItems(),
       {
         source: "x",
-        kind: "bookmarks",
+        kind: "bookmark",
         externalId: "tweet-1",
         title: "Saved tweet",
         url: "https://x.com/example/status/1",
@@ -88,7 +88,7 @@ describe("library services", () => {
       },
       {
         source: "x",
-        kind: "likes",
+        kind: "like",
         externalId: "tweet-2",
         title: "Liked tweet",
         url: "https://x.com/example/status/2",
@@ -100,7 +100,7 @@ describe("library services", () => {
     const result = listLibraryItems(
       {
         source: "x",
-        kind: "bookmarks",
+        kind: "bookmark",
       },
       root,
     );
@@ -108,7 +108,7 @@ describe("library services", () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({
       source: "x",
-      kind: "bookmarks",
+      kind: "bookmark",
       externalId: "tweet-1",
     });
   });

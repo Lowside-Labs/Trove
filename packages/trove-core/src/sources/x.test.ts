@@ -113,6 +113,24 @@ describe("x bookmarks parsing", () => {
               type: "video",
               media_url_https: "https://pbs.twimg.com/ext_tw_video_thumb/example-2.jpg",
               expanded_url: "https://x.com/emad/status/media-123/video/1",
+              video_info: {
+                variants: [
+                  {
+                    content_type: "application/x-mpegURL",
+                    url: "https://video.twimg.com/example-2.m3u8",
+                  },
+                  {
+                    bitrate: 832000,
+                    content_type: "video/mp4",
+                    url: "https://video.twimg.com/example-2-832.mp4",
+                  },
+                  {
+                    bitrate: 2176000,
+                    content_type: "video/mp4",
+                    url: "https://video.twimg.com/example-2-2176.mp4",
+                  },
+                ],
+              },
             },
           ],
         },
@@ -143,6 +161,7 @@ describe("x bookmarks parsing", () => {
           type: "video",
           mediaUrl: "https://pbs.twimg.com/ext_tw_video_thumb/example-2.jpg",
           expandedUrl: "https://x.com/emad/status/media-123/video/1",
+          videoUrl: "https://video.twimg.com/example-2-2176.mp4",
         },
       ],
     });

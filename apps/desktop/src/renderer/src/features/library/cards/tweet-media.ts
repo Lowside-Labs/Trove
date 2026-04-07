@@ -4,11 +4,13 @@ interface TweetMediaEntry {
   type?: string;
   mediaUrl?: string;
   expandedUrl?: string;
+  videoUrl?: string;
 }
 
 export interface TweetMediaItem {
   type: "photo" | "video" | "animated_gif" | "unknown";
   url: string;
+  videoUrl?: string;
 }
 
 export function getTweetMedia(item: LibraryItemSummary): TweetMediaItem[] {
@@ -32,9 +34,12 @@ function normalizeMediaEntry(value: unknown): TweetMediaItem | null {
     return null;
   }
 
+  const videoUrl = readString(entry.videoUrl);
+
   return {
     type: normalizeMediaType(entry.type),
     url,
+    ...(videoUrl ? { videoUrl } : {}),
   };
 }
 

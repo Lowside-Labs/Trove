@@ -1,12 +1,15 @@
 export function formatKindLabel(kindId: string): string {
   switch (kindId) {
-    case "favorite-comments":
+    case "upvoted-comment":
+    case "upvoted-comments":
       return "Comments";
-    case "favorites":
-      return "Favorites";
+    case "upvoted":
+      return "Upvoted";
     case "likes":
+    case "like":
       return "Likes";
     case "bookmarks":
+    case "bookmark":
       return "Bookmarks";
     case "saved":
       return "Saved";

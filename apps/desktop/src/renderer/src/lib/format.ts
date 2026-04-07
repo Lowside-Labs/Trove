@@ -7,10 +7,14 @@ const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   timeStyle: "short",
 });
 
-const numberFormatter = new Intl.NumberFormat();
+const compactNumberFormatter = new Intl.NumberFormat("en", {
+  notation: "compact",
+  compactDisplay: "short",
+  maximumFractionDigits: 1,
+});
 
 export function formatCount(value: number): string {
-  return numberFormatter.format(value);
+  return compactNumberFormatter.format(value);
 }
 
 export function formatDate(value?: string | null, fallback = "Unknown date"): string {
