@@ -50,7 +50,7 @@ function PopoverContent({
         <BasePopover.Popup
           className={cn(
             "max-h-[var(--available-height)] min-w-[220px] max-w-[360px] overflow-y-auto",
-            "rounded-[18px] border border-black/8 bg-white p-4 text-foreground shadow-[0_18px_48px_rgba(0,0,0,0.14)] outline-none",
+            "rounded-2xl bg-popover p-4 text-popover-foreground shadow-outline shadow-lg outline-none",
             "origin-[var(--transform-origin)]",
             "transition-[opacity,filter,transform] duration-150 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)]",
             "data-[starting-style]:translate-y-1 data-[starting-style]:opacity-0 data-[starting-style]:blur-[4px]",
@@ -58,7 +58,9 @@ function PopoverContent({
             className,
           )}
         >
-          {arrow ? <BasePopover.Arrow className={cn("fill-white", arrowClassName)} /> : null}
+          {arrow ? (
+            <BasePopover.Arrow className={cn("fill-popover", arrowClassName)} />
+          ) : null}
           {children}
         </BasePopover.Popup>
       </BasePopover.Positioner>

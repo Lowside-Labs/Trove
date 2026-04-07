@@ -53,9 +53,11 @@ const toggleItemVariants = cva(
     variants: {
       variant: {
         default: [
-          "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5",
+          "text-muted-foreground hover:bg-accent hover:text-foreground",
           "data-[pressed]:bg-background data-[pressed]:text-foreground data-[pressed]:hover:bg-background",
-          "data-[pressed]:shadow-outline data-[pressed]:shadow-sm",
+          "[[data-theme=dark]_&]:data-[pressed]:bg-accent [[data-theme=dark]_&]:data-[pressed]:text-accent-foreground [[data-theme=dark]_&]:data-[pressed]:hover:bg-accent",
+          "[.dark_&]:data-[pressed]:bg-accent [.dark_&]:data-[pressed]:text-accent-foreground [.dark_&]:data-[pressed]:hover:bg-accent",
+          "data-[pressed]:shadow-outline-1 data-[pressed]:shadow-sm",
           "data-[disabled]:data-[pressed]:shadow-none",
           "[&[data-pressed]:has(+[data-pressed])]:rounded-r-none",
           "[[data-pressed]+&[data-pressed]]:rounded-l-none",

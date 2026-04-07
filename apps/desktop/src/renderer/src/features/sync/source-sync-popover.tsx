@@ -34,7 +34,7 @@ export function SourceSyncPopover({ anchorRef, sourceId }: SourceSyncPopoverProp
         align="start"
         anchor={anchorRef}
         arrow={false}
-        className="w-[340px] rounded-[28px] p-5"
+        className="w-[340px] rounded-2xl p-5"
         side="right"
         sideOffset={14}
       >
@@ -43,7 +43,7 @@ export function SourceSyncPopover({ anchorRef, sourceId }: SourceSyncPopoverProp
             <PopoverTitle className="text-xl font-semibold">
               {meta.title}
             </PopoverTitle>
-            <PopoverDescription className="text-sm">
+            <PopoverDescription className="text-sm text-pretty">
               {meta.description}
             </PopoverDescription>
           </div>
@@ -118,7 +118,7 @@ export function SourceSyncPopover({ anchorRef, sourceId }: SourceSyncPopoverProp
 
           <div className="space-y-2">
             <Button
-              className="h-11 w-full rounded-full transition-none"
+              className="h-11 w-full transition-none"
               disabled={!meta.canSubmit}
               variant="primary"
               onClick={() => {
@@ -128,7 +128,7 @@ export function SourceSyncPopover({ anchorRef, sourceId }: SourceSyncPopoverProp
               {state.isSubmitting ? "Syncing…" : meta.submitLabel}
             </Button>
             <Button
-              className="h-11 w-full rounded-full transition-none"
+              className="h-11 w-full text-muted-foreground transition-none hover:text-foreground"
               disabled={state.isSubmitting}
               variant="ghost"
               onClick={() => actions.close()}
@@ -151,7 +151,7 @@ function SyncSection({
 }) {
   return (
     <section className="space-y-2.5">
-      <h3 className="text-[13px] font-medium text-muted-foreground">{label}</h3>
+      <h3 className="text-[13px] font-medium text-muted-foreground/90">{label}</h3>
       {children}
     </section>
   );
