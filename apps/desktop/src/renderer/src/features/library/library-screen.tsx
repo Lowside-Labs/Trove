@@ -48,7 +48,7 @@ export function LibraryScreen({ snapshot }: LibraryScreenProps) {
   const placeholderItemCount = selectedSourceRecord?.itemCount ?? snapshot.overview.totalItems;
 
   return (
-    <div className="grid gap-14 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
+    <div className="grid h-[calc(100vh-38px)] min-h-0 overflow-hidden lg:grid-cols-[220px_minmax(0,1fr)]">
       <LibrarySidebar
         selectedSource={selectedSource}
         sources={snapshot.sources}
@@ -60,7 +60,7 @@ export function LibraryScreen({ snapshot }: LibraryScreenProps) {
         }}
       />
 
-      <section className="flex flex-col gap-4 py-2">
+      <section className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto px-8 pb-8 pt-8">
         <LibraryToolbar
           kindOptions={kindOptions}
           selectedKind={selectedKind}

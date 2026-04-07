@@ -179,3 +179,47 @@
     --tw-ring-shadow: 0 0 0 1px color-mix(in oklch, #fff 6%, transparent);
   }
 }
+
+@utility interactive-list-item {
+  --_inset-x: -16px;
+  --_inset-y: 2px;
+  --_radius: 14px;
+  --_divider-inset: 0px;
+
+  position: relative;
+  isolation: isolate;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: var(--_inset-y) var(--_inset-x);
+    border-radius: var(--_radius);
+    background: color-mix(in oklch, var(--muted) 100%, transparent);
+    opacity: 0;
+    z-index: -1;
+  }
+
+  &:hover::before,
+  &:focus-visible::before {
+    opacity: 1;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: var(--_divider-inset);
+    right: var(--_divider-inset);
+    height: 1px;
+    background: color-mix(in oklch, var(--border) 50%, transparent);
+  }
+
+  &:last-child::after {
+    display: none;
+  }
+
+  &:hover::after,
+  &:has(+ &:hover)::after {
+    opacity: 0;
+  }
+}

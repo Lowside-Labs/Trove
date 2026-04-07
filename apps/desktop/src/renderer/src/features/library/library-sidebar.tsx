@@ -22,10 +22,10 @@ export function LibrarySidebar({
   sources,
 }: LibrarySidebarProps) {
   return (
-    <aside className="flex min-h-[70vh] flex-col gap-10 pb-8 lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)]">
+    <aside className="flex h-full min-h-0 flex-col gap-10 px-8 pb-8 pt-8">
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto py-4 pr-4" style={sourceScrollerMask}>
-          <nav className="flex flex-col gap-3 py-2">
+        <div className="min-h-0 flex-1 overflow-y-auto py-1" style={sourceScrollerMask}>
+          <nav className="flex flex-col py-2">
             <SourceItem
               active={selectedSource === "all"}
               label="All"
@@ -65,7 +65,7 @@ function SourceItem({ active, label, onClick, sourceId }: SourceItemProps) {
   return (
     <button
       className={cn(
-        "group flex w-full cursor-pointer items-center gap-4 py-1 text-left transition",
+        "group flex w-full cursor-pointer items-center gap-4 py-3 text-left",
         active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
       type="button"

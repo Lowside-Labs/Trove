@@ -9,7 +9,7 @@ interface AppShellProps {
 
 export function AppShell({ snapshot }: AppShellProps) {
   return (
-    <main className="px-8 pb-8 pt-8">
+    <main className="h-full overflow-hidden">
       <div className="w-full">
         <LibraryScreen snapshot={snapshot} />
       </div>
