@@ -1,16 +1,25 @@
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
+import type { SupportedBrowserId } from "../types/browser.js";
 
 const execFile = promisify(execFileCallback);
 const GOOGLE_CHROME_APP = "Google Chrome";
 const APPLESCRIPT_TAB_SEPARATOR = "\t";
 const OSASCRIPT_MAX_BUFFER = 64 * 1024 * 1024;
+const CHROMIUM_APP_NAMES: Record<SupportedBrowserId, string> = {
+  chrome: "Google Chrome",
+  dia: "Dia",
+  brave: "Brave Browser",
+  arc: "Arc",
+};
 
 export interface GoogleChromeTabTarget {
   windowId: number;
   tabId: number;
   url: string;
   isActive: boolean;
+  browserId?: SupportedBrowserId;
+  appName?: string;
 }
 
 export interface GoogleChromeFetchResponse {
@@ -21,7 +30,20 @@ export interface GoogleChromeFetchResponse {
 }
 
 export async function findGoogleChromeTab(hosts: string[]): Promise<GoogleChromeTabTarget | null> {
-  const tabs = await listGoogleChromeTabs();
+  const tabs = await listChromiumTabs("chrome");
+
+  return (
+    tabs
+      .filter((tab) => matchesHosts(tab.url, hosts))
+      .sort((left, right) => Number(right.isActive) - Number(left.isActive))[0] ?? null
+  );
+}
+
+export async function findChromiumTab(
+  browserId: SupportedBrowserId,
+  hosts: string[],
+): Promise<GoogleChromeTabTarget | null> {
+  const tabs = await listChromiumTabs(browserId);
 
   return (
     tabs
@@ -34,12 +56,14 @@ export async function evaluateGoogleChromeTabScript(
   target: GoogleChromeTabTarget,
   script: string,
 ): Promise<string> {
+  const appName = target.appName ?? GOOGLE_CHROME_APP;
+
   try {
     const { stdout } = await execFile(
       "/usr/bin/osascript",
       [
         "-e",
-        `tell application "${GOOGLE_CHROME_APP}" to tell tab id ${target.tabId} of window id ${target.windowId} to execute javascript ${quoteAppleScriptString(script)}`,
+        `tell application "${appName}" to tell tab id ${target.tabId} of window id ${target.windowId} to execute javascript ${quoteAppleScriptString(script)}`,
       ],
       {
         maxBuffer: OSASCRIPT_MAX_BUFFER,
@@ -52,7 +76,7 @@ export async function evaluateGoogleChromeTabScript(
 
     if (message.includes("Executing JavaScript through AppleScript is turned off")) {
       throw new Error(
-        'Google Chrome is open, but JavaScript from Apple Events is disabled. Enable "View > Developer > Allow JavaScript from Apple Events" in Chrome and retry.',
+        `${appName} is open, but JavaScript from Apple Events is disabled. Enable "View > Developer > Allow JavaScript from Apple Events" in ${appName} and retry.`,
       );
     }
 
@@ -78,14 +102,16 @@ export async function fetchJsonFromGoogleChromeTab(
   }
 }
 
-async function listGoogleChromeTabs(): Promise<GoogleChromeTabTarget[]> {
+async function listChromiumTabs(browserId: SupportedBrowserId): Promise<GoogleChromeTabTarget[]> {
+  const appName = CHROMIUM_APP_NAMES[browserId];
+
   try {
     const { stdout } = await execFile(
       "/usr/bin/osascript",
       [
         "-e",
         `
-        tell application "${GOOGLE_CHROME_APP}"
+        tell application "${appName}"
           if (count of windows) is 0 then
             return ""
           end if
@@ -115,14 +141,14 @@ async function listGoogleChromeTabs(): Promise<GoogleChromeTabTarget[]> {
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter((line) => line.length > 0)
-      .map(parseGoogleChromeTabLine)
+      .map((line) => parseGoogleChromeTabLine(line, browserId, appName))
       .filter((tab): tab is GoogleChromeTabTarget => tab !== null);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
     if (
       message.includes("Application isn’t running") ||
-      message.includes("Google Chrome got an error")
+      message.includes(`${appName} got an error`)
     ) {
       return [];
     }
@@ -131,7 +157,11 @@ async function listGoogleChromeTabs(): Promise<GoogleChromeTabTarget[]> {
   }
 }
 
-function parseGoogleChromeTabLine(line: string): GoogleChromeTabTarget | null {
+function parseGoogleChromeTabLine(
+  line: string,
+  browserId: SupportedBrowserId,
+  appName: string,
+): GoogleChromeTabTarget | null {
   const [windowIdValue, tabIdValue, url, isActiveValue] = line.split(APPLESCRIPT_TAB_SEPARATOR);
   const windowId = Number.parseInt(windowIdValue ?? "", 10);
   const tabId = Number.parseInt(tabIdValue ?? "", 10);
@@ -145,6 +175,8 @@ function parseGoogleChromeTabLine(line: string): GoogleChromeTabTarget | null {
     tabId,
     url,
     isActive: isActiveValue === "true",
+    browserId,
+    appName,
   };
 }
 
@@ -203,6 +235,8 @@ function buildSynchronousFetchScript(request: {
 
 export const __internal = {
   buildSynchronousFetchScript,
+  findChromiumTab,
+  listChromiumTabs,
   matchesHosts,
   parseGoogleChromeTabLine,
   quoteAppleScriptString,

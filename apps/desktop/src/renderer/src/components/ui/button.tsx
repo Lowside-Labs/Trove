@@ -80,7 +80,7 @@ const buttonVariants = cva(
       },
       shape: {
         pill: "rounded-full",
-        square: "rounded-[10px]",
+        square: "rounded-xl",
       },
     },
     defaultVariants: {

@@ -2,26 +2,33 @@ import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright-core";
 import {
+  findChromiumTab,
   fetchJsonFromGoogleChromeTab,
-  findGoogleChromeTab,
   type GoogleChromeFetchResponse,
   type GoogleChromeTabTarget,
 } from "../auth/google-chrome.js";
+import { isRateLimitError, retryTask, settleConcurrently } from "../core/async.js";
 import { ensureTroveDirs } from "../core/fs.js";
 import { createJsonlSink, createTimestampedFileName } from "../core/raw.js";
 import type { ProgressHandler } from "../core/progress.js";
 import type { TroveItem } from "../types/item.js";
+import type { SupportedBrowserId } from "../types/browser.js";
 
 const DEFAULT_CDP_URL = "http://127.0.0.1:9222";
 const CHATGPT_HOME_URL = "https://chatgpt.com/";
 const CHATGPT_HOST = "chatgpt.com";
 const LIST_PAGE_SIZE = 28;
 const MAX_STALLED_LIST_PAGES = 3;
+const RECENT_REFRESH_LIMIT = 10;
+const DETAIL_CONCURRENCY = 3;
+const DETAIL_RETRIES = 2;
 
 interface ChatGptSyncOptions {
+  browser?: SupportedBrowserId;
   cdpUrl?: string;
   sessionMode?: "cdp" | "chrome-live";
   limit?: number;
+  cursor?: string;
   onProgress?: ProgressHandler;
 }
 
@@ -29,6 +36,7 @@ export interface ChatGptSyncResult {
   items: TroveItem[];
   rawPath: string;
   contentPath: string;
+  nextCursor?: string;
 }
 
 interface ChatGptCapturedHeaders {
@@ -102,58 +110,53 @@ export async function syncChatGptChats(options: ChatGptSyncOptions): Promise<Cha
   try {
     emitProgress(options.onProgress, "bootstrap", "Capturing ChatGPT session headers");
     const capturedHeaders = await captureConversationHeaders(page);
-    const summaries = await fetchConversationSummaries(
-      page,
-      capturedHeaders,
-      options.limit,
-      rawSink,
-      options.onProgress,
-    );
-    const items: TroveItem[] = [];
-    const total = summaries.length;
-    let completed = 0;
+    const hybrid = await collectHybridSummaries({
+      cursor: options.cursor,
+      limit: options.limit,
+      onProgress: options.onProgress,
+      sourceLabel: "ChatGPT",
+      fetchSummaries: (requestedLimit, startOffset) =>
+        fetchConversationSummaries(
+          page,
+          capturedHeaders,
+          requestedLimit,
+          rawSink,
+          options.onProgress,
+          startOffset,
+        ),
+    });
+    const { items, succeededSummaryIds } = await buildConversationItems({
+      summaries: hybrid.summaries,
+      sourceLabel: "ChatGPT",
+      onProgress: options.onProgress,
+      worker: async (summary) => {
+        const detailResponse = await retryTask({
+          retries: DETAIL_RETRIES,
+          shouldRetry: isRateLimitError,
+          task: async () => {
+            const response = await fetchChatGptJson(
+              page,
+              capturedHeaders,
+              `/backend-api/conversation/${summary.id}`,
+              `/backend-api/conversation/${summary.id}`,
+              "/backend-api/conversation/[id]",
+            );
+            assertSuccessfulResponse(response, `ChatGPT conversation ${summary.id}`);
+            return response;
+          },
+        });
 
-    for (const summary of summaries) {
-      emitProgress(
-        options.onProgress,
-        "detail",
-        `Fetching ChatGPT conversation ${completed + 1}`,
-        completed,
-        total,
-      );
-      const detailResponse = await fetchChatGptJson(
-        page,
-        capturedHeaders,
-        `/backend-api/conversation/${summary.id}`,
-        `/backend-api/conversation/${summary.id}`,
-        "/backend-api/conversation/[id]",
-      );
-      assertSuccessfulResponse(detailResponse, `ChatGPT conversation ${summary.id}`);
+        return createConversationItem(summary, detailResponse, rawSink, contentDir);
+      },
+    });
 
-      const detail = parseConversationDetail(detailResponse.body);
-      rawSink.append({
-        kind: "detail",
-        conversationId: summary.id,
-        payload: detailResponse.body as Record<string, unknown>,
-      });
-
-      const markdown = renderConversationMarkdown(detail);
-      const markdownPath = writeConversationMarkdown(contentDir, detail, markdown);
-      items.push(toTroveItem(summary, detail, markdown, markdownPath));
-      completed += 1;
-      emitProgress(
-        options.onProgress,
-        "detail",
-        `Rendered ChatGPT conversation ${completed}`,
-        completed,
-        total,
-      );
-    }
+    const nextCursor = resolveHybridNextCursor(hybrid, succeededSummaryIds);
 
     return {
       items,
       rawPath: rawSink.path,
       contentPath: contentDir,
+      ...(nextCursor ? { nextCursor } : {}),
     };
   } finally {
     await page.close().catch(() => undefined);
@@ -235,71 +238,71 @@ async function syncChatGptChatsFromChromeTab(
   contentDir: string,
   options: ChatGptSyncOptions,
 ): Promise<ChatGptSyncResult> {
-  emitProgress(options.onProgress, "bootstrap", "Finding the active Google Chrome ChatGPT tab");
-  const tab = await findGoogleChromeTab([CHATGPT_HOST]);
+  const browserId = options.browser ?? "chrome";
+  emitProgress(
+    options.onProgress,
+    "bootstrap",
+    `Finding the active ${browserId} ChatGPT tab`,
+  );
+  const tab = await findChromiumTab(browserId, [CHATGPT_HOST]);
 
   if (!tab) {
-    throw new Error("No open Google Chrome tab for ChatGPT was found.");
+    throw new Error(`No open ${browserId} tab for ChatGPT was found.`);
   }
 
   emitProgress(
     options.onProgress,
     "bootstrap",
-    "Reading ChatGPT session from the active Google Chrome tab",
+    `Reading ChatGPT session from the active ${browserId} tab`,
   );
   const accessToken = await readChatGptAccessToken(tab);
-  const summaries = await fetchConversationSummariesFromChromeTab(
-    tab,
-    accessToken,
-    options.limit,
-    rawSink,
-    options.onProgress,
-  );
-  const items: TroveItem[] = [];
-  const total = summaries.length;
-  let completed = 0;
+  const hybrid = await collectHybridSummaries({
+    cursor: options.cursor,
+    limit: options.limit,
+    onProgress: options.onProgress,
+    sourceLabel: "ChatGPT",
+    fetchSummaries: (requestedLimit, startOffset) =>
+      fetchConversationSummariesFromChromeTab(
+        tab,
+        accessToken,
+        requestedLimit,
+        rawSink,
+        options.onProgress,
+        startOffset,
+      ),
+  });
+  const { items, succeededSummaryIds } = await buildConversationItems({
+    summaries: hybrid.summaries,
+    sourceLabel: "ChatGPT",
+    onProgress: options.onProgress,
+    worker: async (summary) => {
+      const detailResponse = await retryTask({
+        retries: DETAIL_RETRIES,
+        shouldRetry: isRateLimitError,
+        task: async () => {
+          const response = await fetchChatGptJsonFromChromeTab(
+            tab,
+            accessToken,
+            `/backend-api/conversation/${summary.id}`,
+            `/backend-api/conversation/${summary.id}`,
+            "/backend-api/conversation/[id]",
+          );
+          assertSuccessfulResponse(response, `ChatGPT conversation ${summary.id}`);
+          return response;
+        },
+      });
 
-  for (const summary of summaries) {
-    emitProgress(
-      options.onProgress,
-      "detail",
-      `Fetching ChatGPT conversation ${completed + 1}`,
-      completed,
-      total,
-    );
-    const detailResponse = await fetchChatGptJsonFromChromeTab(
-      tab,
-      accessToken,
-      `/backend-api/conversation/${summary.id}`,
-      `/backend-api/conversation/${summary.id}`,
-      "/backend-api/conversation/[id]",
-    );
-    assertSuccessfulResponse(detailResponse, `ChatGPT conversation ${summary.id}`);
+      return createConversationItem(summary, detailResponse, rawSink, contentDir);
+    },
+  });
 
-    const detail = parseConversationDetail(detailResponse.body);
-    rawSink.append({
-      kind: "detail",
-      conversationId: summary.id,
-      payload: detailResponse.body as Record<string, unknown>,
-    });
-
-    const markdown = renderConversationMarkdown(detail);
-    const markdownPath = writeConversationMarkdown(contentDir, detail, markdown);
-    items.push(toTroveItem(summary, detail, markdown, markdownPath));
-    completed += 1;
-    emitProgress(
-      options.onProgress,
-      "detail",
-      `Rendered ChatGPT conversation ${completed}`,
-      completed,
-      total,
-    );
-  }
+  const nextCursor = resolveHybridNextCursor(hybrid, succeededSummaryIds);
 
   return {
     items,
     rawPath: rawSink.path,
     contentPath: contentDir,
+    ...(nextCursor ? { nextCursor } : {}),
   };
 }
 
@@ -325,10 +328,11 @@ async function fetchConversationSummaries(
   requestedLimit: number | undefined,
   rawSink: ReturnType<typeof createJsonlSink>,
   onProgress?: ProgressHandler,
+  startOffset = 0,
 ): Promise<ChatGptConversationSummary[]> {
   const summaries: ChatGptConversationSummary[] = [];
   const seenIds = new Set<string>();
-  let offset = 0;
+  let offset = startOffset;
   let total: number | null = null;
   let pageNumber = 1;
   let stalledPages = 0;
@@ -407,10 +411,11 @@ async function fetchConversationSummariesFromChromeTab(
   requestedLimit: number | undefined,
   rawSink: ReturnType<typeof createJsonlSink>,
   onProgress?: ProgressHandler,
+  startOffset = 0,
 ): Promise<ChatGptConversationSummary[]> {
   const summaries: ChatGptConversationSummary[] = [];
   const seenIds = new Set<string>();
-  let offset = 0;
+  let offset = startOffset;
   let total: number | null = null;
   let pageNumber = 1;
   let stalledPages = 0;
@@ -548,6 +553,7 @@ async function fetchChatGptJsonFromChromeTab(
 }
 
 async function readChatGptAccessToken(tab: GoogleChromeTabTarget): Promise<string> {
+  const browserLabel = tab.appName ?? "active Chromium";
   const response = await fetchJsonFromGoogleChromeTab(tab, {
     path: "/api/auth/session",
     headers: {
@@ -561,7 +567,7 @@ async function readChatGptAccessToken(tab: GoogleChromeTabTarget): Promise<strin
 
   if (!accessToken) {
     throw new Error(
-      "ChatGPT session did not include an access token in the active Google Chrome tab.",
+      `ChatGPT session did not include an access token in the active ${browserLabel} tab.`,
     );
   }
 
@@ -650,6 +656,87 @@ function parseConversationDetail(payload: unknown): ChatGptConversationDetail {
     messages: readMessagesFromCurrentBranch(record),
     raw: record,
   };
+}
+
+async function buildConversationItems({
+  summaries,
+  sourceLabel,
+  onProgress,
+  worker,
+}: {
+  summaries: ChatGptConversationSummary[];
+  sourceLabel: string;
+  onProgress: ProgressHandler | undefined;
+  worker(summary: ChatGptConversationSummary): Promise<TroveItem>;
+}): Promise<{ items: TroveItem[]; succeededSummaryIds: Set<string> }> {
+  const total = summaries.length;
+  let completed = 0;
+
+  const results = await settleConcurrently({
+    items: summaries,
+    concurrency: DETAIL_CONCURRENCY,
+    worker: async (summary, index) => {
+      emitProgress(
+        onProgress,
+        "detail",
+        `Fetching ${sourceLabel} conversation ${index + 1}`,
+        completed,
+        total,
+      );
+      const item = await worker(summary);
+      completed += 1;
+      emitProgress(
+        onProgress,
+        "detail",
+        `Rendered ${sourceLabel} conversation ${completed}`,
+        completed,
+        total,
+      );
+      return item;
+    },
+  });
+
+  const items = results
+    .filter((result): result is PromiseFulfilledResult<TroveItem> => result.status === "fulfilled")
+    .map((result) => result.value);
+  const succeededSummaryIds = new Set(items.map((item) => item.externalId));
+  const failures = results.filter(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  );
+
+  if (items.length === 0 && failures.length > 0) {
+    throw failures[0]!.reason;
+  }
+
+  if (failures.length > 0) {
+    emitProgress(
+      onProgress,
+      "detail",
+      `Skipped ${failures.length} ${sourceLabel} conversation${failures.length === 1 ? "" : "s"} after retries`,
+      items.length,
+      total,
+    );
+  }
+
+  return { items, succeededSummaryIds };
+}
+
+function createConversationItem(
+  summary: ChatGptConversationSummary,
+  detailResponse: ChatGptFetchResponse | GoogleChromeFetchResponse,
+  rawSink: ReturnType<typeof createJsonlSink>,
+  contentDir: string,
+): TroveItem {
+  const detail = parseConversationDetail(detailResponse.body);
+  rawSink.append({
+    kind: "detail",
+    conversationId: summary.id,
+    payload: detailResponse.body as Record<string, unknown>,
+  });
+
+  const markdown = renderConversationMarkdown(detail);
+  const markdownPath = writeConversationMarkdown(contentDir, detail, markdown);
+  return toTroveItem(summary, detail, markdown, markdownPath);
 }
 
 function readMessagesFromCurrentBranch(record: Record<string, unknown>): ChatGptMessage[] {
@@ -989,3 +1076,143 @@ function emitProgress(
           },
   );
 }
+
+interface HybridSummaryCollectionArgs {
+  fetchSummaries(
+    requestedLimit: number | undefined,
+    startOffset?: number,
+  ): Promise<ChatGptConversationSummary[]>;
+  limit: number | undefined;
+  cursor: string | undefined;
+  onProgress: ProgressHandler | undefined;
+  sourceLabel: string;
+}
+
+async function collectHybridSummaries({
+  fetchSummaries,
+  limit,
+  cursor,
+  onProgress,
+  sourceLabel,
+}: HybridSummaryCollectionArgs): Promise<{
+  summaries: ChatGptConversationSummary[];
+  existingCursor: number;
+  backfillOffset: number;
+  backfillSummaries: ChatGptConversationSummary[];
+  recentSummaries: ChatGptConversationSummary[];
+}> {
+  if (limit === undefined) {
+    return {
+      summaries: await fetchSummaries(undefined, 0),
+      existingCursor: 0,
+      backfillOffset: 0,
+      backfillSummaries: [],
+      recentSummaries: [],
+    };
+  }
+
+  const existingCursor = parseStoredOffset(cursor) ?? 0;
+  const recentLimit = resolveRecentRefreshLimit(limit);
+  emitProgress(onProgress, "page", `Refreshing recent ${sourceLabel} conversations`);
+  const recentSummaries = await fetchSummaries(recentLimit, 0);
+  const remainingLimit = Math.max(0, limit - recentSummaries.length);
+  const backfillOffset = Math.max(existingCursor, recentSummaries.length);
+
+  if (remainingLimit === 0) {
+    return {
+      summaries: recentSummaries,
+      existingCursor,
+      backfillOffset,
+      backfillSummaries: [],
+      recentSummaries,
+    };
+  }
+
+  emitProgress(onProgress, "page", `Continuing older ${sourceLabel} conversations`);
+  const backfillSummaries = await fetchSummaries(remainingLimit, backfillOffset);
+
+  return {
+    summaries: mergeSummaries(recentSummaries, backfillSummaries, limit),
+    existingCursor,
+    backfillOffset,
+    backfillSummaries,
+    recentSummaries,
+  };
+}
+
+function resolveHybridNextCursor(
+  hybrid: {
+    existingCursor: number;
+    backfillOffset: number;
+    backfillSummaries: ChatGptConversationSummary[];
+    recentSummaries: ChatGptConversationSummary[];
+  },
+  succeededSummaryIds: Set<string>,
+): string {
+  if (hybrid.backfillSummaries.length === 0) {
+    return String(Math.max(hybrid.existingCursor, hybrid.recentSummaries.length));
+  }
+
+  return String(hybrid.backfillOffset + countSuccessfulBackfillPrefix(hybrid.backfillSummaries, succeededSummaryIds));
+}
+
+function countSuccessfulBackfillPrefix(
+  backfillSummaries: ChatGptConversationSummary[],
+  succeededSummaryIds: Set<string>,
+): number {
+  let count = 0;
+
+  for (const summary of backfillSummaries) {
+    if (!succeededSummaryIds.has(summary.id)) {
+      break;
+    }
+
+    count += 1;
+  }
+
+  return count;
+}
+
+function mergeSummaries(
+  recentSummaries: ChatGptConversationSummary[],
+  backfillSummaries: ChatGptConversationSummary[],
+  limit: number,
+): ChatGptConversationSummary[] {
+  const merged: ChatGptConversationSummary[] = [];
+  const seenIds = new Set<string>();
+
+  for (const summary of [...recentSummaries, ...backfillSummaries]) {
+    if (seenIds.has(summary.id)) {
+      continue;
+    }
+
+    merged.push(summary);
+    seenIds.add(summary.id);
+
+    if (merged.length >= limit) {
+      break;
+    }
+  }
+
+  return merged;
+}
+
+function resolveRecentRefreshLimit(limit: number): number {
+  return Math.min(limit, RECENT_REFRESH_LIMIT);
+}
+
+function parseStoredOffset(cursor?: string): number | undefined {
+  if (!cursor) {
+    return undefined;
+  }
+
+  const parsed = Number(cursor);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+export const __internal = {
+  countSuccessfulBackfillPrefix,
+  parseStoredOffset,
+  resolveHybridNextCursor,
+  resolveRecentRefreshLimit,
+};

@@ -156,7 +156,7 @@ function LibraryScreenLayout({
   viewMode,
 }: LibraryScreenLayoutProps) {
   return (
-    <div className="grid h-[calc(100vh-38px)] min-h-0 overflow-hidden lg:grid-cols-[220px_minmax(0,1fr)]">
+    <div className="grid h-[calc(100vh-38px)] min-h-0 overflow-hidden md:grid-cols-[280px_minmax(0,1fr)]">
       <LibrarySidebar
         selectedSource={selectedSource}
         sources={sources}

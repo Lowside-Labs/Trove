@@ -52,9 +52,9 @@ function PopoverContent({
             "max-h-[var(--available-height)] min-w-[220px] max-w-[360px] overflow-y-auto",
             "rounded-2xl bg-popover p-4 text-popover-foreground shadow-outline shadow-lg outline-none",
             "origin-[var(--transform-origin)]",
-            "transition-[opacity,filter,transform] duration-150 [transition-timing-function:cubic-bezier(0.4,0,0.2,1)]",
-            "data-[starting-style]:translate-y-1 data-[starting-style]:opacity-0 data-[starting-style]:blur-[4px]",
-            "data-[ending-style]:translate-y-1 data-[ending-style]:opacity-0 data-[ending-style]:blur-[4px]",
+            "transition-[opacity,scale] duration-100 [transition-timing-function:cubic-bezier(0.165,0.84,0.44,1)]",
+            "data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
+            "data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
             className,
           )}
         >

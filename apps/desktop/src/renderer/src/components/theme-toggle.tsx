@@ -22,8 +22,8 @@ export function ThemeToggle() {
       <Menu.Trigger
         render={
           <Button
-            className="rounded-xl"
-            variant="secondary"
+            variant="ghost"
+            shape="square"
             size="icon"
           >
             <CurrentIcon className="size-4" />

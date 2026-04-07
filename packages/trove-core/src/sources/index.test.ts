@@ -37,4 +37,15 @@ describe("source registry metadata", () => {
     expect(formatSupportedKindsHelp()).toContain("x: bookmark | like");
     expect(formatSupportedKindsHelp()).toContain("substack: saved | like");
   });
+
+  it("separates live-tab sync scope by browser", () => {
+    const chatGptSource = getSyncSource("chatgpt");
+
+    expect(chatGptSource?.createScope({ browser: "chrome", sessionMode: "chrome-live" })).toBe(
+      "chrome-live:chrome",
+    );
+    expect(chatGptSource?.createScope({ browser: "dia", sessionMode: "chrome-live" })).toBe(
+      "chrome-live:dia",
+    );
+  });
 });

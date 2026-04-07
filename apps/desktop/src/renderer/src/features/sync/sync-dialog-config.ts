@@ -29,7 +29,7 @@ export function getDefaultSyncLimit(sourceId: string): number | null {
 
 export function getSyncDialogDescription(source: SourceStatus): string {
   if (source.id === "chatgpt" || source.id === "claude") {
-    return "Choose how many recent conversations to fetch before starting sync.";
+    return "Trove refreshes recent conversations first, then continues older history in the same sync.";
   }
 
   if (source.id === "hn") {

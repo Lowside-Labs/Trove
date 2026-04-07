@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { __internal } from "./claude.js";
+import { __internal } from "./chatgpt.js";
 
-describe("claude source helpers", () => {
+describe("chatgpt source helpers", () => {
   it("caps the recent refresh window to a small fixed size", () => {
     expect(__internal.resolveRecentRefreshLimit(20)).toBe(10);
     expect(__internal.resolveRecentRefreshLimit(50)).toBe(10);
@@ -35,25 +35,5 @@ describe("claude source helpers", () => {
         new Set(["a", "c", "r1", "r2"]),
       ),
     ).toBe("11");
-  });
-
-  it("extracts an organization id from loaded resource URLs", () => {
-    expect(
-      __internal.findOrganizationIdInUrls([
-        "https://claude.ai/api/bootstrap/ac591652-ee8a-468f-b887-9cdb1fa44a42/app_start",
-        "https://claude.ai/api/organizations/ac591652-ee8a-468f-b887-9cdb1fa44a42/projects?limit=30",
-      ]),
-    ).toBe("ac591652-ee8a-468f-b887-9cdb1fa44a42");
-  });
-
-  it("extracts an organization id from discoverable payloads", () => {
-    expect(
-      __internal.extractOrganizationIdFromPayload({
-        organizations: [],
-        account: {
-          organization_uuid: "ac591652-ee8a-468f-b887-9cdb1fa44a42",
-        },
-      }),
-    ).toBe("ac591652-ee8a-468f-b887-9cdb1fa44a42");
   });
 });

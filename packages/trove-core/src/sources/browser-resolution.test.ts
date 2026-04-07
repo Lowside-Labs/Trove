@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getChromiumSession = vi.fn();
+const findChromiumTab = vi.fn();
 const findGoogleChromeTab = vi.fn();
 const isSupportedBrowserId = vi.fn((value: string) =>
   ["chrome", "dia", "brave", "arc"].includes(value),
@@ -19,6 +20,7 @@ vi.mock("../auth/cdp.js", () => ({
 }));
 
 vi.mock("../auth/google-chrome.js", () => ({
+  findChromiumTab,
   findGoogleChromeTab,
 }));
 
@@ -94,6 +96,7 @@ describe("cookie-backed browser resolution", () => {
     ]);
     listChromiumProfiles.mockImplementation(() => ["Default"]);
     findAttachableCdpUrl.mockResolvedValue(undefined);
+    findChromiumTab.mockResolvedValue(null);
     findGoogleChromeTab.mockResolvedValue(null);
     getSavedSourceBrowserTarget.mockReturnValue(undefined);
     getChromiumSession.mockImplementation(async (browserId: string, profile?: string) => ({
@@ -152,7 +155,7 @@ describe("cookie-backed browser resolution", () => {
 
   it("uses the active Google Chrome tab for ChatGPT when one is available", async () => {
     const { getSyncSource } = await buildModule();
-    findGoogleChromeTab.mockResolvedValue({
+    findChromiumTab.mockResolvedValue({
       windowId: 1,
       tabId: 2,
       url: "https://chatgpt.com/",
@@ -190,7 +193,7 @@ describe("cookie-backed browser resolution", () => {
 
   it("falls back to CDP when Google Chrome tab discovery throws", async () => {
     const { getSyncSource } = await buildModule();
-    findGoogleChromeTab.mockRejectedValue(new Error("Automation permission denied"));
+    findChromiumTab.mockRejectedValue(new Error("Automation permission denied"));
     findAttachableCdpUrl.mockResolvedValue("http://127.0.0.1:9223");
 
     const source = getSyncSource("chatgpt");
@@ -208,7 +211,7 @@ describe("cookie-backed browser resolution", () => {
 
   it("uses the same active Google Chrome tab strategy for Claude", async () => {
     const { getSyncSource } = await buildModule();
-    findGoogleChromeTab.mockResolvedValue({
+    findChromiumTab.mockResolvedValue({
       windowId: 3,
       tabId: 4,
       url: "https://claude.ai/chats/example",
@@ -222,6 +225,30 @@ describe("cookie-backed browser resolution", () => {
 
     expect(resolved).toEqual({
       browser: "chrome",
+      sessionMode: "chrome-live",
+    });
+  });
+
+  it("can reuse an active Dia tab for Claude when Chrome is not required", async () => {
+    const { getSyncSource } = await buildModule();
+    findChromiumTab.mockImplementation(async (browserId: string) =>
+      browserId === "dia"
+        ? {
+            windowId: 5,
+            tabId: 6,
+            url: "https://claude.ai/new",
+            isActive: true,
+          }
+        : null,
+    );
+
+    const source = getSyncSource("claude");
+    const resolved = await source?.resolveOptions?.({
+      options: { browser: "dia" },
+    });
+
+    expect(resolved).toEqual({
+      browser: "dia",
       sessionMode: "chrome-live",
     });
   });

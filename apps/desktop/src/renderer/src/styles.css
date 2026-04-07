@@ -134,6 +134,7 @@
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
       "Helvetica Neue", system-ui, sans-serif;
     text-rendering: optimizeLegibility;
+    font-weight: 450;
   }
 
   button,

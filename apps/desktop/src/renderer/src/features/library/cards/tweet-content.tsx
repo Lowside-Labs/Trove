@@ -59,7 +59,7 @@ export function TweetContent({ item, mediaActive = false }: TweetContentProps) {
       ) : null}
 
       {/* Tweet body */}
-      <p className="flex-1 line-clamp-4 text-[15px] leading-relaxed text-card-foreground">
+      <p className="flex-1 line-clamp-4 text-[15px] leading-normal text-card-foreground">
         {body}
       </p>
 
