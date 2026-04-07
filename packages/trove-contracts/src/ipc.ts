@@ -6,11 +6,11 @@ import {
   listLibraryItemsResultSchema,
   workspaceSnapshotSchema,
 } from "./desktop.js";
-
 export const DESKTOP_IPC_CHANNELS = {
   workspaceGetSnapshot: "workspace:getSnapshot",
   libraryListItems: "library:listItems",
   libraryGetItem: "library:getItem",
+  syncStart: "sync:start",
   systemOpenExternal: "system:openExternal",
   themeGet: "theme:get",
   themeSet: "theme:set",
@@ -24,6 +24,27 @@ export const libraryListItemsResponseSchema = listLibraryItemsResultSchema;
 
 export const libraryGetItemRequestSchema = getLibraryItemInputSchema;
 export const libraryGetItemResponseSchema = libraryItemDetailSchema.nullable();
+
+export const syncRunResultSchema = z.object({
+  label: z.string().min(1),
+  count: z.number().int().nonnegative(),
+});
+export type SyncRunResult = z.infer<typeof syncRunResultSchema>;
+
+export const syncJobResultSchema = z.object({
+  source: z.string().min(1),
+  runs: z.array(syncRunResultSchema),
+  totalCount: z.number().int().nonnegative(),
+});
+export type SyncJobResult = z.infer<typeof syncJobResultSchema>;
+
+export const syncStartRequestSchema = z.object({
+  source: z.string().min(1),
+});
+export type SyncStartRequest = z.infer<typeof syncStartRequestSchema>;
+
+export const syncStartResponseSchema = syncJobResultSchema;
+export type SyncStartResponse = z.infer<typeof syncStartResponseSchema>;
 
 export const systemOpenExternalRequestSchema = z.object({
   url: z.string().url(),

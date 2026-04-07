@@ -3,9 +3,9 @@ import { StatusScreen } from "./status-screen";
 import { useWorkspaceSnapshot } from "./use-workspace-snapshot";
 
 export function WorkspaceGate() {
-  const { error, isLoading, snapshot } = useWorkspaceSnapshot();
+  const { error, isLoading, refresh, snapshot } = useWorkspaceSnapshot();
 
-  if (isLoading) {
+  if (isLoading && !snapshot) {
     return (
       <StatusScreen
         eyebrow="Loading"
@@ -36,5 +36,5 @@ export function WorkspaceGate() {
     );
   }
 
-  return <AppShell snapshot={snapshot} />;
+  return <AppShell snapshot={snapshot} onRefreshSnapshot={refresh} />;
 }

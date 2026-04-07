@@ -5,6 +5,7 @@ import type {
   LibraryItemDetail,
   ListLibraryItemsInput,
   ListLibraryItemsResult,
+  SyncStartResponse,
   ThemeGetResponse,
   ThemePreference,
   ThemeSetResponse,
@@ -27,6 +28,12 @@ const troveDesktop: TroveDesktopApi = {
     async getItem(input: GetLibraryItemInput) {
       const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.libraryGetItem, input);
       return response as LibraryItemDetail | null;
+    },
+  },
+  sync: {
+    async start(source: string) {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.syncStart, { source });
+      return response as SyncStartResponse;
     },
   },
   system: {

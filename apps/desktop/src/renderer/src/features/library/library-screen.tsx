@@ -8,14 +8,16 @@ import { LibrarySidebar } from "./library-sidebar";
 import { LibraryToolbar } from "./library-toolbar";
 import type { LibraryViewMode } from "./types";
 import { useLibraryItems } from "./use-library-items";
+import { useSourceSync } from "./use-source-sync";
 
 type ReadyWorkspaceSnapshot = Extract<WorkspaceSnapshot, { status: "ready" }>;
 
 interface LibraryScreenProps {
   snapshot: ReadyWorkspaceSnapshot;
+  onRefreshSnapshot(): void;
 }
 
-export function LibraryScreen({ snapshot }: LibraryScreenProps) {
+export function LibraryScreen({ onRefreshSnapshot, snapshot }: LibraryScreenProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSource, setSelectedSource] = useState("all");
   const [selectedKind, setSelectedKind] = useState<string | null>(null);
@@ -28,6 +30,14 @@ export function LibraryScreen({ snapshot }: LibraryScreenProps) {
     ...(selectedKind ? { kind: selectedKind } : {}),
     ...(selectedSource !== "all" ? { source: selectedSource } : {}),
     limit: 120,
+  });
+  const sourceSync = useSourceSync({
+    onCompleted: () => {
+      startTransition(() => {
+        onRefreshSnapshot();
+        libraryItems.refresh();
+      });
+    },
   });
   const infiniteScroll = useInfiniteScroll({
     enabled: !libraryItems.error && !libraryItems.isLoadingFirstPage,
@@ -52,11 +62,15 @@ export function LibraryScreen({ snapshot }: LibraryScreenProps) {
       <LibrarySidebar
         selectedSource={selectedSource}
         sources={snapshot.sources}
+        syncStateBySource={sourceSync.stateBySource}
         onSelectSource={(sourceId) => {
           startTransition(() => {
             setSelectedSource(sourceId);
             setSelectedKind(null);
           });
+        }}
+        onSyncSource={(sourceId) => {
+          void sourceSync.startSync(sourceId);
         }}
       />
 

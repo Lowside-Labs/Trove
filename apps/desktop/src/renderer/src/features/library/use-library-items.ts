@@ -8,9 +8,11 @@ interface LibraryItemsState {
   isLoadingFirstPage: boolean;
   isLoadingMore: boolean;
   loadMore(): void;
+  refresh(): void;
 }
 
 export function useLibraryItems(input: ListLibraryItemsInput): LibraryItemsState {
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const baseInput = useMemo(
     () => ({
       ...(input.kind ? { kind: input.kind } : {}),
@@ -32,7 +34,9 @@ export function useLibraryItems(input: ListLibraryItemsInput): LibraryItemsState
   );
   const [cursor, setCursor] = useState<string | null>(null);
   const requestVersionRef = useRef(0);
-  const [state, setState] = useState<Omit<LibraryItemsState, "loadMore">>({
+  const [state, setState] = useState<
+    Omit<LibraryItemsState, "loadMore" | "refresh">
+  >({
     items: [],
     hasMore: false,
     error: null,
@@ -93,7 +97,7 @@ export function useLibraryItems(input: ListLibraryItemsInput): LibraryItemsState
     return () => {
       cancelled = true;
     };
-  }, [loadPage, queryKey]);
+  }, [loadPage, queryKey, refreshVersion]);
 
   const loadMore = useCallback(() => {
     if (!cursor) {
@@ -139,6 +143,7 @@ export function useLibraryItems(input: ListLibraryItemsInput): LibraryItemsState
   return {
     ...state,
     loadMore,
+    refresh: () => setRefreshVersion((value) => value + 1),
   };
 }
 

@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import { registerLibraryIpcHandlers } from "./ipc/library";
+import { registerSyncIpcHandlers } from "./ipc/sync";
 import { registerSystemIpcHandlers } from "./ipc/system";
 import { registerThemeIpcHandlers } from "./ipc/theme";
 import { registerWorkspaceIpcHandlers } from "./ipc/workspace";
@@ -23,6 +24,7 @@ app.whenReady().then(() => {
   app.setName("Trove");
   registerThemeIpcHandlers();
   registerLibraryIpcHandlers();
+  registerSyncIpcHandlers();
   registerSystemIpcHandlers();
   registerWorkspaceIpcHandlers();
   openMainWindow();

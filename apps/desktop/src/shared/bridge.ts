@@ -3,6 +3,7 @@ import type {
   LibraryItemDetail,
   ListLibraryItemsInput,
   ListLibraryItemsResult,
+  SyncStartResponse,
   ThemeGetResponse,
   ThemePreference,
   ThemeSetResponse,
@@ -16,6 +17,9 @@ export interface TroveDesktopApi {
   library: {
     listItems(input?: ListLibraryItemsInput): Promise<ListLibraryItemsResult>;
     getItem(input: GetLibraryItemInput): Promise<LibraryItemDetail | null>;
+  };
+  sync: {
+    start(source: string): Promise<SyncStartResponse>;
   };
   system: {
     openExternal(url: string): Promise<void>;
