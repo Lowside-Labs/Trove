@@ -95,6 +95,7 @@ export function LibraryScreen({ onRefreshSnapshot, snapshot }: LibraryScreenProp
         sources={snapshot.sources}
         syncStateBySource={sourceSync.stateBySource}
         viewMode={viewMode}
+        workspaceRoot={snapshot.overview.root}
         hasMore={libraryItems.hasMore}
         isLoadingFirstPage={libraryItems.isLoadingFirstPage}
         isLoadingMore={libraryItems.isLoadingMore}
@@ -130,6 +131,7 @@ interface LibraryScreenLayoutProps {
   sources: SourceStatus[];
   syncStateBySource: Record<string, SourceSyncState>;
   viewMode: LibraryViewMode;
+  workspaceRoot: string;
 }
 
 function LibraryScreenLayout({
@@ -154,10 +156,12 @@ function LibraryScreenLayout({
   sources,
   syncStateBySource,
   viewMode,
+  workspaceRoot,
 }: LibraryScreenLayoutProps) {
   return (
     <div className="grid h-[calc(100vh-38px)] min-h-0 overflow-hidden md:grid-cols-[280px_minmax(0,1fr)]">
       <LibrarySidebar
+        workspaceRoot={workspaceRoot}
         selectedSource={selectedSource}
         sources={sources}
         syncStateBySource={syncStateBySource}

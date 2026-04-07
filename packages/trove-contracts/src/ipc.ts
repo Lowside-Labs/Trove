@@ -12,6 +12,8 @@ export const DESKTOP_IPC_CHANNELS = {
   libraryGetItem: "library:getItem",
   syncStart: "sync:start",
   systemOpenExternal: "system:openExternal",
+  systemCopyArchivePath: "system:copyArchivePath",
+  systemRevealArchivePath: "system:revealArchivePath",
   themeGet: "theme:get",
   themeSet: "theme:set",
 } as const;
@@ -58,6 +60,24 @@ export const systemOpenExternalResponseSchema = z.object({
 
 export type SystemOpenExternalRequest = z.infer<typeof systemOpenExternalRequestSchema>;
 export type SystemOpenExternalResponse = z.infer<typeof systemOpenExternalResponseSchema>;
+
+export const systemCopyArchivePathRequestSchema = z.object({}).strict();
+export const systemCopyArchivePathResponseSchema = z.object({
+  ok: z.literal(true),
+  path: z.string().min(1),
+});
+
+export type SystemCopyArchivePathRequest = z.infer<typeof systemCopyArchivePathRequestSchema>;
+export type SystemCopyArchivePathResponse = z.infer<typeof systemCopyArchivePathResponseSchema>;
+
+export const systemRevealArchivePathRequestSchema = z.object({}).strict();
+export const systemRevealArchivePathResponseSchema = z.object({
+  ok: z.literal(true),
+  path: z.string().min(1),
+});
+
+export type SystemRevealArchivePathRequest = z.infer<typeof systemRevealArchivePathRequestSchema>;
+export type SystemRevealArchivePathResponse = z.infer<typeof systemRevealArchivePathResponseSchema>;
 
 export const themePreferenceSchema = z.enum(["system", "light", "dark"]);
 export type ThemePreference = z.infer<typeof themePreferenceSchema>;

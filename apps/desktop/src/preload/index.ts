@@ -5,6 +5,8 @@ import type {
   LibraryItemDetail,
   ListLibraryItemsInput,
   ListLibraryItemsResult,
+  SystemCopyArchivePathResponse,
+  SystemRevealArchivePathResponse,
   SyncStartRequest,
   SyncStartResponse,
   ThemeGetResponse,
@@ -40,6 +42,14 @@ const troveDesktop: TroveDesktopApi = {
   system: {
     async openExternal(url: string) {
       await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.systemOpenExternal, { url });
+    },
+    async copyArchivePath() {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.systemCopyArchivePath, {});
+      return response as SystemCopyArchivePathResponse;
+    },
+    async revealArchivePath() {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.systemRevealArchivePath, {});
+      return response as SystemRevealArchivePathResponse;
     },
   },
   theme: {

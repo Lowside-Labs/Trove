@@ -1,6 +1,6 @@
-import IconAppearanceDarkMode from "central-icons/IconAppearanceDarkMode";
-import IconMoon from "central-icons/IconMoon";
-import IconSun from "central-icons/IconSun";
+import IconAppearanceDarkMode from "central-icons-filled/IconAppearanceDarkMode";
+import IconMoon from "central-icons-filled/IconMoon";
+import IconSun from "central-icons-filled/IconSun";
 import type { ThemePreference } from "trove-contracts";
 import { useTheme } from "../hooks/use-theme";
 import { Button } from "./ui/button";
@@ -24,7 +24,7 @@ export function ThemeToggle() {
           <Button
             variant="ghost"
             shape="square"
-            size="icon"
+            size="icon-sm"
           >
             <CurrentIcon className="size-4" />
             <span className="sr-only">Theme</span>

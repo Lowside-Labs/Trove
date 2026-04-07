@@ -3,6 +3,8 @@ import type {
   LibraryItemDetail,
   ListLibraryItemsInput,
   ListLibraryItemsResult,
+  SystemCopyArchivePathResponse,
+  SystemRevealArchivePathResponse,
   SyncStartRequest,
   SyncStartResponse,
   ThemeGetResponse,
@@ -24,6 +26,8 @@ export interface TroveDesktopApi {
   };
   system: {
     openExternal(url: string): Promise<void>;
+    copyArchivePath(): Promise<SystemCopyArchivePathResponse>;
+    revealArchivePath(): Promise<SystemRevealArchivePathResponse>;
   };
   theme: {
     get(): Promise<ThemeGetResponse>;

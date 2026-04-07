@@ -1,6 +1,12 @@
 import * as React from "react";
+import IconChevronDownMedium from "central-icons/IconChevronDownMedium";
+import IconSparkle2 from "central-icons-filled/IconSparkle2";
+import IconSquareBehindSquare6 from "central-icons/IconSquareBehindSquare6";
+import IconFinder from "central-icons/IconFinder";
 import type { SourceStatus } from "trove-contracts";
+import { Button } from "../../components/ui/button";
 import { ThemeToggle } from "../../components/theme-toggle";
+import { Menu } from "../../components/ui/menu";
 import { cn } from "../../lib/cn";
 import { SourceSyncPopover } from "../sync/source-sync-popover";
 import { useSyncDialog } from "../sync/sync-dialog-context";
@@ -9,6 +15,7 @@ import { SourceSyncButton } from "./source-sync-button";
 import { getSourceSyncState, type SourceSyncState } from "./use-source-sync";
 
 interface LibrarySidebarProps {
+  workspaceRoot: string;
   selectedSource: string;
   sources: SourceStatus[];
   syncStateBySource: Record<string, SourceSyncState>;
@@ -27,6 +34,7 @@ export function LibrarySidebar({
   selectedSource,
   sources,
   syncStateBySource,
+  workspaceRoot,
 }: LibrarySidebarProps) {
   const { actions } = useSyncDialog();
 
@@ -56,10 +64,101 @@ export function LibrarySidebar({
         </div>
       </div>
 
-      <div className="mt-auto">
+      <div className="mt-auto flex items-center gap-2 -ml-2">
         <ThemeToggle />
+        <ArchiveActionMenu workspaceRoot={workspaceRoot} />
       </div>
     </aside>
+  );
+}
+
+function ArchiveActionMenu({ workspaceRoot }: { workspaceRoot: string }) {
+  const [status, setStatus] = React.useState<"idle" | "copied" | "revealed" | "failed">("idle");
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const resetTimeoutRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (resetTimeoutRef.current !== null) {
+        window.clearTimeout(resetTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const scheduleReset = (delay = 1600) => {
+    if (resetTimeoutRef.current !== null) {
+      window.clearTimeout(resetTimeoutRef.current);
+    }
+
+    resetTimeoutRef.current = window.setTimeout(() => {
+      setStatus("idle");
+      setErrorMessage(null);
+      resetTimeoutRef.current = null;
+    }, delay);
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(workspaceRoot);
+      setStatus("copied");
+      setErrorMessage(null);
+      scheduleReset();
+    } catch (error) {
+      console.error("ArchiveActionMenu: copy failed", error);
+      setStatus("failed");
+      setErrorMessage(error instanceof Error ? error.message : String(error));
+      scheduleReset(2200);
+    }
+  };
+
+  const handleReveal = async () => {
+    try {
+      await window.troveDesktop.system.revealArchivePath();
+      setStatus("revealed");
+      setErrorMessage(null);
+      scheduleReset();
+    } catch (error) {
+      console.error("ArchiveActionMenu: reveal failed", error);
+      setStatus("failed");
+      setErrorMessage(error instanceof Error ? error.message : String(error));
+      scheduleReset(2200);
+    }
+  };
+
+  return (
+    <Menu.Root>
+      <Menu.Trigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            className="justify-start px-3 text-muted-foreground hover:text-foreground"
+          >
+            <IconSparkle2 className="size-4" />
+            <span>
+              {status === "copied"
+                ? "Copied archive path"
+                : status === "revealed"
+                  ? "Revealed in Finder"
+                  : status === "failed"
+                    ? `Archive failed${errorMessage ? `: ${errorMessage}` : ""}`
+                    : "Use with AI"}
+            </span>
+            <IconChevronDownMedium className="size-4 text-muted-foreground" />
+          </Button>
+        }
+      />
+      <Menu.Content side="top" align="start">
+        <Menu.Item onClick={handleCopy}>
+        <IconSquareBehindSquare6 className="size-5" />
+          <span>Copy archive path</span>
+        </Menu.Item>
+        <Menu.Item onClick={handleReveal}>
+        <IconFinder className="size-5" />
+          <span>Reveal in Finder</span>
+        </Menu.Item>
+      </Menu.Content>
+    </Menu.Root>
   );
 }
 

@@ -60,7 +60,7 @@ function MenuItem({ children, className, ...props }: MenuItemProps) {
   return (
     <BaseMenu.Item
       className={cn(
-        "flex cursor-default items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium text-foreground outline-none select-none cursor-pointer",
+        "flex cursor-default items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-foreground outline-none select-none cursor-pointer",
         "data-[highlighted]:bg-muted data-[highlighted]:text-accent-foreground",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
         className,
