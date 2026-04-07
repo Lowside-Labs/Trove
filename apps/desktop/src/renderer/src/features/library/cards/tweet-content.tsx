@@ -66,7 +66,7 @@ export function TweetContent({ item, mediaActive = false }: TweetContentProps) {
       {hasMedia ? (
         <div
           className={cn(
-            "grid gap-1.5 overflow-hidden rounded-[18px] bg-muted/60",
+            "grid gap-1 overflow-hidden rounded-lg bg-transparent",
             mediaCount === 1
               ? "grid-cols-1"
               : mediaCount === 2
@@ -78,12 +78,13 @@ export function TweetContent({ item, mediaActive = false }: TweetContentProps) {
             <div
               key={`${entry.url}-${index}`}
               className={cn(
-                "relative overflow-hidden bg-muted",
+                "relative overflow-hidden bg-transparent",
                 mediaCount === 1
-                  ? "aspect-[16/10]"
+                  ? "aspect-[16/10] rounded-lg"
                   : mediaCount === 3 && index === 0
                     ? "row-span-2 aspect-[4/5]"
                     : "aspect-square",
+                getTweetMediaTileRadiusClass(mediaCount, index),
               )}
             >
               <InlineMediaPreview
@@ -103,4 +104,30 @@ export function TweetContent({ item, mediaActive = false }: TweetContentProps) {
       {hasStats ? <CardStats items={[{ kind: "likes", value: likes }, { kind: "reposts", value: retweets }]} /> : null}
     </>
   );
+}
+
+function getTweetMediaTileRadiusClass(mediaCount: number, index: number) {
+  if (mediaCount <= 1) {
+    return "";
+  }
+
+  if (mediaCount === 2) {
+    return index === 0 ? "rounded-l-lg" : "rounded-r-lg";
+  }
+
+  if (mediaCount === 3) {
+    if (index === 0) {
+      return "rounded-l-lg";
+    }
+
+    return index === 1 ? "rounded-tr-lg" : "rounded-br-lg";
+  }
+
+  return index === 0
+    ? "rounded-tl-lg"
+    : index === 1
+      ? "rounded-tr-lg"
+      : index === 2
+        ? "rounded-bl-lg"
+        : "rounded-br-lg";
 }

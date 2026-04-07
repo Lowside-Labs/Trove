@@ -54,7 +54,7 @@ export function InstagramContent({ item, mediaActive = false }: InstagramContent
       {mediaUrl ? (
         <InlineMediaPreview
           active={mediaActive}
-          className="rounded-[18px] bg-muted/60"
+          className="rounded-lg bg-muted/60"
           mediaClassName="aspect-[4/5]"
           {...(imageUrl ? { imageUrl } : {})}
           {...(videoUrl ? { videoUrl } : {})}
