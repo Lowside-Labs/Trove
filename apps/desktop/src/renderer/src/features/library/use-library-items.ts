@@ -7,6 +7,7 @@ interface LibraryItemsState {
   error: string | null;
   isLoadingFirstPage: boolean;
   isLoadingMore: boolean;
+  isRefreshing: boolean;
   loadMore(): void;
   refresh(): void;
 }
@@ -42,6 +43,7 @@ export function useLibraryItems(input: ListLibraryItemsInput): LibraryItemsState
     error: null,
     isLoadingFirstPage: true,
     isLoadingMore: false,
+    isRefreshing: false,
   });
 
   const loadPage = useCallback(
@@ -62,13 +64,14 @@ export function useLibraryItems(input: ListLibraryItemsInput): LibraryItemsState
     let cancelled = false;
 
     setCursor(null);
-    setState({
-      items: [],
-      hasMore: false,
+    setState((current) => ({
+      items: current.items,
+      hasMore: current.hasMore,
       error: null,
-      isLoadingFirstPage: true,
+      isLoadingFirstPage: current.items.length === 0,
       isLoadingMore: false,
-    });
+      isRefreshing: current.items.length > 0,
+    }));
 
     void loadPage()
       .then((response) => {
@@ -79,18 +82,20 @@ export function useLibraryItems(input: ListLibraryItemsInput): LibraryItemsState
             error: null,
             isLoadingFirstPage: false,
             isLoadingMore: false,
+            isRefreshing: false,
           });
         }
       })
       .catch((error: unknown) => {
         if (!cancelled && requestVersionRef.current === requestVersion) {
-          setState({
-            items: [],
-            hasMore: false,
+          setState((current) => ({
+            items: current.items,
+            hasMore: current.hasMore,
             error: error instanceof Error ? error.message : String(error),
             isLoadingFirstPage: false,
             isLoadingMore: false,
-          });
+            isRefreshing: false,
+          }));
         }
       });
 
@@ -126,6 +131,7 @@ export function useLibraryItems(input: ListLibraryItemsInput): LibraryItemsState
             error: null,
             isLoadingFirstPage: false,
             isLoadingMore: false,
+            isRefreshing: false,
           }));
         }
       })
@@ -135,6 +141,7 @@ export function useLibraryItems(input: ListLibraryItemsInput): LibraryItemsState
             ...current,
             error: error instanceof Error ? error.message : String(error),
             isLoadingMore: false,
+            isRefreshing: false,
           }));
         }
       });

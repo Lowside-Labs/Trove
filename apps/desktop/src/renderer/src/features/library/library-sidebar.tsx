@@ -89,7 +89,7 @@ function SourceItem({
   const isSyncPopoverOpen = state.isOpen && state.sourceId === sourceId;
 
   return (
-    <div className="group flex items-center gap-2">
+    <div className="group flex items-baseline gap-2">
       <button
         className={cn(
           "flex min-w-0 flex-1 cursor-pointer items-center gap-4 py-3 text-left",
