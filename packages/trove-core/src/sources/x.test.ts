@@ -95,6 +95,60 @@ describe("x bookmarks parsing", () => {
     });
   });
 
+  it("stores media previews in normalized item raw data", () => {
+    const tweet = {
+      __typename: "Tweet",
+      rest_id: "media-123",
+      legacy: {
+        full_text: "Tweet with media",
+        created_at: "Sat Apr 04 20:00:00 +0000 2026",
+        extended_entities: {
+          media: [
+            {
+              type: "photo",
+              media_url_https: "https://pbs.twimg.com/media/example-1.jpg",
+              expanded_url: "https://x.com/emad/status/media-123/photo/1",
+            },
+            {
+              type: "video",
+              media_url_https: "https://pbs.twimg.com/ext_tw_video_thumb/example-2.jpg",
+              expanded_url: "https://x.com/emad/status/media-123/video/1",
+            },
+          ],
+        },
+      },
+      core: {
+        user_results: {
+          result: {
+            legacy: {
+              screen_name: "emad",
+              name: "Emad",
+            },
+          },
+        },
+      },
+    };
+
+    const normalized = __internal.normalizeTweet(tweet, "bookmarks");
+    const raw = __internal.extractRawTweetRecord(tweet, "bookmarks");
+
+    expect(normalized?.raw).toMatchObject({
+      media: [
+        {
+          type: "photo",
+          mediaUrl: "https://pbs.twimg.com/media/example-1.jpg",
+          expandedUrl: "https://x.com/emad/status/media-123/photo/1",
+        },
+        {
+          type: "video",
+          mediaUrl: "https://pbs.twimg.com/ext_tw_video_thumb/example-2.jpg",
+          expandedUrl: "https://x.com/emad/status/media-123/video/1",
+        },
+      ],
+    });
+    expect(raw?.media).toHaveLength(2);
+  });
+
   it("ignores quoted tweets nested inside bookmarked entries", () => {
     const payload = {
       data: {

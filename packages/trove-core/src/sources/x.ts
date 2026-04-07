@@ -545,6 +545,7 @@ function normalizeTweet(tweet: unknown, kind: XSyncKind): TroveItem | null {
     : `https://x.com/i/status/${restId}`;
   const titlePrefix = screenName ? `@${screenName}` : kind === "likes" ? "X like" : "X bookmark";
   const actionTag = kind === "likes" ? "like" : "bookmark";
+  const media = extractMedia(legacy);
 
   const item: TroveItem = {
     source: "x",
@@ -563,6 +564,7 @@ function normalizeTweet(tweet: unknown, kind: XSyncKind): TroveItem | null {
       ...(author?.profileImageUrl ? { profileImageUrl: author.profileImageUrl } : {}),
       favoriteCount: readNumber(legacy, "favorite_count"),
       retweetCount: readNumber(legacy, "retweet_count"),
+      ...(media.length > 0 ? { media } : {}),
     },
   };
 

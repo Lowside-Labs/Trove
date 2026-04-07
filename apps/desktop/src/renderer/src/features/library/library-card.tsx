@@ -13,7 +13,7 @@ export function LibraryCard({ item, onOpen }: LibraryCardProps) {
 
   return (
     <button
-      className="flex flex-col gap-3 rounded-2xl bg-card p-5 text-left transition-colors hover:bg-accent"
+      className="flex cursor-pointer flex-col gap-3 rounded-2xl bg-card p-5 text-left hover:bg-accent"
       type="button"
       onClick={onOpen}
     >
