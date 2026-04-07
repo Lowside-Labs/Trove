@@ -1,8 +1,24 @@
 import { BrowserWindow, nativeTheme, shell } from "electron";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function resolveRendererEntry(): string {
+  const candidates = [
+    path.join(dirname, "../renderer/index.html"),
+    path.join(dirname, "../../src/renderer/dist/renderer/index.html"),
+  ];
+
+  const entry = candidates.find((candidate) => fs.existsSync(candidate));
+
+  if (!entry) {
+    throw new Error("Could not find the built renderer entrypoint.");
+  }
+
+  return entry;
+}
 
 export function createMainWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
@@ -39,7 +55,7 @@ export function createMainWindow(): BrowserWindow {
   if (process.env.ELECTRON_RENDERER_URL) {
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
-    void mainWindow.loadFile(path.join(dirname, "../renderer/index.html"));
+    void mainWindow.loadFile(resolveRendererEntry());
   }
 
   return mainWindow;

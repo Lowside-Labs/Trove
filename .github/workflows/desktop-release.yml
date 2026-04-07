@@ -1,0 +1,43 @@
+name: Desktop Release
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Package macOS desktop app
+        run: pnpm --filter trove-desktop dist:mac
+
+      - name: Write checksums
+        working-directory: apps/desktop/out/release
+        run: shasum -a 256 *.dmg *.zip > Trove-${{ github.event.release.tag_name }}-arm64.sha256
+
+      - name: Upload desktop release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload ${{ github.event.release.tag_name }} apps/desktop/out/release/*.dmg apps/desktop/out/release/*.zip apps/desktop/out/release/*.sha256 --clobber

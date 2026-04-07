@@ -6,6 +6,7 @@ out
 .env
 coverage
 .tmp/
+apps/desktop/src/renderer/dist
 
 # Local app data
 .trove

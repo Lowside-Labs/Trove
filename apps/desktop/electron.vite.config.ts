@@ -47,6 +47,7 @@ export default defineConfig({
     plugins: [tailwindcss(), react()],
     root: path.resolve(dirname, "src/renderer"),
     build: {
+      outDir: path.resolve(dirname, "dist/renderer"),
       rollupOptions: {
         input: {
           index: path.resolve(dirname, "src/renderer/index.html"),
