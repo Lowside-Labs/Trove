@@ -172,6 +172,28 @@ describe("substack saved sync", () => {
     expect(result.items.map((item) => item.externalId)).toEqual(["13", "12"]);
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
+
+  it("caps the saved endpoint page size even when the requested sync limit is larger", async () => {
+    const { syncSubstackSaved } = await buildModule();
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => createSavedPayload({ ids: [13, 12], more: false }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await syncSubstackSaved({
+      browserId: "dia",
+      limit: 50,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        href: "https://substack.com/api/v1/reader/posts?inboxType=saved&limit=20&offset=0",
+      }),
+      expect.any(Object),
+    );
+  });
 });
 
 describe("substack likes sync", () => {

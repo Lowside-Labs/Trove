@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { SyncJobResult } from "trove-contracts";
+import type { SyncJobResult, SyncStartRequest } from "trove-contracts";
 
 export type SourceSyncStatus = "idle" | "syncing" | "succeeded" | "failed";
 
@@ -16,7 +16,7 @@ interface UseSourceSyncArgs {
 
 interface UseSourceSyncResult {
   stateBySource: Record<string, SourceSyncState>;
-  startSync(source: string): Promise<void>;
+  startSync(input: SyncStartRequest): Promise<SyncJobResult>;
 }
 
 const idleState: SourceSyncState = {
@@ -58,7 +58,8 @@ export function useSourceSync({ onCompleted }: UseSourceSyncArgs = {}): UseSourc
     }, 2000);
   };
 
-  const startSync = async (source: string) => {
+  const startSync = async (input: SyncStartRequest) => {
+    const source = input.source;
     const existingTimeout = settleTimeoutsRef.current[source];
     if (existingTimeout) {
       window.clearTimeout(existingTimeout);
@@ -76,7 +77,7 @@ export function useSourceSync({ onCompleted }: UseSourceSyncArgs = {}): UseSourc
     }));
 
     try {
-      const result = await window.troveDesktop.sync.start(source);
+      const result = await window.troveDesktop.sync.start(input);
       setStateBySource((current) => ({
         ...current,
         [source]: {
@@ -88,6 +89,7 @@ export function useSourceSync({ onCompleted }: UseSourceSyncArgs = {}): UseSourc
       }));
       onCompleted?.();
       scheduleReset(source);
+      return result;
     } catch (error: unknown) {
       setStateBySource((current) => ({
         ...current,
@@ -99,6 +101,7 @@ export function useSourceSync({ onCompleted }: UseSourceSyncArgs = {}): UseSourc
         },
       }));
       scheduleReset(source);
+      throw error;
     }
   };
 

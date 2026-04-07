@@ -1,6 +1,9 @@
+import * as React from "react";
 import type { SourceStatus } from "trove-contracts";
 import { ThemeToggle } from "../../components/theme-toggle";
 import { cn } from "../../lib/cn";
+import { SourceSyncPopover } from "../sync/source-sync-popover";
+import { useSyncDialog } from "../sync/sync-dialog-context";
 import { getSourceConfig, SourceIcon } from "./source-registry";
 import { SourceSyncButton } from "./source-sync-button";
 import { getSourceSyncState, type SourceSyncState } from "./use-source-sync";
@@ -10,7 +13,6 @@ interface LibrarySidebarProps {
   sources: SourceStatus[];
   syncStateBySource: Record<string, SourceSyncState>;
   onSelectSource(sourceId: string): void;
-  onSyncSource(sourceId: string): void;
 }
 
 const sourceScrollerMask = {
@@ -21,12 +23,13 @@ const sourceScrollerMask = {
 };
 
 export function LibrarySidebar({
-  onSyncSource,
   onSelectSource,
   selectedSource,
   sources,
   syncStateBySource,
 }: LibrarySidebarProps) {
+  const { actions } = useSyncDialog();
+
   return (
     <aside className="flex h-full min-h-0 flex-col gap-10 px-8 pb-8 pt-8">
       <div className="flex min-h-0 flex-1 flex-col">
@@ -43,10 +46,10 @@ export function LibrarySidebar({
                 active={selectedSource === source.id}
                 label={source.displayName}
                 sourceId={source.id}
-                canSync={!source.requiresUser}
+                canSync
                 syncState={getSourceSyncState(syncStateBySource, source.id)}
                 onClick={() => onSelectSource(source.id)}
-                onSync={() => onSyncSource(source.id)}
+                onSync={() => actions.open(source.id)}
               />
             ))}
           </nav>
@@ -79,8 +82,11 @@ function SourceItem({
   sourceId,
   syncState,
 }: SourceItemProps) {
+  const { state } = useSyncDialog();
   const source = sourceId ? getSourceConfig(sourceId) : null;
   const useBrandIcon = sourceId === "x" && source?.isKnown;
+  const syncButtonRef = React.useRef<HTMLButtonElement>(null);
+  const isSyncPopoverOpen = state.isOpen && state.sourceId === sourceId;
 
   return (
     <div className="group flex items-center gap-2">
@@ -114,11 +120,16 @@ function SourceItem({
         )}
       </button>
       {sourceId && onSync && syncState ? (
-        <SourceSyncButton
-          canSync={canSync}
-          syncState={syncState}
-          onClick={onSync}
-        />
+        <>
+          <SourceSyncButton
+            ref={syncButtonRef}
+            active={isSyncPopoverOpen}
+            canSync={canSync}
+            syncState={syncState}
+            onClick={onSync}
+          />
+          <SourceSyncPopover anchorRef={syncButtonRef} sourceId={sourceId} />
+        </>
       ) : null}
     </div>
   );

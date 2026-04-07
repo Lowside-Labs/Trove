@@ -17,10 +17,8 @@ export function registerSyncIpcHandlers(): void {
       throw new Error(`Unknown source "${parsedInput.source}".`);
     }
 
-    if (source.metadata.requiresUser) {
-      throw new Error(
-        `${source.metadata.displayName} sync needs setup before desktop sync is supported.`,
-      );
+    if (source.metadata.requiresUser && !parsedInput.user) {
+      throw new Error(`${source.metadata.displayName} sync needs a username.`);
     }
 
     if (activeSources.has(parsedInput.source)) {
@@ -33,7 +31,11 @@ export function registerSyncIpcHandlers(): void {
         source: parsedInput.source,
         options: {
           browser: "auto",
+          ...(parsedInput.limit != null ? { limit: String(parsedInput.limit) } : {}),
+          ...(parsedInput.kind ? { kind: parsedInput.kind } : {}),
+          ...(parsedInput.user ? { user: parsedInput.user } : {}),
         },
+        ...(parsedInput.limit != null ? { limit: parsedInput.limit } : {}),
       });
 
       return syncStartResponseSchema.parse({

@@ -6,6 +6,7 @@ import type { SupportedBrowserId } from "../types/browser.js";
 import type { TroveItem } from "../types/item.js";
 
 const SUBSTACK_BASE_URL = "https://substack.com";
+const SAVED_PAGE_SIZE = 20;
 const MAX_STALLED_PAGES = 3;
 
 interface SubstackSyncOptions {
@@ -253,7 +254,7 @@ async function fetchSavedPostsPage(
 ): Promise<unknown> {
   const url = new URL("/api/v1/reader/posts", SUBSTACK_BASE_URL);
   url.searchParams.set("inboxType", "saved");
-  url.searchParams.set("limit", String(limit ?? 20));
+  url.searchParams.set("limit", String(resolveSavedPageSize(limit)));
   url.searchParams.set("offset", String(offset));
 
   const response = await fetch(url, {
@@ -270,6 +271,14 @@ async function fetchSavedPostsPage(
   }
 
   return response.json();
+}
+
+function resolveSavedPageSize(limit?: number): number {
+  if (typeof limit !== "number") {
+    return SAVED_PAGE_SIZE;
+  }
+
+  return Math.max(1, Math.min(limit, SAVED_PAGE_SIZE));
 }
 
 function parseSavedPostsPayload(payload: unknown): ParsedSavedPage {

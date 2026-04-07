@@ -2,21 +2,24 @@ import IconCheckCircle2 from "central-icons-filled/IconCheckCircle2";
 import IconLoader from "central-icons/IconLoader";
 import IconCloudSimpleDownload from "central-icons-filled/IconCloudSimpleDownload";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { cn } from "../../lib/cn";
 import type { SourceSyncState } from "./use-source-sync";
 
 interface SourceSyncButtonProps {
+  active?: boolean;
   canSync: boolean;
   syncState: SourceSyncState;
   onClick(): void;
 }
 
-export function SourceSyncButton({
+export const SourceSyncButton = forwardRef<HTMLButtonElement, SourceSyncButtonProps>(
+function SourceSyncButton({
+  active = false,
   canSync,
   onClick,
   syncState,
-}: SourceSyncButtonProps) {
+}, ref) {
   if (!canSync) {
     return null;
   }
@@ -61,10 +64,12 @@ export function SourceSyncButton({
     syncState.status === "syncing" ||
     syncState.status === "succeeded" ||
     syncState.status === "failed" ||
+    active ||
     keepVisibleDuringIdleTransition;
 
   return (
     <button
+      ref={ref}
       className={cn(
         "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
         shouldForceVisible && "opacity-100",
@@ -99,4 +104,4 @@ export function SourceSyncButton({
       <span className="sr-only">Sync source</span>
     </button>
   );
-}
+});

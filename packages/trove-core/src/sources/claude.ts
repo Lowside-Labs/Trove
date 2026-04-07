@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright-core";
 import {
+  evaluateGoogleChromeTabScript,
   fetchJsonFromGoogleChromeTab,
   findGoogleChromeTab,
   type GoogleChromeFetchResponse,
@@ -266,6 +267,13 @@ async function discoverOrganizationIdFromChromeTab(tab: GoogleChromeTabTarget): 
     return orgIdFromUrl;
   }
 
+  const resourceUrls = await listChromeTabResourceUrls(tab);
+  const orgIdFromResources = findOrganizationIdInUrls(resourceUrls);
+
+  if (orgIdFromResources) {
+    return orgIdFromResources;
+  }
+
   const discoverableResponse = await fetchClaudeJsonFromChromeTab(
     tab,
     "/api/organizations/discoverable",
@@ -282,9 +290,39 @@ async function discoverOrganizationIdFromChromeTab(tab: GoogleChromeTabTarget): 
   );
 }
 
+async function listChromeTabResourceUrls(tab: GoogleChromeTabTarget): Promise<string[]> {
+  const raw = await evaluateGoogleChromeTabScript(
+    tab,
+    `JSON.stringify(
+      performance
+        .getEntriesByType("resource")
+        .map((entry) => entry.name)
+        .filter((name) => name.includes("/api/organizations/"))
+    )`,
+  );
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 function extractOrganizationIdFromText(value: string): string | null {
   const match = ORG_ID_PATTERN.exec(value);
   return match?.[1] ?? null;
+}
+
+function findOrganizationIdInUrls(urls: string[]): string | null {
+  return (
+    urls
+      .map((url) => extractOrganizationIdFromText(url))
+      .find((candidate): candidate is string => typeof candidate === "string") ?? null
+  );
 }
 
 function extractOrganizationIdFromPayload(payload: unknown): string | null {
@@ -970,7 +1008,13 @@ function emitProgress(
           }
         : {
             phase,
-            message,
+          message,
           },
   );
 }
+
+export const __internal = {
+  extractOrganizationIdFromPayload,
+  extractOrganizationIdFromText,
+  findOrganizationIdInUrls,
+};

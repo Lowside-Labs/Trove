@@ -40,6 +40,9 @@ export type SyncJobResult = z.infer<typeof syncJobResultSchema>;
 
 export const syncStartRequestSchema = z.object({
   source: z.string().min(1),
+  kind: z.string().min(1).optional(),
+  limit: z.number().int().positive().max(5000).optional(),
+  user: z.string().min(1).optional(),
 });
 export type SyncStartRequest = z.infer<typeof syncStartRequestSchema>;
 

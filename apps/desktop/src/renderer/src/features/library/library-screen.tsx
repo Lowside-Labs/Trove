@@ -1,5 +1,10 @@
 import { startTransition, useDeferredValue, useRef, useState } from "react";
-import type { WorkspaceSnapshot } from "trove-contracts";
+import type {
+  LibraryItemSummary,
+  SourceStatus,
+  SyncKindMetadata,
+  WorkspaceSnapshot,
+} from "trove-contracts";
 import { useInfiniteScroll } from "../../hooks/use-infinite-scroll";
 import { formatCount } from "../../lib/format";
 import { LibraryGrid } from "./library-grid";
@@ -8,7 +13,8 @@ import { LibrarySidebar } from "./library-sidebar";
 import { LibraryToolbar } from "./library-toolbar";
 import type { LibraryViewMode } from "./types";
 import { useLibraryItems } from "./use-library-items";
-import { useSourceSync } from "./use-source-sync";
+import { type SourceSyncState, useSourceSync } from "./use-source-sync";
+import { SyncDialogProvider } from "../sync/sync-dialog-context";
 
 type ReadyWorkspaceSnapshot = Extract<WorkspaceSnapshot, { status: "ready" }>;
 
@@ -58,20 +64,104 @@ export function LibraryScreen({ onRefreshSnapshot, snapshot }: LibraryScreenProp
   const placeholderItemCount = selectedSourceRecord?.itemCount ?? snapshot.overview.totalItems;
 
   return (
-    <div className="grid h-[calc(100vh-38px)] min-h-0 overflow-hidden lg:grid-cols-[220px_minmax(0,1fr)]">
-      <LibrarySidebar
-        selectedSource={selectedSource}
-        sources={snapshot.sources}
-        syncStateBySource={sourceSync.stateBySource}
+    <SyncDialogProvider
+      sources={snapshot.sources}
+      onSubmit={(input) => sourceSync.startSync(input)}
+    >
+      <LibraryScreenLayout
+        deferredSearchQuery={deferredSearchQuery}
+        infiniteScrollSentinelRef={infiniteScroll.sentinelRef}
+        kindOptions={kindOptions}
+        libraryError={libraryItems.error}
+        libraryItems={libraryItems.items}
+        onOpenItem={openItem}
+        onSearchQueryChange={setSearchQuery}
         onSelectSource={(sourceId) => {
           startTransition(() => {
             setSelectedSource(sourceId);
             setSelectedKind(null);
           });
         }}
-        onSyncSource={(sourceId) => {
-          void sourceSync.startSync(sourceId);
+        onViewModeChange={(nextViewMode) => {
+          startTransition(() => {
+            setViewMode(nextViewMode);
+          });
         }}
+        placeholderItemCount={placeholderItemCount}
+        searchInputRef={searchInputRef}
+        searchQuery={searchQuery}
+        selectedKind={selectedKind}
+        selectedSource={selectedSource}
+        sources={snapshot.sources}
+        syncStateBySource={sourceSync.stateBySource}
+        viewMode={viewMode}
+        hasMore={libraryItems.hasMore}
+        isLoadingFirstPage={libraryItems.isLoadingFirstPage}
+        isLoadingMore={libraryItems.isLoadingMore}
+        onKindChange={(kindId) => {
+          startTransition(() => {
+            setSelectedKind(kindId);
+          });
+        }}
+      />
+    </SyncDialogProvider>
+  );
+}
+
+interface LibraryScreenLayoutProps {
+  deferredSearchQuery: string;
+  hasMore: boolean;
+  infiniteScrollSentinelRef: React.Ref<HTMLDivElement>;
+  isLoadingFirstPage: boolean;
+  isLoadingMore: boolean;
+  kindOptions: SyncKindMetadata[];
+  libraryError: string | null;
+  libraryItems: LibraryItemSummary[];
+  onKindChange(kindId: string | null): void;
+  onOpenItem(url: string): void;
+  onSearchQueryChange(value: string): void;
+  onSelectSource(sourceId: string): void;
+  onViewModeChange(viewMode: LibraryViewMode): void;
+  placeholderItemCount: number;
+  searchInputRef: React.RefObject<HTMLInputElement | null>;
+  searchQuery: string;
+  selectedKind: string | null;
+  selectedSource: string;
+  sources: SourceStatus[];
+  syncStateBySource: Record<string, SourceSyncState>;
+  viewMode: LibraryViewMode;
+}
+
+function LibraryScreenLayout({
+  deferredSearchQuery,
+  hasMore,
+  infiniteScrollSentinelRef,
+  isLoadingFirstPage,
+  isLoadingMore,
+  kindOptions,
+  libraryError,
+  libraryItems,
+  onKindChange,
+  onOpenItem,
+  onSearchQueryChange,
+  onSelectSource,
+  onViewModeChange,
+  placeholderItemCount,
+  searchInputRef,
+  searchQuery,
+  selectedKind,
+  selectedSource,
+  sources,
+  syncStateBySource,
+  viewMode,
+}: LibraryScreenLayoutProps) {
+  return (
+    <div className="grid h-[calc(100vh-38px)] min-h-0 overflow-hidden lg:grid-cols-[220px_minmax(0,1fr)]">
+      <LibrarySidebar
+        selectedSource={selectedSource}
+        sources={sources}
+        syncStateBySource={syncStateBySource}
+        onSelectSource={onSelectSource}
       />
 
       <section className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto px-8 pb-8 pt-8">
@@ -81,50 +171,37 @@ export function LibraryScreen({ onRefreshSnapshot, snapshot }: LibraryScreenProp
           searchInputRef={searchInputRef}
           searchQuery={searchQuery}
           totalItems={placeholderItemCount}
-          onKindChange={(kindId) => {
-            startTransition(() => {
-              setSelectedKind(kindId);
-            });
-          }}
+          onKindChange={onKindChange}
           viewMode={viewMode}
-          onSearchQueryChange={setSearchQuery}
-          onViewModeChange={(nextViewMode) => {
-            startTransition(() => {
-              setViewMode(nextViewMode);
-            });
-          }}
+          onSearchQueryChange={onSearchQueryChange}
+          onViewModeChange={onViewModeChange}
         />
 
-        {libraryItems.error ? (
-          <p className="py-12 text-center text-[13px] text-destructive">{libraryItems.error}</p>
-        ) : libraryItems.isLoadingFirstPage ? (
+        {libraryError ? (
+          <p className="py-12 text-center text-[13px] text-destructive">{libraryError}</p>
+        ) : isLoadingFirstPage ? (
           <p className="py-12 text-center text-[13px] text-muted-foreground">Loading...</p>
-        ) : libraryItems.items.length === 0 ? (
+        ) : libraryItems.length === 0 ? (
           <p className="py-12 text-center text-[13px] text-muted-foreground">
-            {selectedSource === "all"
-              ? "No items found."
-              : "No items from this source."}
+            {selectedSource === "all" ? "No items found." : "No items from this source."}
           </p>
         ) : (
           <>
             {deferredSearchQuery ? (
               <p className="text-[13px] text-muted-foreground">
-                {formatCount(libraryItems.items.length)}
-                {libraryItems.hasMore ? "+" : ""} results
+                {formatCount(libraryItems.length)}
+                {hasMore ? "+" : ""} results
               </p>
             ) : null}
             {viewMode === "cards" ? (
-              <LibraryGrid items={libraryItems.items} onOpenItem={openItem} />
+              <LibraryGrid items={libraryItems} onOpenItem={onOpenItem} />
             ) : (
-              <LibraryList items={libraryItems.items} onOpenItem={openItem} />
+              <LibraryList items={libraryItems} onOpenItem={onOpenItem} />
             )}
-            <div
-              ref={infiniteScroll.sentinelRef}
-              className="flex min-h-16 items-center justify-center py-4"
-            >
-              {libraryItems.isLoadingMore ? (
+            <div ref={infiniteScrollSentinelRef} className="flex min-h-16 items-center justify-center py-4">
+              {isLoadingMore ? (
                 <p className="text-[13px] text-muted-foreground">Loading more…</p>
-              ) : libraryItems.hasMore ? (
+              ) : hasMore ? (
                 <p className="text-[13px] text-muted-foreground/70">Keep scrolling</p>
               ) : (
                 <p className="text-[13px] text-muted-foreground/50">End of archive</p>
