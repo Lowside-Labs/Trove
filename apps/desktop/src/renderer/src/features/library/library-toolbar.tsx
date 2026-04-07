@@ -1,12 +1,10 @@
 import * as React from "react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { formatCount } from "../../lib/format";
 import type { LibraryViewMode } from "./types";
 
 interface LibraryToolbarProps {
   searchQuery: string;
-  totalItems: number;
   viewMode: LibraryViewMode;
   searchInputRef: React.RefObject<HTMLInputElement | null>;
   onSearchQueryChange(value: string): void;
@@ -18,19 +16,14 @@ export function LibraryToolbar({
   onViewModeChange,
   searchInputRef,
   searchQuery,
-  totalItems,
   viewMode,
 }: LibraryToolbarProps) {
   return (
-    <header className="space-y-6">
-      <div className="flex items-start justify-end gap-6">
-        <span className="pt-1 text-[14px] text-muted-foreground">{formatCount(totalItems)} items</span>
-      </div>
-
-      <div className="flex items-end gap-6">
+    <header>
+      <div className="flex items-end gap-4">
         <div className="flex-1">
           <Input
-            className="border-0 border-b border-border/60 pb-3 placeholder:text-muted-foreground/45 focus:border-foreground/15"
+            className="border-0 placeholder:text-muted-foreground/45 focus:border-foreground/15"
             ref={searchInputRef}
             placeholder="Search"
             size="xl"

@@ -50,11 +50,10 @@ export function LibraryScreen({ snapshot }: LibraryScreenProps) {
         }}
       />
 
-      <section className="flex flex-col gap-8">
+      <section className="flex flex-col gap-4 py-2">
         <LibraryToolbar
           searchInputRef={searchInputRef}
           searchQuery={searchQuery}
-          totalItems={snapshot.overview.totalItems}
           viewMode={viewMode}
           onSearchQueryChange={setSearchQuery}
           onViewModeChange={(nextViewMode) => {

@@ -24,10 +24,8 @@ export function LibrarySidebar({
 }: LibrarySidebarProps) {
   return (
     <aside className="flex min-h-[70vh] flex-col justify-between gap-10 pb-24 lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)] lg:pb-32">
-      <div className="space-y-6">
-        <h1 className="text-[40px] font-semibold tracking-tight text-foreground">Library</h1>
-
-        <div className="max-h-[500px] overflow-y-auto py-7 pr-4" style={sourceScrollerMask}>
+      <div>
+        <div className="max-h-[500px] overflow-y-auto py-4 pr-4" style={sourceScrollerMask}>
           <nav className="flex flex-col gap-3">
             <SourceItem
               active={selectedSource === "all"}
