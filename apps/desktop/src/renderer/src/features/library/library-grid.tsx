@@ -8,7 +8,10 @@ interface LibraryGridProps {
 
 export function LibraryGrid({ items, onOpenItem }: LibraryGridProps) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div
+      className="grid gap-3"
+      style={{ gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}
+    >
       {items.map((item) => (
         <LibraryCard
           key={item.id}

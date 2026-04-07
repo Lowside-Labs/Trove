@@ -96,16 +96,29 @@ export function getWorkspaceSourceStatuses(root?: string): SourceStatus[] {
       getSourceSyncRecords(db).map((record) => [record.source, record.lastSyncedAt] as const),
     );
 
-    return listSyncSources().map((source) => ({
-      id: source.id,
-      displayName: source.metadata.displayName,
-      authMode: source.metadata.authMode,
-      itemCount: countsBySource.get(source.id) ?? 0,
-      kinds: source.metadata.kinds,
-      ...(syncBySource.get(source.id) ? { lastSyncedAt: syncBySource.get(source.id) } : {}),
-      ...(source.metadata.requiresBrowser ? { requiresBrowser: true } : {}),
-      ...(source.metadata.requiresUser ? { requiresUser: true } : {}),
-    }));
+    return listSyncSources().map((source) => {
+      const itemCount = countsBySource.get(source.id) ?? 0;
+      const lastSyncedAt = syncBySource.get(source.id);
+      const hasSavedBrowserTarget = getSavedSourceBrowserTarget(source.id) !== undefined;
+      const status =
+        itemCount > 0
+          ? "active"
+          : lastSyncedAt || hasSavedBrowserTarget
+            ? "connected-empty"
+            : "available";
+
+      return {
+        id: source.id,
+        displayName: source.metadata.displayName,
+        status,
+        authMode: source.metadata.authMode,
+        itemCount,
+        kinds: source.metadata.kinds,
+        ...(lastSyncedAt ? { lastSyncedAt } : {}),
+        ...(source.metadata.requiresBrowser ? { requiresBrowser: true } : {}),
+        ...(source.metadata.requiresUser ? { requiresUser: true } : {}),
+      };
+    });
   }, paths.root);
 }
 

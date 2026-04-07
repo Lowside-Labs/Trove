@@ -2,8 +2,9 @@ import IconAppearanceDarkMode from "central-icons/IconAppearanceDarkMode";
 import IconMoon from "central-icons/IconMoon";
 import IconSun from "central-icons/IconSun";
 import type { ThemePreference } from "trove-contracts";
-import { cn } from "../lib/cn";
 import { useTheme } from "../hooks/use-theme";
+import { Button } from "./ui/button";
+import { Menu } from "./ui/menu";
 
 const options: { value: ThemePreference; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { value: "light", label: "Light", icon: IconSun },
@@ -13,25 +14,34 @@ const options: { value: ThemePreference; label: string; icon: React.ComponentTyp
 
 export function ThemeToggle() {
   const { preference, setPreference } = useTheme();
+  const current = preference ?? "system";
+  const CurrentIcon = options.find((option) => option.value === current)?.icon ?? IconSun;
 
   return (
-    <div className="flex items-center gap-0.5 rounded-lg bg-secondary p-0.5">
-      {options.map(({ value, label, icon: Icon }) => (
-        <button
-          key={value}
-          className={cn(
-            "cursor-pointer rounded-md p-1.5 transition-colors",
-            preference === value
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-          type="button"
-          title={label}
-          onClick={() => setPreference(value)}
-        >
-          <Icon className="size-4" />
-        </button>
-      ))}
-    </div>
+    <Menu.Root>
+      <Menu.Trigger
+        render={
+          <Button
+            className="rounded-xl"
+            variant="secondary"
+            size="icon"
+          >
+            <CurrentIcon className="size-4" />
+            <span className="sr-only">Theme</span>
+          </Button>
+        }
+      />
+      <Menu.Content side="top" align="start">
+        {options.map(({ value, label, icon: Icon }) => (
+          <Menu.Item key={value} onClick={() => setPreference(value)}>
+            <Icon className="size-4 text-muted-foreground" />
+            <span>{label}</span>
+            {current === value ? (
+              <span className="ml-auto text-[12px] text-muted-foreground">✓</span>
+            ) : null}
+          </Menu.Item>
+        ))}
+      </Menu.Content>
+    </Menu.Root>
   );
 }

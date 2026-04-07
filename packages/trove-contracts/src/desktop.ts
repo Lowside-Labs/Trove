@@ -13,6 +13,7 @@ export type WorkspaceOverview = z.infer<typeof workspaceOverviewSchema>;
 export const sourceStatusSchema = z.object({
   id: z.string().min(1),
   displayName: z.string().min(1),
+  status: z.enum(["active", "connected-empty", "available"]),
   authMode: z.enum(["cookie", "public", "cdp"]),
   itemCount: z.number().int().nonnegative(),
   lastSyncedAt: z.string().min(1).optional(),
