@@ -71,6 +71,48 @@ describe("library services", () => {
     expect(result.items[0]?.source).toBe("github");
   });
 
+  it("filters library items by source kind", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "trove-library-kind-filter-test-"));
+    roots.push(root);
+
+    const db = openDatabase(root);
+    upsertItems(db, [
+      ...getFixtureItems(),
+      {
+        source: "x",
+        kind: "bookmarks",
+        externalId: "tweet-1",
+        title: "Saved tweet",
+        url: "https://x.com/example/status/1",
+        savedAt: "2026-04-03T09:00:00.000Z",
+      },
+      {
+        source: "x",
+        kind: "likes",
+        externalId: "tweet-2",
+        title: "Liked tweet",
+        url: "https://x.com/example/status/2",
+        savedAt: "2026-04-02T09:00:00.000Z",
+      },
+    ]);
+    db.close();
+
+    const result = listLibraryItems(
+      {
+        source: "x",
+        kind: "bookmarks",
+      },
+      root,
+    );
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      source: "x",
+      kind: "bookmarks",
+      externalId: "tweet-1",
+    });
+  });
+
   it("returns a cursor for follow-up browse pages", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "trove-library-pagination-test-"));
     roots.push(root);

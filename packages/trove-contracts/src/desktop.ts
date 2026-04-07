@@ -56,6 +56,7 @@ export type LibraryItemDetail = z.infer<typeof libraryItemDetailSchema>;
 export const listLibraryItemsInputSchema = z.object({
   query: z.string().min(1).optional(),
   source: z.string().min(1).optional(),
+  kind: z.string().min(1).optional(),
   cursor: z.string().min(1).optional(),
   limit: z.number().int().positive().max(500).optional(),
 });

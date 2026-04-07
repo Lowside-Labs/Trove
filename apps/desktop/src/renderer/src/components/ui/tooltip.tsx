@@ -47,7 +47,7 @@ function TooltipContent({
       >
         <BaseTooltip.Popup
           className={cn(
-            "rounded-full bg-foreground px-3 py-1.5 text-[12px] font-medium tracking-[-0.01em] text-background shadow-lg",
+            "rounded-full bg-foreground px-3 py-1.5 text-[12px] font-medium text-background shadow-lg",
             className,
           )}
         >

@@ -13,20 +13,22 @@ interface LibraryItemsState {
 export function useLibraryItems(input: ListLibraryItemsInput): LibraryItemsState {
   const baseInput = useMemo(
     () => ({
+      ...(input.kind ? { kind: input.kind } : {}),
       ...(input.limit ? { limit: input.limit } : {}),
       ...(input.query ? { query: input.query } : {}),
       ...(input.source ? { source: input.source } : {}),
     }),
-    [input.limit, input.query, input.source],
+    [input.kind, input.limit, input.query, input.source],
   );
   const queryKey = useMemo(
     () =>
       JSON.stringify({
+        kind: baseInput.kind ?? "",
         limit: baseInput.limit,
         query: baseInput.query ?? "",
         source: baseInput.source ?? "",
       }),
-    [baseInput.limit, baseInput.query, baseInput.source],
+    [baseInput.kind, baseInput.limit, baseInput.query, baseInput.source],
   );
   const [cursor, setCursor] = useState<string | null>(null);
   const requestVersionRef = useRef(0);

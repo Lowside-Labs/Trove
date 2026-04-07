@@ -28,6 +28,7 @@ export function listLibraryItems(
         limit: limit + 1,
         offset,
         ...(options.source ? { source: options.source } : {}),
+        ...(options.kind ? { kind: options.kind } : {}),
       });
       const hasMore = page.length > limit;
       const items = page.slice(0, limit).map(mapSearchResultToSummary);
@@ -45,6 +46,7 @@ export function listLibraryItems(
     const page = listItemsPage(db, {
       limit: pageSize,
       ...(options.source ? { source: options.source } : {}),
+      ...(options.kind ? { kind: options.kind } : {}),
       ...(options.cursor ? { cursor: decodeBrowseCursor(options.cursor) } : {}),
     });
     const hasMore = page.length > limit;

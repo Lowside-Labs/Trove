@@ -19,7 +19,7 @@ const inputVariants = cva(
       size: {
         default: "h-10 text-[14px]",
         lg: "h-11 text-[15px]",
-        xl: "h-14 text-[28px] font-medium tracking-tight",
+        xl: "h-14 text-[28px] font-medium",
       },
     },
     defaultVariants: {

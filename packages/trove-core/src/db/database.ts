@@ -263,11 +263,13 @@ export function searchItemsPage(
     limit?: number;
     offset?: number;
     source?: string;
+    kind?: string;
   },
 ): SearchResult[] {
   const limit = options?.limit ?? 10;
   const offset = options?.offset ?? 0;
   const sourceClause = options?.source ? " AND items.source = ?" : "";
+  const kindClause = options?.kind ? " AND items.kind = ?" : "";
   const normalizedQuery = normalizeSearchQuery(query);
   const statement = db.prepare(
     `
@@ -290,14 +292,20 @@ export function searchItemsPage(
       JOIN items ON items.id = items_fts.rowid
       WHERE items_fts MATCH ?
       ${sourceClause}
+      ${kindClause}
       ORDER BY rank
       LIMIT ? OFFSET ?
     `,
   );
 
-  const params = options?.source
-    ? [normalizedQuery, options.source, limit, offset]
-    : [normalizedQuery, limit, offset];
+  const params: Array<string | number> = [normalizedQuery];
+  if (options?.source) {
+    params.push(options.source);
+  }
+  if (options?.kind) {
+    params.push(options.kind);
+  }
+  params.push(limit, offset);
   return (statement.all(...params) as ItemRow[]).map(mapRowToSearchResult);
 }
 
@@ -441,6 +449,7 @@ export function listItemsPage(
   options?: {
     limit?: number;
     source?: string;
+    kind?: string;
     missingContentOnly?: boolean;
     cursor?: ItemCursor;
   },
@@ -451,6 +460,11 @@ export function listItemsPage(
   if (options?.source) {
     conditions.push("source = ?");
     params.push(options.source);
+  }
+
+  if (options?.kind) {
+    conditions.push("kind = ?");
+    params.push(options.kind);
   }
 
   if (options?.missingContentOnly) {

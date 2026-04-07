@@ -18,12 +18,14 @@ interface LibraryScreenProps {
 export function LibraryScreen({ snapshot }: LibraryScreenProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSource, setSelectedSource] = useState("all");
+  const [selectedKind, setSelectedKind] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<LibraryViewMode>("cards");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const deferredSearchQuery = useDeferredValue(searchQuery.trim());
   const libraryItems = useLibraryItems({
     ...(deferredSearchQuery ? { query: deferredSearchQuery } : {}),
+    ...(selectedKind ? { kind: selectedKind } : {}),
     ...(selectedSource !== "all" ? { source: selectedSource } : {}),
     limit: 120,
   });
@@ -38,6 +40,13 @@ export function LibraryScreen({ snapshot }: LibraryScreenProps) {
     void window.troveDesktop.system.openExternal(url);
   };
 
+  const selectedSourceRecord =
+    selectedSource === "all"
+      ? null
+      : snapshot.sources.find((source) => source.id === selectedSource) ?? null;
+  const kindOptions = selectedSourceRecord?.kinds ?? [];
+  const placeholderItemCount = selectedSourceRecord?.itemCount ?? snapshot.overview.totalItems;
+
   return (
     <div className="grid gap-14 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
       <LibrarySidebar
@@ -46,14 +55,23 @@ export function LibraryScreen({ snapshot }: LibraryScreenProps) {
         onSelectSource={(sourceId) => {
           startTransition(() => {
             setSelectedSource(sourceId);
+            setSelectedKind(null);
           });
         }}
       />
 
       <section className="flex flex-col gap-4 py-2">
         <LibraryToolbar
+          kindOptions={kindOptions}
+          selectedKind={selectedKind}
           searchInputRef={searchInputRef}
           searchQuery={searchQuery}
+          totalItems={placeholderItemCount}
+          onKindChange={(kindId) => {
+            startTransition(() => {
+              setSelectedKind(kindId);
+            });
+          }}
           viewMode={viewMode}
           onSearchQueryChange={setSearchQuery}
           onViewModeChange={(nextViewMode) => {

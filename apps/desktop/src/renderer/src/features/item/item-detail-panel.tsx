@@ -26,7 +26,7 @@ export function ItemDetailPanel({
           <p className="text-xs font-semibold tracking-wide text-zinc-500">
             Reader
           </p>
-          <h2 className="font-serif text-4xl leading-none tracking-[-0.05em] text-zinc-950">
+          <h2 className="font-serif text-4xl leading-none text-zinc-950">
             Select a piece from the gallery.
           </h2>
           <p className="text-sm leading-7 text-zinc-600">
@@ -44,7 +44,7 @@ export function ItemDetailPanel({
           <p className="text-xs font-semibold tracking-wide text-zinc-500">
             {activeItem.source}
           </p>
-          <h2 className="font-serif text-4xl leading-[0.95] tracking-[-0.05em] text-zinc-950">
+          <h2 className="font-serif text-4xl leading-[0.95] text-zinc-950">
             {activeItem.title}
           </h2>
         </div>
