@@ -1,6 +1,6 @@
 {
   "name": "trove-desktop",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "private": true,
   "description": "Electron desktop shell for browsing and managing a Trove workspace.",
   "type": "module",
