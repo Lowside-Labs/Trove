@@ -35,6 +35,7 @@ export { ensureTroveDirs } from "./core/fs.js";
 export { hydrateArchive, __internal as hydrate__internal } from "./core/hydrate.js";
 export type { HydrateOptions, HydrateResult } from "./core/hydrate.js";
 export {
+  clearSavedWorkspaceRoot,
   findTroveWorkspaceRoot,
   getDefaultTroveRoot,
   getSavedSourceBrowserTarget,
