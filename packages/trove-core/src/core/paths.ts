@@ -83,6 +83,17 @@ export function saveDefaultWorkspaceRoot(root: string): void {
   writeTroveConfig(config);
 }
 
+export function clearSavedWorkspaceRoot(): void {
+  const config = readTroveConfig();
+
+  if (!config.defaultWorkspace) {
+    return;
+  }
+
+  delete config.defaultWorkspace;
+  writeTroveConfig(config);
+}
+
 export function getSavedSourceBrowserTarget(
   sourceId: string,
 ): SavedSourceBrowserTarget | undefined {

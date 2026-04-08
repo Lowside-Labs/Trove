@@ -179,6 +179,24 @@ pnpm dev:local -- reset
 
 `pnpm dev:local` keeps your real `HOME` so Chromium cookies still resolve, but isolates `XDG_CONFIG_HOME` and the Trove workspace under `.tmp/local-dev/` for repeatable testing.
 
+For desktop development, the Electron app now uses the same isolated sandbox pattern:
+
+```bash
+# Launch the desktop app against .tmp/local-dev/workspace
+pnpm --filter trove-desktop dev
+
+# Force the onboarding flow in desktop dev
+pnpm --filter trove-desktop dev:onboarding
+
+# See the isolated desktop workspace and config paths
+pnpm --filter trove-desktop dev:where
+
+# Reset the isolated desktop workspace and config
+pnpm --filter trove-desktop dev:reset
+```
+
+The desktop dev scripts preserve your real `HOME` for browser/session discovery, but they isolate `XDG_CONFIG_HOME` and `TROVE_HOME` under `.tmp/local-dev/` so dev runs do not overwrite the workspace remembered by the packaged app or CLI.
+
 ## Releasing
 
 Trove uses `release-it` for lightweight release management.
