@@ -3,11 +3,15 @@ import { __internal } from "./google-chrome.js";
 
 describe("google chrome applescript helpers", () => {
   it("parses tab records emitted by the AppleScript listing", () => {
-    expect(__internal.parseGoogleChromeTabLine("101\t202\thttps://chatgpt.com/\ttrue")).toEqual({
+    expect(
+      __internal.parseGoogleChromeTabLine("101\t202\thttps://chatgpt.com/\ttrue", "chrome", "Google Chrome"),
+    ).toEqual({
       windowId: 101,
       tabId: 202,
       url: "https://chatgpt.com/",
       isActive: true,
+      browserId: "chrome",
+      appName: "Google Chrome",
     });
   });
 

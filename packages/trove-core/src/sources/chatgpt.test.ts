@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { __internal } from "./chatgpt.js";
 
+function createSummary(id: string) {
+  return {
+    id,
+    title: `Conversation ${id}`,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    raw: {},
+  };
+}
+
 describe("chatgpt source helpers", () => {
   it("caps the recent refresh window to a small fixed size", () => {
     expect(__internal.resolveRecentRefreshLimit(20)).toBe(10);
@@ -19,7 +29,7 @@ describe("chatgpt source helpers", () => {
   it("only advances the backfill cursor through the contiguous successful prefix", () => {
     expect(
       __internal.countSuccessfulBackfillPrefix(
-        [{ id: "a" }, { id: "b" }, { id: "c" }],
+        [createSummary("a"), createSummary("b"), createSummary("c")],
         new Set(["a", "c"]),
       ),
     ).toBe(1);
@@ -29,8 +39,8 @@ describe("chatgpt source helpers", () => {
         {
           existingCursor: 10,
           backfillOffset: 10,
-          backfillSummaries: [{ id: "a" }, { id: "b" }, { id: "c" }],
-          recentSummaries: [{ id: "r1" }, { id: "r2" }],
+          backfillSummaries: [createSummary("a"), createSummary("b"), createSummary("c")],
+          recentSummaries: [createSummary("r1"), createSummary("r2")],
         },
         new Set(["a", "c", "r1", "r2"]),
       ),
