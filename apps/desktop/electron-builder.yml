@@ -7,7 +7,7 @@ asarUnpack:
   - "**/*.node"
 npmRebuild: false
 mac:
-  identity: null
+  identity: "-"
   category: public.app-category.productivity
   icon: out/icon.icns
   artifactName: ${productName}-${version}-${arch}.${ext}
