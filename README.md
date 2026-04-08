@@ -11,9 +11,6 @@ Everything stays on your machine. No cloud, no account, no API keys, no data lea
 <p>
   <img src="assets/library.jpg" alt="Trove desktop library" width="100%" />
 </p>
-<p>
-  <img src="assets/syncing-library.jpg" alt="Trove syncing sources" width="100%" />
-</p>
 
 ## Get Started
 
