@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { ReadyWorkspaceRouter } from "./ready-workspace-router";
 import { StatusScreen } from "./status-screen";
 import { useWorkspaceSnapshot } from "./use-workspace-snapshot";
+import { WorkspaceSetupScreen } from "./workspace-setup-screen";
 
 export function WorkspaceGate() {
+  const [skipWelcomeOnce, setSkipWelcomeOnce] = useState(false);
   const { error, isLoading, refresh, snapshot } = useWorkspaceSnapshot();
 
   if (isLoading && !snapshot) {
@@ -26,15 +29,28 @@ export function WorkspaceGate() {
   }
 
   if (!snapshot || snapshot.status === "missing") {
-    return (
+    return snapshot ? (
+      <WorkspaceSetupScreen
+        onRefreshSnapshot={refresh}
+        onWorkspaceConfigured={() => {
+          setSkipWelcomeOnce(true);
+        }}
+        snapshot={snapshot}
+      />
+    ) : (
       <StatusScreen
         eyebrow="Workspace Required"
         title="No Trove workspace is configured yet."
-        body={snapshot?.message ?? "No Trove workspace was found."}
-        hint="Run `trove init --path ~/Trove` or launch the app with `TROVE_HOME` pointing at an existing workspace."
+        body="Trove could not discover a workspace and could not build the setup flow."
       />
     );
   }
 
-  return <ReadyWorkspaceRouter snapshot={snapshot} onRefreshSnapshot={refresh} />;
+  return (
+    <ReadyWorkspaceRouter
+      {...(skipWelcomeOnce ? { initialOnboardingStep: "sources" as const } : {})}
+      snapshot={snapshot}
+      onRefreshSnapshot={refresh}
+    />
+  );
 }

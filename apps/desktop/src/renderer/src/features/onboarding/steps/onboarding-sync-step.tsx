@@ -27,6 +27,31 @@ const SYNC_PHRASES = [
   "Pulling threads together",
   "Dusting off old favorites",
   "Some real gems in here",
+  "Oh… you're into that",
+  "Remember this one?",
+  "Going way back",
+  "You have great taste",
+  "Grabbing the deep cuts",
+  "Oh this is a good one",
+  "No judgement",
+  "Still scrolling your history",
+  "Lots to work with here",
+  "Saving the saves",
+  "The internet remembers",
+  "One more page of gold",
+  "Your past self was busy",
+  "Interesting… very interesting",
+  "Worth the wait",
+  "Collecting the collection",
+  "You bookmarked that at 3am",
+  "Down the rabbit hole",
+  "There's more where that came from",
+  "Hang tight, almost there",
+  "Rounding up the strays",
+  "Every click tells a story",
+  "We won't tell anyone",
+  "Bringing it all together",
+  "You really went deep on this",
   "Almost home",
 ];
 
@@ -80,8 +105,13 @@ export function OnboardingSyncStep() {
     return () => clearInterval(interval);
   }, [state.status]);
 
-  const currentPhrase = SYNC_PHRASES[phraseIndex] ?? SYNC_PHRASES[0]!;
-  const words = currentPhrase!.split(" ");
+  const completionPhrase = meta.hasFailures ? "Almost there" : "Your library is ready";
+  const isComplete = state.status !== "syncing" && state.status !== "idle";
+  const currentPhrase = isComplete
+    ? completionPhrase
+    : (SYNC_PHRASES[phraseIndex] ?? SYNC_PHRASES[0]!);
+  const phraseKey = isComplete ? "completion" : `sync-${phraseIndex}`;
+  const words = currentPhrase.split(" ");
 
   const activeSyncIndex = state.sourceStates.findIndex(
     (s) => s.status === "syncing",
@@ -136,7 +166,7 @@ export function OnboardingSyncStep() {
         <motion.div layout="position" className="flex mb-9 h-[4rem] items-center justify-center" variants={enterVariants}>
           <AnimatePresence mode="wait">
             <motion.p
-              key={phraseIndex}
+              key={phraseKey}
               className="flex flex-wrap justify-center gap-x-[0.22em] text-5xl font-semibold tracking-tight text-foreground"
               initial="initial"
               animate="animate"

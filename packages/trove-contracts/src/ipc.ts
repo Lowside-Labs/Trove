@@ -4,10 +4,14 @@ import {
   libraryItemDetailSchema,
   listLibraryItemsInputSchema,
   listLibraryItemsResultSchema,
+  workspacePickDirectoryResultSchema,
+  workspaceSnapshotReadySchema,
   workspaceSnapshotSchema,
 } from "./desktop.js";
 export const DESKTOP_IPC_CHANNELS = {
   workspaceGetSnapshot: "workspace:getSnapshot",
+  workspacePickDirectory: "workspace:pickDirectory",
+  workspaceSetRoot: "workspace:setRoot",
   libraryListItems: "library:listItems",
   libraryGetItem: "library:getItem",
   syncStart: "sync:start",
@@ -20,6 +24,18 @@ export const DESKTOP_IPC_CHANNELS = {
 
 export const workspaceGetSnapshotRequestSchema = z.object({}).strict();
 export const workspaceGetSnapshotResponseSchema = workspaceSnapshotSchema;
+
+export const workspacePickDirectoryRequestSchema = z.object({
+  defaultPath: z.string().min(1).optional(),
+  purpose: z.enum(["open", "create"]),
+});
+export const workspacePickDirectoryResponseSchema = workspacePickDirectoryResultSchema;
+
+export const workspaceSetRootRequestSchema = z.object({
+  root: z.string().min(1),
+  createIfMissing: z.boolean().optional(),
+});
+export const workspaceSetRootResponseSchema = workspaceSnapshotReadySchema;
 
 export const libraryListItemsRequestSchema = listLibraryItemsInputSchema;
 export const libraryListItemsResponseSchema = listLibraryItemsResultSchema;
