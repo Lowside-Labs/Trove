@@ -17,7 +17,7 @@
     }
   },
   "hooks": {
-    "before:init": "pnpm check",
+    "before:init": "pnpm lint && pnpm typecheck && pnpm test",
     "after:bump": "node scripts/sync-desktop-version.mjs ${version} && node scripts/update-changelog.mjs ${version}"
   }
 }
