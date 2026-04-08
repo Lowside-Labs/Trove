@@ -12,6 +12,7 @@ import type {
   ThemeGetResponse,
   ThemePreference,
   ThemeSetResponse,
+  WorkspacePickDirectoryResult,
   WorkspaceSnapshot,
 } from "trove-contracts";
 import type { TroveDesktopApi } from "../shared/bridge";
@@ -21,6 +22,14 @@ const troveDesktop: TroveDesktopApi = {
     async getSnapshot() {
       const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.workspaceGetSnapshot, {});
       return response as WorkspaceSnapshot;
+    },
+    async pickDirectory(input) {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.workspacePickDirectory, input);
+      return response as WorkspacePickDirectoryResult;
+    },
+    async setRoot(input) {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.workspaceSetRoot, input);
+      return response as Extract<WorkspaceSnapshot, { status: "ready" }>;
     },
   },
   library: {

@@ -15,6 +15,7 @@ import type {
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
 interface OnboardingProviderProps extends PropsWithChildren {
+  initialStep?: OnboardingStepId;
   isForcedPreview: boolean;
   onComplete(): void;
   snapshot: ReadyWorkspaceSnapshot;
@@ -50,11 +51,12 @@ function getPreviousStep(step: OnboardingStepId): OnboardingStepId {
 
 export function OnboardingProvider({
   children,
+  initialStep = "welcome",
   isForcedPreview,
   onComplete,
   snapshot,
 }: OnboardingProviderProps) {
-  const [step, setStep] = useState<OnboardingStepId>("welcome");
+  const [step, setStep] = useState<OnboardingStepId>(initialStep);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>(() =>
     getDefaultSourceSelection(snapshot),
   );

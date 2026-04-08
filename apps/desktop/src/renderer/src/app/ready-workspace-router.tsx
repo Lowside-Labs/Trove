@@ -6,11 +6,13 @@ import { useOnboardingRoute } from "../features/onboarding/use-onboarding-route"
 type ReadyWorkspaceSnapshot = Extract<WorkspaceSnapshot, { status: "ready" }>;
 
 interface ReadyWorkspaceRouterProps {
+  initialOnboardingStep?: "welcome" | "sources" | "sync";
   snapshot: ReadyWorkspaceSnapshot;
   onRefreshSnapshot(): void;
 }
 
 export function ReadyWorkspaceRouter({
+  initialOnboardingStep,
   onRefreshSnapshot,
   snapshot,
 }: ReadyWorkspaceRouterProps) {
@@ -19,6 +21,7 @@ export function ReadyWorkspaceRouter({
   if (onboardingRoute.shouldShowOnboarding) {
     return (
       <OnboardingScreen
+        {...(initialOnboardingStep ? { initialStep: initialOnboardingStep } : {})}
         isForcedPreview={onboardingRoute.isForcedPreview}
         onComplete={onboardingRoute.completeOnboarding}
         onRefreshSnapshot={onRefreshSnapshot}

@@ -83,9 +83,19 @@ export const workspaceSnapshotReadySchema = z.object({
   sources: z.array(sourceStatusSchema),
 });
 
+export const workspaceSetupSchema = z.object({
+  defaultRoot: z.string().min(1),
+  suggestedRoot: z.string().min(1),
+  explicitRoot: z.string().min(1).optional(),
+  savedRoot: z.string().min(1).optional(),
+});
+
+export type WorkspaceSetup = z.infer<typeof workspaceSetupSchema>;
+
 export const workspaceSnapshotMissingSchema = z.object({
   status: z.literal("missing"),
   message: z.string().min(1),
+  setup: workspaceSetupSchema,
 });
 
 export const workspaceSnapshotSchema = z.union([
@@ -94,3 +104,10 @@ export const workspaceSnapshotSchema = z.union([
 ]);
 
 export type WorkspaceSnapshot = z.infer<typeof workspaceSnapshotSchema>;
+
+export const workspacePickDirectoryResultSchema = z.object({
+  canceled: z.boolean(),
+  path: z.string().min(1).optional(),
+});
+
+export type WorkspacePickDirectoryResult = z.infer<typeof workspacePickDirectoryResultSchema>;
