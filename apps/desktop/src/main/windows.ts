@@ -26,7 +26,7 @@ export function createMainWindow(): BrowserWindow {
     height: 900,
     minWidth: 1100,
     minHeight: 720,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? "#1a1a1a" : "#ffffff",
+    backgroundColor: "#00000000",
     title: "Trove",
     ...(process.platform === "darwin" ? { titleBarStyle: "hiddenInset" as const } : {}),
     webPreferences: {

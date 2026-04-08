@@ -69,7 +69,7 @@ const buttonVariants = cva(
           "h-10 px-5 text-base [--button-gap:8px] [--icon-inset:-4px] [&_svg:not([class*='size-'])]:size-4",
         xs: "h-7 px-3.5 text-xs [--button-gap:6px] [--icon-inset:-2px] [&_svg:not([class*='size-'])]:size-3",
         sm: "h-8 px-3.5 text-xs [--button-gap:6px] [--icon-inset:-2px] [&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-12 px-6 text-base [--button-gap:10px] [--icon-inset:-6px] [&_svg:not([class*='size-'])]:size-5",
+        lg: "h-14 px-6 text-xl [--button-gap:10px] [--icon-inset:-6px] [&_svg:not([class*='size-'])]:size-5",
         icon: "size-10 aspect-square p-0 [--button-gap:0px] [--icon-inset:0px] [&_svg:not([class*='size-'])]:size-5",
         "icon-xs":
           "size-7 aspect-square p-0 [--button-gap:0px] [--icon-inset:0px] [&_svg:not([class*='size-'])]:size-3.5",
@@ -119,7 +119,7 @@ export function Button({
     >
       <span
         className={cn(
-          "inline-flex min-w-0 items-center justify-center gap-[var(--button-gap)]",
+          "inline-flex min-w-0 items-center justify-center gap-1",
           loading && "invisible",
         )}
       >

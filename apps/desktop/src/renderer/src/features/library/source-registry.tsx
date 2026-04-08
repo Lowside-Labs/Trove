@@ -4,12 +4,12 @@ import {
   ClaudeAI,
   GitHubDark,
   GitHubLight,
-  Instagram,
   OpenAIDark,
   OpenAILight,
   XDark,
   XLight,
 } from "@ridemountainpig/svgl-react";
+import { IconInstagram } from "../../components/icons/icon-instagram";
 import { IconHackerNews } from "../../components/icons/icon-hackernews";
 import { IconSubstackDark, IconSubstackLight } from "../../components/icons/icon-substack";
 import { useIsDark } from "../../hooks/use-is-dark";
@@ -52,15 +52,15 @@ const registry: Record<string, SourceConfig> = {
     icons: { light: IconSubstackLight, dark: IconSubstackDark },
     Content: BookmarkContent,
   },
+  instagram: {
+    displayName: "Instagram",
+    icons: { light: IconInstagram, dark: IconInstagram },
+    Content: InstagramContent,
+  },
   hackernews: {
     displayName: "Hacker News",
     icons: { light: IconHackerNews, dark: IconHackerNews },
     Content: BookmarkContent,
-  },
-  instagram: {
-    displayName: "Instagram",
-    icons: { light: Instagram, dark: Instagram },
-    Content: InstagramContent,
   },
 };
 

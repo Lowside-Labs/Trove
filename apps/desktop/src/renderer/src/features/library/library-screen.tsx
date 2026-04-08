@@ -159,7 +159,7 @@ function LibraryScreenLayout({
   workspaceRoot,
 }: LibraryScreenLayoutProps) {
   return (
-    <div className="grid h-[calc(100vh-38px)] min-h-0 overflow-hidden md:grid-cols-[280px_minmax(0,1fr)]">
+    <div className="animate-screen-enter grid h-[calc(100vh-38px)] min-h-0 overflow-hidden md:grid-cols-[280px_minmax(0,1fr)]">
       <LibrarySidebar
         workspaceRoot={workspaceRoot}
         selectedSource={selectedSource}

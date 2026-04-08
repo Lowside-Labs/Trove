@@ -10,7 +10,7 @@ import { Menu } from "../../components/ui/menu";
 import { cn } from "../../lib/cn";
 import { SourceSyncPopover } from "../sync/source-sync-popover";
 import { useSyncDialog } from "../sync/sync-dialog-context";
-import { getSourceConfig, SourceIcon } from "./source-registry";
+import { getSourceConfig } from "./source-registry";
 import { SourceSyncButton } from "./source-sync-button";
 import { getSourceSyncState, type SourceSyncState } from "./use-source-sync";
 
@@ -182,10 +182,9 @@ function SourceItem({
   syncState,
 }: SourceItemProps) {
   const { state } = useSyncDialog();
-  const source = sourceId ? getSourceConfig(sourceId) : null;
-  const useBrandIcon = sourceId === "x" && source?.isKnown;
   const syncButtonRef = React.useRef<HTMLButtonElement>(null);
   const isSyncPopoverOpen = state.isOpen && state.sourceId === sourceId;
+  const displayLabel = sourceId === "x" ? "X.com" : label;
 
   return (
     <div className="group flex items-baseline gap-2">
@@ -197,26 +196,14 @@ function SourceItem({
         type="button"
         onClick={onClick}
       >
-        {useBrandIcon ? (
-          <span
-            className={cn(
-              "flex h-[25px] items-center",
-              active ? "" : "opacity-75 group-hover:opacity-100",
-            )}
-          >
-            <SourceIcon config={source.icons} className="h-[20px] w-auto" />
-            <span className="sr-only">{label}</span>
-          </span>
-        ) : (
-          <span
-            className={cn(
-              "text-[24px] leading-[1.05] font-medium",
-              active ? "" : "opacity-75 group-hover:opacity-100",
-            )}
-          >
-            {label}
-          </span>
-        )}
+        <span
+          className={cn(
+            "text-[24px] leading-[1.05] font-medium",
+            active ? "" : "opacity-75 group-hover:opacity-100",
+          )}
+        >
+          {displayLabel}
+        </span>
       </button>
       {sourceId && onSync && syncState ? (
         <>

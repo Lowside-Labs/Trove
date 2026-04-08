@@ -1,4 +1,4 @@
-import { AppShell } from "./app-shell";
+import { ReadyWorkspaceRouter } from "./ready-workspace-router";
 import { StatusScreen } from "./status-screen";
 import { useWorkspaceSnapshot } from "./use-workspace-snapshot";
 
@@ -36,5 +36,5 @@ export function WorkspaceGate() {
     );
   }
 
-  return <AppShell snapshot={snapshot} onRefreshSnapshot={refresh} />;
+  return <ReadyWorkspaceRouter snapshot={snapshot} onRefreshSnapshot={refresh} />;
 }
