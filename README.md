@@ -1,4 +1,4 @@
-# <img src="apps/desktop/build/icon.png" alt="Trove icon" width="32" height="32" align="absmiddle" /> Trove
+# <img src="assets/logo.png" alt="Trove icon" width="40" height="40" align="absmiddle" /> Trove
 
 **A second brain from your digital life.**
 
