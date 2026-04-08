@@ -1,4 +1,4 @@
-# Trove
+# <img src="apps/desktop/build/icon.png" alt="Trove icon" width="32" height="32" align="absmiddle" /> Trove
 
 **A second brain from your digital life.**
 
@@ -29,6 +29,8 @@ Open the folder in Claude Code, Codex, or any AI agent:
 - **"What repos or tools have I saved that are relevant to what I'm building?"** — get recommendations from your own history
 
 ## Get Started
+
+> IMPORTANT: the macOS desktop preview is unsigned, so macOS will warn on first launch. Open `System Settings > Privacy & Security` and click `Open Anyway` after trying to open Trove once.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Lowside-Labs/Trove/main/install.sh | bash
@@ -123,6 +125,10 @@ Trove also ships a macOS desktop preview for browsing and syncing an existing Tr
 - Download: [latest desktop release](https://github.com/Lowside-Labs/Trove/releases/latest)
 - Install: open the `.dmg`, drag `Trove` to `Applications`, then launch it
 - Workspace: run `trove init --path ~/Trove` first if you do not already have a workspace
+
+| Library View | First Sync |
+| --- | --- |
+| ![Trove desktop library view](assets/library.jpg) | ![Trove desktop sync screen](assets/syncing-library.jpg) |
 
 This build is currently unsigned. On first launch, macOS may block it. If that happens:
 
