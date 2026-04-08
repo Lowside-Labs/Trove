@@ -1,0 +1,22 @@
+appId: io.github.lowsidelabs.trove
+productName: Trove
+directories:
+  output: out/release
+asar: true
+asarUnpack:
+  - "**/*.node"
+npmRebuild: false
+mac:
+  identity: null
+  category: public.app-category.productivity
+  icon: out/icon.icns
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}

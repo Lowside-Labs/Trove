@@ -9,7 +9,7 @@ import type {
 import { getSavedSourceBrowserTarget } from "../core/paths.js";
 import type { SyncStateRecord } from "../db/database.js";
 import { findAttachableCdpUrl } from "../auth/cdp.js";
-import { findGoogleChromeTab } from "../auth/google-chrome.js";
+import { findChromiumTab } from "../auth/google-chrome.js";
 import {
   getChromiumSession,
   isSupportedBrowserId,
@@ -24,7 +24,7 @@ import {
   syncGitHubStars,
   validateGitHubSession,
 } from "./github.js";
-import { syncHnFavorites } from "./hn/index.js";
+import { syncHnFavorites, validateHnSession } from "./hn/index.js";
 import { syncInstagramSaved, validateInstagramSession } from "./instagram.js";
 import { syncSubstackSaved, validateSubstackSession } from "./substack.js";
 import { formatAvailableBrowserList, syncXBookmarks, validateXSession } from "./x.js";
@@ -82,23 +82,37 @@ const claudeSource: SyncSourceDefinition = {
   createScope(options) {
     return formatInteractiveScope(options);
   },
+  shouldPersistState: true,
   async resolveOptions({ options, onProgress }) {
     return resolveInteractiveBrowserOptions(
       options,
       {
+        sourceId: "claude",
         sourceLabel: "Claude",
         chromeHosts: [CLAUDE_HOST],
       },
       onProgress,
     );
   },
-  async sync({ options, limit, onProgress }) {
+  async sync({ options, state, limit, onProgress }) {
     return syncClaudeChats({
+      ...(isSupportedBrowserId(options.browser) ? { browser: options.browser } : {}),
       ...(options.cdpUrl ? { cdpUrl: options.cdpUrl } : {}),
       ...(options.sessionMode ? { sessionMode: options.sessionMode } : {}),
       ...(limit !== undefined ? { limit } : {}),
+      ...(state?.cursor ? { cursor: state.cursor } : {}),
       ...(onProgress ? { onProgress } : {}),
     });
+  },
+  buildSyncState({ importedCount, result, scope }) {
+    return {
+      source: "claude",
+      scope,
+      ...(result.nextCursor ? { cursor: result.nextCursor } : {}),
+      metadata: {
+        lastImportCount: importedCount,
+      },
+    };
   },
   getSummary({ result, scope, options }) {
     return {
@@ -140,23 +154,37 @@ const chatGptSource: SyncSourceDefinition = {
   createScope(options) {
     return formatInteractiveScope(options);
   },
+  shouldPersistState: true,
   async resolveOptions({ options, onProgress }) {
     return resolveInteractiveBrowserOptions(
       options,
       {
+        sourceId: "chatgpt",
         sourceLabel: "ChatGPT",
         chromeHosts: [CHATGPT_HOST],
       },
       onProgress,
     );
   },
-  async sync({ options, limit, onProgress }) {
+  async sync({ options, state, limit, onProgress }) {
     return syncChatGptChats({
+      ...(isSupportedBrowserId(options.browser) ? { browser: options.browser } : {}),
       ...(options.cdpUrl ? { cdpUrl: options.cdpUrl } : {}),
       ...(options.sessionMode ? { sessionMode: options.sessionMode } : {}),
       ...(limit !== undefined ? { limit } : {}),
+      ...(state?.cursor ? { cursor: state.cursor } : {}),
       ...(onProgress ? { onProgress } : {}),
     });
+  },
+  buildSyncState({ importedCount, result, scope }) {
+    return {
+      source: "chatgpt",
+      scope,
+      ...(result.nextCursor ? { cursor: result.nextCursor } : {}),
+      metadata: {
+        lastImportCount: importedCount,
+      },
+    };
   },
   getSummary({ result, scope, options }) {
     return {
@@ -265,8 +293,8 @@ const xSource: SyncSourceDefinition = {
     displayName: "X",
     authMode: "cookie",
     kinds: [
-      { id: "bookmarks", aliases: ["bookmark"], default: true },
-      { id: "likes", aliases: ["like"], default: true },
+      { id: "bookmark", aliases: ["bookmarks"], default: true },
+      { id: "like", aliases: ["likes"], default: true },
     ],
     requiresBrowser: true,
   },
@@ -352,24 +380,46 @@ const hnSource: SyncSourceDefinition = {
   id: "hn",
   metadata: {
     displayName: "Hacker News",
-    authMode: "public",
+    authMode: "cookie",
     kinds: [
-      { id: "favorites", default: true },
-      { id: "favorite-comments", default: true },
+      { id: "upvoted", default: true },
+      { id: "upvoted-comment", aliases: ["upvoted-comments"], default: true },
     ],
+    requiresBrowser: true,
     requiresUser: true,
   },
   expandSyncRuns(options) {
     return expandKindRuns(this.metadata, options);
   },
+  async resolveOptions({ options, onProgress }) {
+    return resolveCookieBackedOptions(
+      "hn",
+      options,
+      {
+        sourceLabel: "Hacker News",
+        domains: ["https://news.ycombinator.com/"],
+        validateSession: validateHnSession,
+      },
+      onProgress,
+    );
+  },
   createScope(options) {
-    return `${options.user ?? "unknown"}:${options.kind ?? "favorites"}`;
+    return `${options.browser}:${options.profile ?? "Default"}:${options.user ?? "unknown"}:${options.kind ?? "upvoted"}`;
   },
   shouldPersistState: true,
   async sync({ options, state, limit, onProgress }) {
+    const browserId = options.browser as SupportedBrowserId;
+    const session = await getChromiumSession(
+      browserId,
+      options.profile,
+      ["https://news.ycombinator.com/"],
+      "Hacker News",
+    );
+
     return syncHnFavorites({
       ...(options.user ? { user: options.user } : {}),
       ...(options.kind ? { kind: options.kind } : {}),
+      cookieHeader: session.cookieHeader,
       ...(limit !== undefined ? { limit } : {}),
       ...(state?.cursor ? { cursor: state.cursor } : {}),
       ...(onProgress ? { onProgress } : {}),
@@ -382,7 +432,7 @@ const hnSource: SyncSourceDefinition = {
       ...(result.nextCursor ? { cursor: result.nextCursor } : {}),
       metadata: {
         user: options.user,
-        kind: options.kind ?? "favorites",
+        kind: options.kind ?? "upvoted",
         lastImportCount: importedCount,
       },
     };
@@ -402,12 +452,12 @@ const hnSource: SyncSourceDefinition = {
           entries: [
             { label: "Scope", value: scope, tone: "muted" },
             { label: "User", value: options.user ?? "Unknown", tone: "muted" },
-            { label: "Kind", value: options.kind ?? "favorites", tone: "muted" },
+            { label: "Kind", value: options.kind ?? "upvoted", tone: "muted" },
           ],
         },
       ],
       notes: [
-        "Saved timestamps use the original HN item time because favorites pages do not expose favorited-at time.",
+        "Saved timestamps use the original HN item time because upvoted pages do not expose exact vote time.",
       ],
     };
   },
@@ -420,7 +470,7 @@ const substackSource: SyncSourceDefinition = {
     authMode: "cookie",
     kinds: [
       { id: "saved", default: true },
-      { id: "likes", aliases: ["like"], default: true },
+      { id: "like", aliases: ["likes"], default: true },
     ],
     requiresBrowser: true,
   },
@@ -717,7 +767,7 @@ async function resolveCookieBackedOptions(
 
 function formatInteractiveScope(options: SyncCommandOptions): string {
   if (options.sessionMode === "chrome-live") {
-    return "chrome-live:Google Chrome";
+    return `chrome-live:${isSupportedBrowserId(options.browser) ? options.browser : "chrome"}`;
   }
 
   if (options.cdpUrl) {
@@ -734,13 +784,14 @@ function formatInteractiveScope(options: SyncCommandOptions): string {
 async function resolveInteractiveBrowserOptions(
   options: SyncCommandOptions,
   config: {
+    sourceId: string;
     sourceLabel: string;
     chromeHosts: string[];
   },
   onProgress?: ProgressHandler,
 ): Promise<SyncCommandOptions> {
   const explicitCdpUrl = options.cdpUrl?.trim();
-  let chromeDiscoveryError: string | undefined;
+  let tabDiscoveryError: string | undefined;
 
   if (explicitCdpUrl) {
     return {
@@ -751,37 +802,43 @@ async function resolveInteractiveBrowserOptions(
   }
 
   const requestedBrowser = normalizeRequestedBrowser(options.browser);
-  const canUseChromeLive =
-    process.platform === "darwin" &&
-    (!requestedBrowser || requestedBrowser === "chrome") &&
-    !options.profile;
+  const canUseLiveTab = process.platform === "darwin" && !options.profile;
 
-  if (canUseChromeLive) {
-    onProgress?.({
-      phase: "bootstrap",
-      message: `Checking for an open Google Chrome tab for ${config.sourceLabel}`,
-    });
+  if (canUseLiveTab) {
+    const browsersToProbe = buildInteractiveTabCandidates(config.sourceId, requestedBrowser);
 
-    try {
-      const chromeTab = await findGoogleChromeTab(config.chromeHosts);
+    for (const browserId of browsersToProbe) {
+      onProgress?.({
+        phase: "bootstrap",
+        message: `Checking for an open ${formatInteractiveBrowserLabel(browserId)} tab for ${config.sourceLabel}`,
+      });
 
-      if (chromeTab) {
+      try {
+        const tab = await findChromiumTab(browserId, config.chromeHosts);
+
+        if (!tab) {
+          continue;
+        }
+
         onProgress?.({
           phase: "bootstrap",
-          message: `Using Google Chrome tab ${new URL(chromeTab.url).host} for ${config.sourceLabel}`,
+          message: `Using ${formatInteractiveBrowserLabel(browserId)} tab ${new URL(tab.url).host} for ${config.sourceLabel}`,
         });
 
         return {
           ...options,
-          browser: "chrome",
+          browser: browserId,
           sessionMode: "chrome-live",
         };
+      } catch (error) {
+        tabDiscoveryError = compactErrorMessage(error);
       }
-    } catch (error) {
-      chromeDiscoveryError = compactErrorMessage(error);
+    }
+
+    if (tabDiscoveryError) {
       onProgress?.({
         phase: "bootstrap",
-        message: `Google Chrome tab detection failed for ${config.sourceLabel}; trying CDP fallback`,
+        message: `Live tab detection failed for ${config.sourceLabel}; trying CDP fallback`,
       });
     }
   }
@@ -808,15 +865,44 @@ async function resolveInteractiveBrowserOptions(
 
   if (requestedBrowser && requestedBrowser !== "chrome") {
     throw new Error(
-      `${config.sourceLabel} live-browser reuse currently supports an already-open Google Chrome tab on macOS. Open ${config.sourceLabel} in Chrome or pass \`--cdp-url <url>\` to attach manually.`,
+      `No open ${formatInteractiveBrowserLabel(requestedBrowser)} tab for ${config.sourceLabel} was found, and no attachable CDP browser was detected. Open ${config.sourceLabel} in ${formatInteractiveBrowserLabel(requestedBrowser)} or pass \`--cdp-url <url>\`.`,
     );
   }
 
-  const baseMessage = `No open Google Chrome tab for ${config.sourceLabel} was found, and no attachable CDP browser was detected. Open ${config.sourceLabel} in Google Chrome or pass \`--cdp-url <url>\`.`;
+  const supportedLabels = buildInteractiveTabCandidates(config.sourceId, requestedBrowser)
+    .map((browserId) => formatInteractiveBrowserLabel(browserId))
+    .join(", ");
+  const baseMessage = `No open Chromium tab for ${config.sourceLabel} was found in ${supportedLabels}, and no attachable CDP browser was detected. Open ${config.sourceLabel} in one of those browsers or pass \`--cdp-url <url>\`.`;
   throw new Error(
-    chromeDiscoveryError
-      ? `${baseMessage} Google Chrome tab detection failed: ${chromeDiscoveryError}.`
+    tabDiscoveryError
+      ? `${baseMessage} Live tab detection failed: ${tabDiscoveryError}.`
       : baseMessage,
+  );
+}
+
+function buildInteractiveTabCandidates(
+  sourceId: string,
+  requestedBrowser: SupportedBrowserId | undefined,
+): SupportedBrowserId[] {
+  if (requestedBrowser) {
+    return [requestedBrowser];
+  }
+
+  const rememberedRaw = getSavedSourceBrowserTarget(sourceId)?.browserId;
+  const remembered =
+    rememberedRaw && isSupportedBrowserId(rememberedRaw) ? rememberedRaw : undefined;
+  const installed = listChromiumBrowsers()
+    .filter((browser) => browser.installed)
+    .map((browser) => browser.id);
+  const ordered =
+    remembered && installed.includes(remembered) ? [remembered, ...installed] : installed;
+
+  return Array.from(new Set(ordered)) as SupportedBrowserId[];
+}
+
+function formatInteractiveBrowserLabel(browserId: SupportedBrowserId): string {
+  return (
+    listChromiumBrowsers().find((browser) => browser.id === browserId)?.name ?? browserId
   );
 }
 

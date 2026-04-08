@@ -41,6 +41,10 @@ Use TypeScript with ESM imports and 2-space indentation consistent with the exis
 
 Use `oxfmt` for formatting and `oxlint` for linting. Match the surrounding style, then run the repo checks.
 
+## Frontend Interaction Defaults
+
+- Prefer instant hover states. Do not add hover transitions or eased hover animations unless explicitly requested for a specific interaction.
+
 ## Command UX Defaults
 
 Trove is a user-facing CLI. Long-running commands should not feel silent.

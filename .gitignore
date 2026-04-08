@@ -1,10 +1,12 @@
 node_modules
 dist
+out
 .turbo
 .DS_Store
 .env
 coverage
 .tmp/
+apps/desktop/src/renderer/dist
 
 # Local app data
 .trove

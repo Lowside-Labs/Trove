@@ -1,0 +1,67 @@
+import { contextBridge, ipcRenderer } from "electron";
+import { DESKTOP_IPC_CHANNELS } from "trove-contracts";
+import type {
+  GetLibraryItemInput,
+  LibraryItemDetail,
+  ListLibraryItemsInput,
+  ListLibraryItemsResult,
+  SystemCopyArchivePathResponse,
+  SystemRevealArchivePathResponse,
+  SyncStartRequest,
+  SyncStartResponse,
+  ThemeGetResponse,
+  ThemePreference,
+  ThemeSetResponse,
+  WorkspaceSnapshot,
+} from "trove-contracts";
+import type { TroveDesktopApi } from "../shared/bridge";
+
+const troveDesktop: TroveDesktopApi = {
+  workspace: {
+    async getSnapshot() {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.workspaceGetSnapshot, {});
+      return response as WorkspaceSnapshot;
+    },
+  },
+  library: {
+    async listItems(input: ListLibraryItemsInput = {}) {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.libraryListItems, input);
+      return response as ListLibraryItemsResult;
+    },
+    async getItem(input: GetLibraryItemInput) {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.libraryGetItem, input);
+      return response as LibraryItemDetail | null;
+    },
+  },
+  sync: {
+    async start(input: SyncStartRequest) {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.syncStart, input);
+      return response as SyncStartResponse;
+    },
+  },
+  system: {
+    async openExternal(url: string) {
+      await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.systemOpenExternal, { url });
+    },
+    async copyArchivePath() {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.systemCopyArchivePath, {});
+      return response as SystemCopyArchivePathResponse;
+    },
+    async revealArchivePath() {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.systemRevealArchivePath, {});
+      return response as SystemRevealArchivePathResponse;
+    },
+  },
+  theme: {
+    async get() {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.themeGet, {});
+      return response as ThemeGetResponse;
+    },
+    async set(preference: ThemePreference) {
+      const response = await ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.themeSet, { preference });
+      return response as ThemeSetResponse;
+    },
+  },
+};
+
+contextBridge.exposeInMainWorld("troveDesktop", troveDesktop);

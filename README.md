@@ -115,6 +115,27 @@ pnpm build
 node packages/trove-cli/dist/cli.js --help
 ```
 
+## Desktop App Preview
+
+Trove also ships a macOS desktop preview for browsing and syncing an existing Trove workspace.
+
+- Platform: macOS on Apple Silicon (`arm64`) only for V0
+- Download: [latest desktop release](https://github.com/Lowside-Labs/Trove/releases/latest)
+- Install: open the `.dmg`, drag `Trove` to `Applications`, then launch it
+- Workspace: run `trove init --path ~/Trove` first if you do not already have a workspace
+
+This build is currently unsigned. On first launch, macOS may block it. If that happens:
+
+1. Open `System Settings > Privacy & Security`
+2. Find the blocked `Trove` launch notice
+3. Click `Open Anyway`
+
+To verify a downloaded release artifact:
+
+```bash
+shasum -a 256 ~/Downloads/Trove-<version>-arm64.dmg
+```
+
 ## Limitations
 
 - `Node 22+` is the supported runtime

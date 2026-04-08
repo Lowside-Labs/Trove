@@ -85,6 +85,7 @@ function createSavedMedia(args: {
     user: {
       username: args.username ?? "saved_author",
       full_name: args.fullName ?? "Saved Author",
+      profile_pic_url: `https://cdn.example.com/${args.username ?? "saved_author"}-avatar.jpg`,
     },
     caption: args.caption
       ? {
@@ -235,6 +236,15 @@ describe("instagram saved sync", () => {
         author: "Saved Author",
         tags: ["instagram", "saved", "clips", "Workout"],
         savedAt: "2026-04-01T12:03:55.000Z",
+        raw: expect.objectContaining({
+          username: "saved_author",
+          fullName: "Saved Author",
+          profilePicUrl: "https://cdn.example.com/saved_author-avatar.jpg",
+          mediaType: 2,
+          imageUrl: "https://cdn.example.com/DWj7iU5Jx7n.jpg",
+          videoUrl: "https://cdn.example.com/DWj7iU5Jx7n.mp4",
+          videoDuration: null,
+        }),
       }),
     );
     expect(sinks[0]?.append).toHaveBeenCalledTimes(3);

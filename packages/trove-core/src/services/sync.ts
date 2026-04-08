@@ -54,6 +54,7 @@ export async function syncSourceToWorkspace(
 ): Promise<SyncWorkspaceResult> {
   const prepared = prepareSyncRuns(args.source, args.options);
   const runs: SyncRunResult[] = [];
+  const effectiveLimit = resolveSyncLimit(args.limit, args.options.limit);
 
   for (const runOptions of prepared.runs) {
     const label = formatRunLabel(args.source, runOptions.kind);
@@ -63,7 +64,7 @@ export async function syncSourceToWorkspace(
       prepared.syncSource.id,
       prepared.syncSource,
       runOptions,
-      args.limit,
+      effectiveLimit,
       (event) => {
         args.onRunProgress?.(label, event);
       },
@@ -84,6 +85,22 @@ export async function syncSourceToWorkspace(
     runs,
     vaultArtifacts: runArchivePostProcessing(),
   };
+}
+
+function resolveSyncLimit(
+  explicitLimit: number | undefined,
+  optionLimit: string | undefined,
+): number | undefined {
+  if (explicitLimit !== undefined) {
+    return explicitLimit;
+  }
+
+  if (!optionLimit) {
+    return undefined;
+  }
+
+  const parsed = Number(optionLimit);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 function prepareSyncRuns(source: string, options: SyncCommandOptions): PreparedSyncRuns {

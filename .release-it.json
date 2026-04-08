@@ -18,6 +18,6 @@
   },
   "hooks": {
     "before:init": "pnpm check",
-    "after:bump": "node scripts/update-changelog.mjs ${version}"
+    "after:bump": "node scripts/sync-desktop-version.mjs ${version} && node scripts/update-changelog.mjs ${version}"
   }
 }

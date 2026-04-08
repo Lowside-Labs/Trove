@@ -6,6 +6,7 @@
     "dev": "node scripts/run-trove-entry.mjs src/cli.ts",
     "dev:local": "node scripts/run-trove-entry.mjs scripts/dev-local.ts",
     "reset-local": "node scripts/run-trove-entry.mjs scripts/reset-local.ts",
+    "reset-local:source": "node scripts/reset-local-source.mjs",
     "release": "node scripts/run-release.mjs",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
@@ -30,6 +31,7 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "better-sqlite3",
+      "electron",
       "esbuild"
     ]
   }

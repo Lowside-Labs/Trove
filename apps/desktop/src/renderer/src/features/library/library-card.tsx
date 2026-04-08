@@ -1,0 +1,37 @@
+import { useState } from "react";
+import type { LibraryItemSummary } from "trove-contracts";
+import { getSourceConfig, SourceIcon } from "./source-registry";
+
+interface LibraryCardProps {
+  item: LibraryItemSummary;
+  onOpen(): void;
+}
+
+export function LibraryCard({ item, onOpen }: LibraryCardProps) {
+  const source = getSourceConfig(item.source);
+  const Content = source.Content;
+  const showFooter = item.source !== "x";
+  const [mediaActive, setMediaActive] = useState(false);
+
+  return (
+    <button
+      className="flex cursor-pointer flex-col gap-3 rounded-2xl bg-card p-5 text-left hover:bg-accent"
+      type="button"
+      onClick={onOpen}
+      onPointerEnter={() => setMediaActive(true)}
+      onPointerLeave={() => setMediaActive(false)}
+      onFocus={() => setMediaActive(true)}
+      onBlur={() => setMediaActive(false)}
+    >
+      <Content item={item} mediaActive={mediaActive} />
+      {showFooter ? (
+        <div className="mt-auto flex items-center gap-1.5 pt-1 text-muted-foreground/60">
+          {source.isKnown ? (
+            <SourceIcon config={source.icons} className="size-3.5" />
+          ) : null}
+          <span className="text-[11px] font-medium">{source.displayName}</span>
+        </div>
+      ) : null}
+    </button>
+  );
+}

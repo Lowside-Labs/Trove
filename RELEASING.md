@@ -36,8 +36,20 @@ The release command:
 
 - runs `pnpm check`
 - bumps `packages/trove-cli/package.json`
+- syncs `apps/desktop/package.json` to the same version
 - updates `CHANGELOG.md`
 - commits the release
 - creates a Git tag like `v0.1.1`
 - pushes the commit and tag
 - creates a GitHub release
+
+## Desktop Assets
+
+Published GitHub releases also trigger the macOS desktop packaging workflow.
+
+That workflow:
+
+- builds the Apple Silicon desktop app
+- packages unsigned `.dmg` and `.zip` artifacts
+- writes a SHA-256 checksum file
+- uploads those assets to the GitHub release

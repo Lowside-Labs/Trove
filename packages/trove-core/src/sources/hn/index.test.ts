@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { __internal } from "./index.js";
 
-describe("hn favorites parsing", () => {
-  it("extracts favorite story items and next page", () => {
+describe("hn upvoted parsing", () => {
+  it("extracts upvoted story items and next page", () => {
     const html = `
       <table>
         <tr class="athing submission" id="47637757">
@@ -22,21 +22,21 @@ describe("hn favorites parsing", () => {
             </span>
           </td>
         </tr>
-        <tr><td class='title'><a href='favorites?id=jamiesonbecker&amp;p=2' class='morelink' rel='next'>More</a></td></tr>
+        <tr><td class='title'><a href='upvoted?id=jamiesonbecker&amp;p=2' class='morelink' rel='next'>More</a></td></tr>
       </table>
     `;
 
-    const page = __internal.parseFavoritesPage(html);
+    const page = __internal.parseUpvotedPage(html);
 
     expect(page.nextPage).toBe(2);
     expect(page.items).toHaveLength(1);
-    expect(page.items[0]?.externalId).toBe("47637757");
+    expect(page.items[0]?.externalId).toBe("upvoted:47637757");
     expect(page.items[0]?.url).toBe("https://arxiv.org/abs/2604.01193");
     expect(page.items[0]?.author).toBe("Anon84");
     expect(page.items[0]?.savedAt).toBe("2026-04-04T10:26:21.000Z");
   });
 
-  it("extracts favorite comment items", () => {
+  it("extracts upvoted comment items", () => {
     const html = `
       <table>
         <tr class="athing" id="46407397">
@@ -57,18 +57,28 @@ describe("hn favorites parsing", () => {
             </div>
           </td>
         </tr>
-        <tr><td class='title'><a href='favorites?id=jamiesonbecker&amp;comments=t&amp;p=2' class='morelink' rel='next'>More</a></td></tr>
+        <tr><td class='title'><a href='upvoted?id=jamiesonbecker&amp;comments=t&amp;p=2' class='morelink' rel='next'>More</a></td></tr>
       </table>
     `;
 
-    const page = __internal.parseFavoriteCommentsPage(html);
+    const page = __internal.parseUpvotedCommentsPage(html);
 
     expect(page.nextPage).toBe(2);
     expect(page.items).toHaveLength(1);
-    expect(page.items[0]?.externalId).toBe("46407397");
+    expect(page.items[0]?.externalId).toBe("upvoted-comment:46407397");
     expect(page.items[0]?.title).toBe("Comment on Clock synchronization is a nightmare");
     expect(page.items[0]?.url).toBe("https://news.ycombinator.com/item?id=46368177#46407397");
     expect(page.items[0]?.author).toBe("dmazin");
     expect(page.items[0]?.content).toContain("PTP works.");
+  });
+
+  it("detects the HN login gate", () => {
+    const html = `
+      <html><body>Please log in.<br><br>
+      <form action="upvoted" method="post"></form>
+      </body></html>
+    `;
+
+    expect(__internal.looksLikeLoginPage(html)).toBe(true);
   });
 });

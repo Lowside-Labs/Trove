@@ -2,26 +2,34 @@ import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Browser, type Page } from "playwright-core";
 import {
+  evaluateGoogleChromeTabScript,
+  findChromiumTab,
   fetchJsonFromGoogleChromeTab,
-  findGoogleChromeTab,
   type GoogleChromeFetchResponse,
   type GoogleChromeTabTarget,
 } from "../auth/google-chrome.js";
+import { isRateLimitError, retryTask, settleConcurrently } from "../core/async.js";
 import { ensureTroveDirs } from "../core/fs.js";
 import { createJsonlSink, createTimestampedFileName } from "../core/raw.js";
 import type { ProgressHandler } from "../core/progress.js";
 import type { TroveItem } from "../types/item.js";
+import type { SupportedBrowserId } from "../types/browser.js";
 
 const DEFAULT_CDP_URL = "http://127.0.0.1:9222";
 const CLAUDE_HOST = "claude.ai";
 const ORG_ID_PATTERN = /\/api\/organizations\/([^/]+)\//;
 const LIST_PAGE_SIZE = 30;
 const MAX_STALLED_LIST_PAGES = 3;
+const RECENT_REFRESH_LIMIT = 10;
+const DETAIL_CONCURRENCY = 3;
+const DETAIL_RETRIES = 2;
 
 interface ClaudeSyncOptions {
+  browser?: SupportedBrowserId;
   cdpUrl?: string;
   sessionMode?: "cdp" | "chrome-live";
   limit?: number;
+  cursor?: string;
   onProgress?: ProgressHandler;
 }
 
@@ -29,6 +37,7 @@ export interface ClaudeSyncResult {
   items: TroveItem[];
   rawPath: string;
   contentPath: string;
+  nextCursor?: string;
 }
 
 interface ClaudeFetchResponse {
@@ -90,55 +99,52 @@ export async function syncClaudeChats(options: ClaudeSyncOptions): Promise<Claud
   const page = await getClaudePage(browser);
   emitProgress(options.onProgress, "bootstrap", "Discovering Claude organization");
   const orgId = await discoverOrganizationId(page);
-  const requestedLimit = options.limit;
-  const summaries = await fetchConversationSummaries(
-    page,
-    orgId,
-    requestedLimit,
-    rawSink,
-    options.onProgress,
-  );
+  const hybrid = await collectHybridSummaries({
+    cursor: options.cursor,
+    limit: options.limit,
+    onProgress: options.onProgress,
+    sourceLabel: "Claude",
+    fetchSummaries: (requestedLimit, startOffset) =>
+      fetchConversationSummaries(
+        page,
+        orgId,
+        requestedLimit,
+        rawSink,
+        options.onProgress,
+        startOffset,
+      ),
+  });
 
-  const items: TroveItem[] = [];
-  const total = summaries.length;
-  let completed = 0;
+  const { items, succeededSummaryIds } = await buildConversationItems({
+    summaries: hybrid.summaries,
+    sourceLabel: "Claude",
+    onProgress: options.onProgress,
+    worker: async (summary) => {
+      const detailResponse = await retryTask({
+        retries: DETAIL_RETRIES,
+        shouldRetry: isRateLimitError,
+        task: async () => {
+          const response = await fetchClaudeJson(
+            page,
+            `/api/organizations/${orgId}/chat_conversations/${summary.id}?tree=True&rendering_mode=messages&render_all_tools=true&consistency=eventual`,
+          );
+          assertSuccessfulResponse(response, `Claude conversation ${summary.id}`);
+          return response;
+        },
+      });
 
-  for (const summary of summaries) {
-    emitProgress(
-      options.onProgress,
-      "detail",
-      `Fetching Claude conversation ${completed + 1}`,
-      completed,
-      total,
-    );
-    const detailResponse = await fetchClaudeJson(
-      page,
-      `/api/organizations/${orgId}/chat_conversations/${summary.id}?tree=True&rendering_mode=messages&render_all_tools=true&consistency=eventual`,
-    );
-    assertSuccessfulResponse(detailResponse, `Claude conversation ${summary.id}`);
+      return createConversationItem(summary, detailResponse, orgId, rawSink, contentDir);
+    },
+  });
 
-    const detail = parseConversationDetail(detailResponse.body);
-    rawSink.append({
-      kind: "detail",
-      orgId,
-      conversationId: summary.id,
-      payload: detailResponse.body as Record<string, unknown>,
-    });
+  const nextCursor = resolveHybridNextCursor(hybrid, succeededSummaryIds);
 
-    const markdown = renderConversationMarkdown(detail);
-    const markdownPath = writeConversationMarkdown(contentDir, detail, markdown);
-    items.push(toTroveItem(summary, detail, markdown, markdownPath));
-    completed += 1;
-    emitProgress(
-      options.onProgress,
-      "detail",
-      `Rendered Claude conversation ${completed}`,
-      completed,
-      total,
-    );
-  }
-
-  return { items, rawPath: rawSink.path, contentPath: contentDir };
+  return {
+    items,
+    rawPath: rawSink.path,
+    contentPath: contentDir,
+    ...(nextCursor ? { nextCursor } : {}),
+  };
 }
 
 async function syncClaudeChatsFromChromeTab(
@@ -146,67 +152,69 @@ async function syncClaudeChatsFromChromeTab(
   contentDir: string,
   options: ClaudeSyncOptions,
 ): Promise<ClaudeSyncResult> {
-  emitProgress(options.onProgress, "bootstrap", "Finding the active Google Chrome Claude tab");
-  const tab = await findGoogleChromeTab([CLAUDE_HOST]);
+  const browserId = options.browser ?? "chrome";
+  emitProgress(
+    options.onProgress,
+    "bootstrap",
+    `Finding the active ${browserId} Claude tab`,
+  );
+  const tab = await findChromiumTab(browserId, [CLAUDE_HOST]);
 
   if (!tab) {
-    throw new Error("No open Google Chrome tab for Claude was found.");
+    throw new Error(`No open ${browserId} tab for Claude was found.`);
   }
 
   emitProgress(
     options.onProgress,
     "bootstrap",
-    "Discovering Claude organization from the active Google Chrome tab",
+    `Discovering Claude organization from the active ${browserId} tab`,
   );
   const orgId = await discoverOrganizationIdFromChromeTab(tab);
-  const requestedLimit = options.limit;
-  const summaries = await fetchConversationSummariesFromChromeTab(
-    tab,
-    orgId,
-    requestedLimit,
-    rawSink,
-    options.onProgress,
-  );
-  const items: TroveItem[] = [];
-  const total = summaries.length;
-  let completed = 0;
+  const hybrid = await collectHybridSummaries({
+    cursor: options.cursor,
+    limit: options.limit,
+    onProgress: options.onProgress,
+    sourceLabel: "Claude",
+    fetchSummaries: (requestedLimit, startOffset) =>
+      fetchConversationSummariesFromChromeTab(
+        tab,
+        orgId,
+        requestedLimit,
+        rawSink,
+        options.onProgress,
+        startOffset,
+      ),
+  });
+  const { items, succeededSummaryIds } = await buildConversationItems({
+    summaries: hybrid.summaries,
+    sourceLabel: "Claude",
+    onProgress: options.onProgress,
+    worker: async (summary) => {
+      const detailResponse = await retryTask({
+        retries: DETAIL_RETRIES,
+        shouldRetry: isRateLimitError,
+        task: async () => {
+          const response = await fetchClaudeJsonFromChromeTab(
+            tab,
+            `/api/organizations/${orgId}/chat_conversations/${summary.id}?tree=True&rendering_mode=messages&render_all_tools=true&consistency=eventual`,
+          );
+          assertSuccessfulResponse(response, `Claude conversation ${summary.id}`);
+          return response;
+        },
+      });
 
-  for (const summary of summaries) {
-    emitProgress(
-      options.onProgress,
-      "detail",
-      `Fetching Claude conversation ${completed + 1}`,
-      completed,
-      total,
-    );
-    const detailResponse = await fetchClaudeJsonFromChromeTab(
-      tab,
-      `/api/organizations/${orgId}/chat_conversations/${summary.id}?tree=True&rendering_mode=messages&render_all_tools=true&consistency=eventual`,
-    );
-    assertSuccessfulResponse(detailResponse, `Claude conversation ${summary.id}`);
+      return createConversationItem(summary, detailResponse, orgId, rawSink, contentDir);
+    },
+  });
 
-    const detail = parseConversationDetail(detailResponse.body);
-    rawSink.append({
-      kind: "detail",
-      orgId,
-      conversationId: summary.id,
-      payload: detailResponse.body as Record<string, unknown>,
-    });
+  const nextCursor = resolveHybridNextCursor(hybrid, succeededSummaryIds);
 
-    const markdown = renderConversationMarkdown(detail);
-    const markdownPath = writeConversationMarkdown(contentDir, detail, markdown);
-    items.push(toTroveItem(summary, detail, markdown, markdownPath));
-    completed += 1;
-    emitProgress(
-      options.onProgress,
-      "detail",
-      `Rendered Claude conversation ${completed}`,
-      completed,
-      total,
-    );
-  }
-
-  return { items, rawPath: rawSink.path, contentPath: contentDir };
+  return {
+    items,
+    rawPath: rawSink.path,
+    contentPath: contentDir,
+    ...(nextCursor ? { nextCursor } : {}),
+  };
 }
 
 async function getClaudePage(browser: Browser): Promise<Page> {
@@ -260,10 +268,18 @@ async function discoverOrganizationId(page: Page): Promise<string> {
 }
 
 async function discoverOrganizationIdFromChromeTab(tab: GoogleChromeTabTarget): Promise<string> {
+  const browserLabel = tab.appName ?? "active Chromium";
   const orgIdFromUrl = extractOrganizationIdFromText(tab.url);
 
   if (orgIdFromUrl) {
     return orgIdFromUrl;
+  }
+
+  const resourceUrls = await listChromeTabResourceUrls(tab);
+  const orgIdFromResources = findOrganizationIdInUrls(resourceUrls);
+
+  if (orgIdFromResources) {
+    return orgIdFromResources;
   }
 
   const discoverableResponse = await fetchClaudeJsonFromChromeTab(
@@ -278,13 +294,43 @@ async function discoverOrganizationIdFromChromeTab(tab: GoogleChromeTabTarget): 
   }
 
   throw new Error(
-    "Could not determine the active Claude organization id from the active Google Chrome tab.",
+    `Could not determine the active Claude organization id from the active ${browserLabel} tab.`,
   );
+}
+
+async function listChromeTabResourceUrls(tab: GoogleChromeTabTarget): Promise<string[]> {
+  const raw = await evaluateGoogleChromeTabScript(
+    tab,
+    `JSON.stringify(
+      performance
+        .getEntriesByType("resource")
+        .map((entry) => entry.name)
+        .filter((name) => name.includes("/api/organizations/"))
+    )`,
+  );
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === "string")
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 function extractOrganizationIdFromText(value: string): string | null {
   const match = ORG_ID_PATTERN.exec(value);
   return match?.[1] ?? null;
+}
+
+function findOrganizationIdInUrls(urls: string[]): string | null {
+  return (
+    urls
+      .map((url) => extractOrganizationIdFromText(url))
+      .find((candidate): candidate is string => typeof candidate === "string") ?? null
+  );
 }
 
 function extractOrganizationIdFromPayload(payload: unknown): string | null {
@@ -307,10 +353,11 @@ async function fetchConversationSummaries(
   requestedLimit: number | undefined,
   rawSink: ReturnType<typeof createJsonlSink>,
   onProgress?: ProgressHandler,
+  startOffset = 0,
 ): Promise<ClaudeConversationSummary[]> {
   const summaries: ClaudeConversationSummary[] = [];
   const seenIds = new Set<string>();
-  let offset = 0;
+  let offset = startOffset;
   let hasMore = true;
   let pageNumber = 1;
   let stalledPages = 0;
@@ -378,10 +425,11 @@ async function fetchConversationSummariesFromChromeTab(
   requestedLimit: number | undefined,
   rawSink: ReturnType<typeof createJsonlSink>,
   onProgress?: ProgressHandler,
+  startOffset = 0,
 ): Promise<ClaudeConversationSummary[]> {
   const summaries: ClaudeConversationSummary[] = [];
   const seenIds = new Set<string>();
-  let offset = 0;
+  let offset = startOffset;
   let hasMore = true;
   let pageNumber = 1;
   let stalledPages = 0;
@@ -595,6 +643,89 @@ function parseConversationDetail(payload: unknown): ClaudeConversationDetail {
     messages: readMessages(record),
     raw: record,
   };
+}
+
+async function buildConversationItems({
+  summaries,
+  sourceLabel,
+  onProgress,
+  worker,
+}: {
+  summaries: ClaudeConversationSummary[];
+  sourceLabel: string;
+  onProgress: ProgressHandler | undefined;
+  worker(summary: ClaudeConversationSummary): Promise<TroveItem>;
+}): Promise<{ items: TroveItem[]; succeededSummaryIds: Set<string> }> {
+  const total = summaries.length;
+  let completed = 0;
+
+  const results = await settleConcurrently({
+    items: summaries,
+    concurrency: DETAIL_CONCURRENCY,
+    worker: async (summary, index) => {
+      emitProgress(
+        onProgress,
+        "detail",
+        `Fetching ${sourceLabel} conversation ${index + 1}`,
+        completed,
+        total,
+      );
+      const item = await worker(summary);
+      completed += 1;
+      emitProgress(
+        onProgress,
+        "detail",
+        `Rendered ${sourceLabel} conversation ${completed}`,
+        completed,
+        total,
+      );
+      return item;
+    },
+  });
+
+  const items = results
+    .filter((result): result is PromiseFulfilledResult<TroveItem> => result.status === "fulfilled")
+    .map((result) => result.value);
+  const succeededSummaryIds = new Set(items.map((item) => item.externalId));
+  const failures = results.filter(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  );
+
+  if (items.length === 0 && failures.length > 0) {
+    throw failures[0]!.reason;
+  }
+
+  if (failures.length > 0) {
+    emitProgress(
+      onProgress,
+      "detail",
+      `Skipped ${failures.length} ${sourceLabel} conversation${failures.length === 1 ? "" : "s"} after retries`,
+      items.length,
+      total,
+    );
+  }
+
+  return { items, succeededSummaryIds };
+}
+
+function createConversationItem(
+  summary: ClaudeConversationSummary,
+  detailResponse: ClaudeFetchResponse | GoogleChromeFetchResponse,
+  orgId: string,
+  rawSink: ReturnType<typeof createJsonlSink>,
+  contentDir: string,
+): TroveItem {
+  const detail = parseConversationDetail(detailResponse.body);
+  rawSink.append({
+    kind: "detail",
+    orgId,
+    conversationId: summary.id,
+    payload: detailResponse.body as Record<string, unknown>,
+  });
+
+  const markdown = renderConversationMarkdown(detail);
+  const markdownPath = writeConversationMarkdown(contentDir, detail, markdown);
+  return toTroveItem(summary, detail, markdown, markdownPath);
 }
 
 function readMessages(record: Record<string, unknown>): ClaudeMessage[] {
@@ -974,3 +1105,146 @@ function emitProgress(
           },
   );
 }
+
+interface HybridSummaryCollectionArgs {
+  fetchSummaries(
+    requestedLimit: number | undefined,
+    startOffset?: number,
+  ): Promise<ClaudeConversationSummary[]>;
+  limit: number | undefined;
+  cursor: string | undefined;
+  onProgress: ProgressHandler | undefined;
+  sourceLabel: string;
+}
+
+async function collectHybridSummaries({
+  fetchSummaries,
+  limit,
+  cursor,
+  onProgress,
+  sourceLabel,
+}: HybridSummaryCollectionArgs): Promise<{
+  summaries: ClaudeConversationSummary[];
+  existingCursor: number;
+  backfillOffset: number;
+  backfillSummaries: ClaudeConversationSummary[];
+  recentSummaries: ClaudeConversationSummary[];
+}> {
+  if (limit === undefined) {
+    return {
+      summaries: await fetchSummaries(undefined, 0),
+      existingCursor: 0,
+      backfillOffset: 0,
+      backfillSummaries: [],
+      recentSummaries: [],
+    };
+  }
+
+  const existingCursor = parseStoredOffset(cursor) ?? 0;
+  const recentLimit = resolveRecentRefreshLimit(limit);
+  emitProgress(onProgress, "page", `Refreshing recent ${sourceLabel} conversations`);
+  const recentSummaries = await fetchSummaries(recentLimit, 0);
+  const remainingLimit = Math.max(0, limit - recentSummaries.length);
+  const backfillOffset = Math.max(existingCursor, recentSummaries.length);
+
+  if (remainingLimit === 0) {
+    return {
+      summaries: recentSummaries,
+      existingCursor,
+      backfillOffset,
+      backfillSummaries: [],
+      recentSummaries,
+    };
+  }
+
+  emitProgress(onProgress, "page", `Continuing older ${sourceLabel} conversations`);
+  const backfillSummaries = await fetchSummaries(remainingLimit, backfillOffset);
+
+  return {
+    summaries: mergeSummaries(recentSummaries, backfillSummaries, limit),
+    existingCursor,
+    backfillOffset,
+    backfillSummaries,
+    recentSummaries,
+  };
+}
+
+function resolveHybridNextCursor(
+  hybrid: {
+    existingCursor: number;
+    backfillOffset: number;
+    backfillSummaries: ClaudeConversationSummary[];
+    recentSummaries: ClaudeConversationSummary[];
+  },
+  succeededSummaryIds: Set<string>,
+): string {
+  if (hybrid.backfillSummaries.length === 0) {
+    return String(Math.max(hybrid.existingCursor, hybrid.recentSummaries.length));
+  }
+
+  return String(hybrid.backfillOffset + countSuccessfulBackfillPrefix(hybrid.backfillSummaries, succeededSummaryIds));
+}
+
+function countSuccessfulBackfillPrefix(
+  backfillSummaries: ClaudeConversationSummary[],
+  succeededSummaryIds: Set<string>,
+): number {
+  let count = 0;
+
+  for (const summary of backfillSummaries) {
+    if (!succeededSummaryIds.has(summary.id)) {
+      break;
+    }
+
+    count += 1;
+  }
+
+  return count;
+}
+
+function mergeSummaries(
+  recentSummaries: ClaudeConversationSummary[],
+  backfillSummaries: ClaudeConversationSummary[],
+  limit: number,
+): ClaudeConversationSummary[] {
+  const merged: ClaudeConversationSummary[] = [];
+  const seenIds = new Set<string>();
+
+  for (const summary of [...recentSummaries, ...backfillSummaries]) {
+    if (seenIds.has(summary.id)) {
+      continue;
+    }
+
+    merged.push(summary);
+    seenIds.add(summary.id);
+
+    if (merged.length >= limit) {
+      break;
+    }
+  }
+
+  return merged;
+}
+
+function resolveRecentRefreshLimit(limit: number): number {
+  return Math.min(limit, RECENT_REFRESH_LIMIT);
+}
+
+function parseStoredOffset(cursor?: string): number | undefined {
+  if (!cursor) {
+    return undefined;
+  }
+
+  const parsed = Number(cursor);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+export const __internal = {
+  countSuccessfulBackfillPrefix,
+  extractOrganizationIdFromPayload,
+  extractOrganizationIdFromText,
+  findOrganizationIdInUrls,
+  parseStoredOffset,
+  resolveHybridNextCursor,
+  resolveRecentRefreshLimit,
+};

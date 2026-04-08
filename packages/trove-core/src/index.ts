@@ -1,3 +1,4 @@
+export * from "./services/library.js";
 export * from "./services/search.js";
 export * from "./services/stats.js";
 export * from "./services/sync.js";
@@ -56,11 +57,14 @@ export type {
 } from "./core/paths.js";
 export { createJsonlSink, createTimestampedFileName } from "./core/raw.js";
 export type { JsonlSink } from "./core/raw.js";
+export { isRateLimitError, retryTask, settleConcurrently } from "./core/async.js";
 export { generateVaultArtifacts, __internal as vault__internal } from "./core/vault.js";
 export type { VaultArtifacts } from "./core/vault.js";
 export {
   getArchiveOverview,
+  getItemById,
   getSourceCounts,
+  getSourceSyncRecords,
   getSourceStats,
   getSyncState,
   getTopAuthors,
@@ -74,6 +78,7 @@ export {
 } from "./db/database.js";
 export type {
   ArchiveOverviewRecord,
+  SourceSyncRecord,
   SourceStatsRecord,
   StoredItem,
   SyncStateRecord,

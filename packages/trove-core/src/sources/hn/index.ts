@@ -4,14 +4,16 @@ import type { ProgressHandler } from "../../core/progress.js";
 import type { TroveItem } from "../../types/item.js";
 
 const HN_BASE_URL = "https://news.ycombinator.com";
+const VALIDATION_USER = "pg";
 
-export type HnSyncKind = "favorites" | "favorite-comments";
+export type HnSyncKind = "upvoted" | "upvoted-comments";
 
 interface HnSyncOptions {
   user?: string;
   kind?: string;
   limit?: number;
   cursor?: string;
+  cookieHeader?: string;
   onProgress?: ProgressHandler;
 }
 
@@ -39,6 +41,10 @@ export async function syncHnFavorites(options: HnSyncOptions): Promise<HnSyncRes
     throw new Error("HN sync requires --user <username>.");
   }
 
+  if (!options.cookieHeader?.trim()) {
+    throw new Error("HN upvoted sync requires an authenticated cookie-backed session.");
+  }
+
   const scope = `${user}-${kind}`;
   const rawSink = createJsonlSink("hn", createTimestampedFileName(scope));
   const items: TroveItem[] = [];
@@ -50,8 +56,8 @@ export async function syncHnFavorites(options: HnSyncOptions): Promise<HnSyncRes
   while (!shouldStop) {
     const requestedPage = nextPage;
     emitProgress(options.onProgress, "page", `Fetching ${kind} page ${nextPage}`);
-    const html = await fetchPageHtml(buildPageUrl(user, kind, nextPage));
-    const page = kind === "favorites" ? parseFavoritesPage(html) : parseFavoriteCommentsPage(html);
+    const html = await fetchPageHtml(buildPageUrl(user, kind, nextPage), options.cookieHeader);
+    const page = kind === "upvoted" ? parseUpvotedPage(html) : parseUpvotedCommentsPage(html);
 
     if (nextPage === 1) {
       nextCursor = page.items[0]?.externalId ?? markerId;
@@ -92,32 +98,51 @@ export async function syncHnFavorites(options: HnSyncOptions): Promise<HnSyncRes
 }
 
 function normalizeKind(kind?: string): HnSyncKind {
-  if (kind === undefined || kind === "favorites") {
-    return "favorites";
+  if (kind === undefined || kind === "upvoted") {
+    return "upvoted";
   }
 
-  if (kind === "favorite-comments") {
-    return kind;
+  if (kind === "upvoted-comments" || kind === "upvoted-comment") {
+    return "upvoted-comments";
   }
 
-  throw new Error('HN sync kind must be "favorites" or "favorite-comments".');
+  throw new Error('HN sync kind must be "upvoted" or "upvoted-comments".');
 }
 
-async function fetchPageHtml(url: string): Promise<string> {
-  const response = await fetch(url);
+export async function validateHnSession(cookieHeader: string): Promise<void> {
+  const html = await fetchPageHtml(buildPageUrl(VALIDATION_USER, "upvoted", 1), cookieHeader);
+
+  if (looksLikeLoginPage(html)) {
+    throw new Error("Hacker News cookies were found, but the session is not logged in.");
+  }
+}
+
+async function fetchPageHtml(url: string, cookieHeader: string): Promise<string> {
+  const response = await fetch(url, {
+    headers: {
+      cookie: cookieHeader,
+      "user-agent": "Mozilla/5.0",
+    },
+  });
 
   if (!response.ok) {
     throw new Error(`HN request failed with ${response.status} for ${url}`);
   }
 
-  return response.text();
+  const html = await response.text();
+
+  if (looksLikeLoginPage(html)) {
+    throw new Error(`HN request requires a logged-in session for ${url}`);
+  }
+
+  return html;
 }
 
 function buildPageUrl(user: string, kind: HnSyncKind, page: number): string {
-  const url = new URL(`${HN_BASE_URL}/favorites`);
+  const url = new URL(`${HN_BASE_URL}/upvoted`);
   url.searchParams.set("id", user);
 
-  if (kind === "favorite-comments") {
+  if (kind === "upvoted-comments") {
     url.searchParams.set("comments", "t");
   }
 
@@ -128,18 +153,18 @@ function buildPageUrl(user: string, kind: HnSyncKind, page: number): string {
   return url.toString();
 }
 
-function parseFavoritesPage(html: string): ParsedFavoritesPage {
+function parseUpvotedPage(html: string): ParsedFavoritesPage {
   const root = parse(html);
   const items = root
     .querySelectorAll("tr.athing.submission")
-    .map((row) => parseFavoriteStoryRow(row))
+    .map((row) => parseUpvotedStoryRow(row))
     .filter((item): item is TroveItem => item !== null);
   const nextPage = readNextPage(root);
 
   return nextPage ? { items, nextPage } : { items };
 }
 
-function parseFavoriteStoryRow(row: ReturnType<typeof parse>): TroveItem | null {
+function parseUpvotedStoryRow(row: ReturnType<typeof parse>): TroveItem | null {
   const id = row.getAttribute("id");
   const titleLink = row.querySelector(".titleline a");
   const subtextRow = row.nextElementSibling;
@@ -164,16 +189,16 @@ function parseFavoriteStoryRow(row: ReturnType<typeof parse>): TroveItem | null 
 
   return {
     source: "hn",
-    kind: "favorite",
-    externalId: id,
+    kind: "upvoted",
+    externalId: `upvoted:${id}`,
     title,
     url,
     savedAt,
-    tags: ["hn", "favorite"],
+    tags: ["hn", "upvoted"],
     ...(author ? { author } : {}),
     raw: {
       platform: "hn",
-      kind: "favorite",
+      kind: "upvoted",
       itemId: id,
       itemType: "story",
       itemUrl: url,
@@ -185,18 +210,18 @@ function parseFavoriteStoryRow(row: ReturnType<typeof parse>): TroveItem | null 
   };
 }
 
-function parseFavoriteCommentsPage(html: string): ParsedFavoriteCommentsPage {
+function parseUpvotedCommentsPage(html: string): ParsedFavoriteCommentsPage {
   const root = parse(html);
   const items = root
     .querySelectorAll("tr.athing")
-    .map((row) => parseFavoriteCommentRow(row))
+    .map((row) => parseUpvotedCommentRow(row))
     .filter((item): item is TroveItem => item !== null);
   const nextPage = readNextPage(root);
 
   return nextPage ? { items, nextPage } : { items };
 }
 
-function parseFavoriteCommentRow(row: ReturnType<typeof parse>): TroveItem | null {
+function parseUpvotedCommentRow(row: ReturnType<typeof parse>): TroveItem | null {
   const id = row.getAttribute("id");
   const commentText = row.querySelector(".commtext");
   const comhead = row.querySelector(".comhead");
@@ -220,18 +245,18 @@ function parseFavoriteCommentRow(row: ReturnType<typeof parse>): TroveItem | nul
 
   return {
     source: "hn",
-    kind: "favorite-comment",
-    externalId: id,
+    kind: "upvoted-comment",
+    externalId: `upvoted-comment:${id}`,
     title: `Comment on ${storyTitle}`,
     url,
     excerpt,
     content,
     savedAt,
-    tags: ["hn", "favorite", "comment"],
+    tags: ["hn", "upvoted", "comment"],
     ...(author ? { author } : {}),
     raw: {
       platform: "hn",
-      kind: "favorite-comment",
+      kind: "upvoted-comment",
       itemId: id,
       itemType: "comment",
       storyTitle,
@@ -240,6 +265,10 @@ function parseFavoriteCommentRow(row: ReturnType<typeof parse>): TroveItem | nul
       savedAtSource: "item-time",
     },
   };
+}
+
+function looksLikeLoginPage(html: string): boolean {
+  return html.includes("Please log in.") && html.includes("<form action=\"upvoted\" method=\"post\">");
 }
 
 function readNextPage(root: ReturnType<typeof parse>): number | undefined {
@@ -334,7 +363,9 @@ function htmlToText(html: string): string {
 }
 
 export const __internal = {
-  parseFavoritesPage,
-  parseFavoriteCommentsPage,
+  buildPageUrl,
+  parseUpvotedPage,
+  parseUpvotedCommentsPage,
+  looksLikeLoginPage,
   htmlToText,
 };
