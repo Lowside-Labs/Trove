@@ -126,11 +126,16 @@ export function OnboardingSyncStep() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden"
+      className="light fixed inset-0 z-50 flex items-center justify-center overflow-hidden"
       style={{
+        colorScheme: "light",
+        "--foreground": "oklch(0.145 0 0)",
+        "--muted-foreground": "oklch(0.556 0 0)",
+        "--primary": "oklch(0.205 0 0)",
+        "--primary-foreground": "oklch(0.985 0 0)",
         background:
           "linear-gradient(180deg, oklch(0.97 0.005 270) 0%, oklch(0.985 0.002 280) 40%, oklch(1 0 0) 100%)",
-      }}
+      } as React.CSSProperties}
     >
       {/* macOS draggable region */}
       <div

@@ -7,11 +7,18 @@ import { cn } from "../../lib/cn";
 function Root({ children }: PropsWithChildren) {
   return (
     <main
-      className="fixed inset-0 z-50 overflow-y-auto px-8 pt-[38px] pb-12 md:px-14 md:pb-16"
+      className="light fixed inset-0 z-50 overflow-y-auto px-8 pt-[38px] pb-12 md:px-14 md:pb-16"
       style={{
+        colorScheme: "light",
+        "--foreground": "oklch(0.145 0 0)",
+        "--muted-foreground": "oklch(0.556 0 0)",
+        "--primary": "oklch(0.205 0 0)",
+        "--primary-foreground": "oklch(0.985 0 0)",
+        "--border": "oklch(0.922 0 0)",
+        "--destructive": "oklch(0.58 0.22 27)",
         background:
           "linear-gradient(180deg, oklch(0.94 0.012 270) 0%, oklch(0.97 0.006 280) 40%, oklch(1 0 0) 100%)",
-      }}
+      } as React.CSSProperties}
     >
       {/* macOS draggable region */}
       <div
