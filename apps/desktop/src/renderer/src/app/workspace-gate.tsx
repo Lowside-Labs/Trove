@@ -32,14 +32,11 @@ function LoadingScreen() {
         style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
       />
       <motion.div
-        layoutId="trove-brand"
-        className="flex items-center gap-2"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4 }}
       >
-        <IconWorld className="size-6 relative top-0.25" />
-        <p className="text-xl font-medium">Trove</p>
+        <IconWorld className="size-20" />
       </motion.div>
     </main>
   );
