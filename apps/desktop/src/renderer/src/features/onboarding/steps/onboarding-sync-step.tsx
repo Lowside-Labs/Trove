@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Button } from "../../../components/ui/button";
 import { Orb } from "../../../components/orb";
 import { cn } from "../../../lib/cn";
+import { useIsDark } from "../../../hooks/use-is-dark";
 import IconCheckmark1 from "central-icons-bold/IconCheckmark1";
 import IconWorld from "central-icons/IconWorld";
 import {
@@ -11,6 +12,11 @@ import {
 } from "../../library/source-registry";
 import { useOnboarding } from "../onboarding-context";
 import { useOnboardingSync } from "../onboarding-sync-context";
+
+const GRADIENT_LIGHT =
+  "linear-gradient(180deg, oklch(0.97 0.005 270) 0%, oklch(0.985 0.002 280) 40%, oklch(1 0 0) 100%)";
+const GRADIENT_DARK =
+  "linear-gradient(180deg, oklch(0.17 0.005 270) 0%, oklch(0.155 0.002 280) 40%, oklch(0.145 0 0) 100%)";
 
 function getRegistrySourceId(sourceId: string): string {
   if (sourceId === "hn") return "hackernews";
@@ -86,6 +92,7 @@ const wordVariants = {
 };
 
 export function OnboardingSyncStep() {
+  const isDark = useIsDark();
   const { actions } = useOnboarding();
   const { actions: syncActions, meta, state } = useOnboardingSync();
   const [phraseIndex, setPhraseIndex] = useState(0);
@@ -126,16 +133,8 @@ export function OnboardingSyncStep() {
 
   return (
     <div
-      className="light fixed inset-0 z-50 flex items-center justify-center overflow-hidden"
-      style={{
-        colorScheme: "light",
-        "--foreground": "oklch(0.145 0 0)",
-        "--muted-foreground": "oklch(0.556 0 0)",
-        "--primary": "oklch(0.205 0 0)",
-        "--primary-foreground": "oklch(0.985 0 0)",
-        background:
-          "linear-gradient(180deg, oklch(0.97 0.005 270) 0%, oklch(0.985 0.002 280) 40%, oklch(1 0 0) 100%)",
-      } as React.CSSProperties}
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-background text-foreground"
+      style={{ background: isDark ? GRADIENT_DARK : GRADIENT_LIGHT }}
     >
       {/* macOS draggable region */}
       <div
@@ -149,7 +148,7 @@ export function OnboardingSyncStep() {
           hoverIntensity={0}
           rotateOnHover={false}
           forceHoverState={false}
-          backgroundColor="#fafafa"
+          backgroundColor={isDark ? "#1c1c1c" : "#fafafa"}
         />
       </div>
 
@@ -204,7 +203,7 @@ export function OnboardingSyncStep() {
                 className={cn(
                   "relative flex size-16 items-center justify-center rounded-2xl",
                   isActive && "bg-background shadow-lg",
-                  isDone && "bg-white shadow-sm",
+                  isDone && "bg-background shadow-sm",
                   isFailed && "bg-red-500/10",
                   !isActive && !isDone && !isFailed && "bg-foreground/3",
                 )}
@@ -223,7 +222,7 @@ export function OnboardingSyncStep() {
                 />
                 {isDone && (
                   <div className="absolute -bottom-2 -right-2 flex size-6 items-center justify-center rounded-full bg-foreground/80">
-                    <IconCheckmark1 className="size-4 text-white" />
+                    <IconCheckmark1 className="size-4 text-background" />
                   </div>
                 )}
               </motion.div>

@@ -3,22 +3,20 @@ import IconWorld from "central-icons/IconWorld";
 import type { PropsWithChildren, ReactNode } from "react";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/cn";
+import { useIsDark } from "../../hooks/use-is-dark";
+
+const GRADIENT_LIGHT =
+  "linear-gradient(180deg, oklch(0.94 0.012 270) 0%, oklch(0.97 0.006 280) 40%, oklch(1 0 0) 100%)";
+const GRADIENT_DARK =
+  "linear-gradient(180deg, oklch(0.18 0.012 270) 0%, oklch(0.16 0.006 280) 40%, oklch(0.145 0 0) 100%)";
 
 function Root({ children }: PropsWithChildren) {
+  const isDark = useIsDark();
+
   return (
     <main
-      className="light fixed inset-0 z-50 overflow-y-auto px-8 pt-[38px] pb-12 md:px-14 md:pb-16"
-      style={{
-        colorScheme: "light",
-        "--foreground": "oklch(0.145 0 0)",
-        "--muted-foreground": "oklch(0.556 0 0)",
-        "--primary": "oklch(0.205 0 0)",
-        "--primary-foreground": "oklch(0.985 0 0)",
-        "--border": "oklch(0.922 0 0)",
-        "--destructive": "oklch(0.58 0.22 27)",
-        background:
-          "linear-gradient(180deg, oklch(0.94 0.012 270) 0%, oklch(0.97 0.006 280) 40%, oklch(1 0 0) 100%)",
-      } as React.CSSProperties}
+      className="fixed inset-0 z-50 overflow-y-auto bg-background px-8 pt-[38px] pb-12 text-foreground md:px-14 md:pb-16"
+      style={{ background: isDark ? GRADIENT_DARK : GRADIENT_LIGHT }}
     >
       {/* macOS draggable region */}
       <div

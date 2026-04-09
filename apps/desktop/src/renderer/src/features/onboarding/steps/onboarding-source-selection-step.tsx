@@ -78,7 +78,7 @@ export function OnboardingSourceSelectionStep() {
                 </div>
                 {isSelected && (
                   <div className="absolute -right-2 -bottom-2 flex size-7 items-center justify-center rounded-full bg-foreground">
-                    <IconCheckmark1 className="size-4 text-white" />
+                    <IconCheckmark1 className="size-4 text-background" />
                   </div>
                 )}
               </div>
@@ -139,7 +139,7 @@ export function OnboardingSourceSelectionStep() {
                         key={id}
                         className="relative inline-flex size-6 items-center justify-center rounded-full bg-primary p-[3px]"
                       >
-                        <span className="flex size-full items-center justify-center overflow-hidden rounded-full bg-[oklch(0.35_0_0)]">
+                        <span className="flex size-full items-center justify-center overflow-hidden rounded-full bg-foreground/20">
                           <SourceIcon
                             config={config.icons}
                             className={
