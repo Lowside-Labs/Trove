@@ -50,8 +50,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.85 0 0);
-  --primary-foreground: oklch(0.1 0 0);
+  --primary: oklch(1 0 0);
+  --primary-foreground: oklch(0.145 0 0);
   --secondary: oklch(0.32 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.32 0 0);
@@ -73,8 +73,8 @@
     --card-foreground: oklch(0.985 0 0);
     --popover: oklch(0.205 0 0);
     --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.85 0 0);
-    --primary-foreground: oklch(0.1 0 0);
+    --primary: oklch(1 0 0);
+    --primary-foreground: oklch(0.145 0 0);
     --secondary: oklch(0.32 0 0);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.32 0 0);
@@ -253,4 +253,21 @@
 @utility animate-sync-spinner {
   animation: sync-spinner-rotate 1.75s linear infinite;
   transform-origin: center;
+}
+
+/* Primary button override for dark mode — translucent white instead of solid white */
+@utility btn-primary-dark {
+  @media (prefers-color-scheme: dark) {
+    background-color: oklch(1 0 0 / 10%);
+    color: oklch(1 0 0);
+
+    &:hover {
+      background-color: oklch(1 0 0 / 15%);
+    }
+
+    &:active,
+    &[aria-expanded="true"] {
+      background-color: oklch(1 0 0 / 8%);
+    }
+  }
 }
