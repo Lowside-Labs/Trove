@@ -38,9 +38,40 @@ function normalizeMediaEntry(value: unknown): TweetMediaItem | null {
 
   return {
     type: normalizeMediaType(entry.type),
-    url,
+    url: getTweetMediaPreviewUrl(url),
     ...(videoUrl ? { videoUrl } : {}),
   };
+}
+
+function getTweetMediaPreviewUrl(url: string): string {
+  if (!url.includes("pbs.twimg.com/")) {
+    return url;
+  }
+
+  try {
+    const parsed = new URL(url);
+
+    if (parsed.searchParams.has("name")) {
+      return url;
+    }
+
+    const extension = readTwitterImageExtension(parsed.pathname);
+
+    if (!extension) {
+      return url;
+    }
+
+    parsed.searchParams.set("format", extension);
+    parsed.searchParams.set("name", "small");
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+function readTwitterImageExtension(pathname: string): string | null {
+  const match = pathname.match(/\.([a-zA-Z0-9]+)$/);
+  return match?.[1]?.toLowerCase() ?? null;
 }
 
 function normalizeMediaType(value: unknown): TweetMediaItem["type"] {

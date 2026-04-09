@@ -69,16 +69,19 @@ const registry: Record<string, SourceConfig> = {
   },
 };
 
-export function getSourceConfig(source: string): SourceConfig & { isKnown: boolean } {
-  const config = registry[source];
-  if (config) return { ...config, isKnown: true };
+const configCache = new Map<string, SourceConfig & { isKnown: boolean }>();
 
-  return {
-    displayName: source,
-    icons: { light: GitHubLight, dark: GitHubDark },
-    Content: BookmarkContent,
-    isKnown: false,
-  };
+export function getSourceConfig(source: string): SourceConfig & { isKnown: boolean } {
+  const cached = configCache.get(source);
+  if (cached) return cached;
+
+  const config = registry[source];
+  const result = config
+    ? { ...config, isKnown: true as const }
+    : { displayName: source, icons: { light: GitHubLight, dark: GitHubDark }, Content: BookmarkContent, isKnown: false as const };
+
+  configCache.set(source, result);
+  return result;
 }
 
 /**

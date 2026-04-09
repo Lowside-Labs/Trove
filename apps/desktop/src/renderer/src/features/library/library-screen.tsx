@@ -1,4 +1,4 @@
-import { startTransition, useDeferredValue, useRef, useState } from "react";
+import { startTransition, useCallback, useDeferredValue, useRef, useState } from "react";
 import type {
   LibraryItemSummary,
   SourceStatus,
@@ -35,7 +35,7 @@ export function LibraryScreen({ onRefreshSnapshot, snapshot }: LibraryScreenProp
     ...(deferredSearchQuery ? { query: deferredSearchQuery } : {}),
     ...(selectedKind ? { kind: selectedKind } : {}),
     ...(selectedSource !== "all" ? { source: selectedSource } : {}),
-    limit: 120,
+    limit: 48,
   });
   const sourceSync = useSourceSync({
     onCompleted: () => {
@@ -52,9 +52,9 @@ export function LibraryScreen({ onRefreshSnapshot, snapshot }: LibraryScreenProp
     onLoadMore: libraryItems.loadMore,
   });
 
-  const openItem = (url: string) => {
+  const openItem = useCallback((url: string) => {
     void window.troveDesktop.system.openExternal(url);
-  };
+  }, []);
 
   const selectedSourceRecord =
     selectedSource === "all"

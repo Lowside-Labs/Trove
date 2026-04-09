@@ -1,7 +1,6 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type PropsWithChildren,
@@ -71,13 +70,6 @@ export function OnboardingProvider({
   );
   const [hnUsername, setHnUsername] = useState("");
 
-  // When snapshot first becomes available (after workspace creation), set default selections
-  useEffect(() => {
-    if (snapshot && selectedSourceIds.length === 0) {
-      setSelectedSourceIds(getDefaultSourceSelection(snapshot));
-    }
-  }, [snapshot, selectedSourceIds.length]);
-
   const selectedSources = useMemo(
     () => (snapshot?.sources ?? []).filter((source) => selectedSourceIds.includes(source.id)),
     [selectedSourceIds, snapshot?.sources],
@@ -112,6 +104,7 @@ export function OnboardingProvider({
         setReadySnapshot(readySnapshot) {
           setSnapshot(readySnapshot);
           setWorkspaceSetup(undefined);
+          setSelectedSourceIds(getDefaultSourceSelection(readySnapshot));
         },
         toggleSource(sourceId) {
           setSelectedSourceIds((current) =>
