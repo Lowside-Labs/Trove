@@ -67,8 +67,8 @@ export function OnboardingSourceSelectionStep() {
                   className={cn(
                     "flex size-28 items-center justify-center rounded-3xl transition-all duration-200",
                     isSelected
-                      ? "bg-card shadow-md"
-                      : "bg-foreground/[0.04] opacity-50",
+                      ? "bg-foreground/[0.12] shadow-md"
+                      : "bg-foreground/[0.06] opacity-50",
                   )}
                 >
                   <SourceIcon
