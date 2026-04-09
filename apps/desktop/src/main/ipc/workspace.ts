@@ -9,8 +9,7 @@ import {
   workspaceSetRootResponseSchema,
 } from "trove-contracts";
 import {
-  getWorkspaceOverview,
-  getWorkspaceSourceStatuses,
+  getWorkspaceSnapshot,
   initializeWorkspace,
   saveDefaultWorkspaceRoot,
   workspaceExists,
@@ -22,10 +21,11 @@ import {
 } from "./resolve-workspace";
 
 function buildReadySnapshot(root: string) {
+  const { overview, sources } = getWorkspaceSnapshot(root);
   return workspaceSetRootResponseSchema.parse({
     status: "ready",
-    overview: getWorkspaceOverview(root),
-    sources: getWorkspaceSourceStatuses(root),
+    overview,
+    sources,
   });
 }
 
