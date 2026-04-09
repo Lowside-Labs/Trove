@@ -2,26 +2,16 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { Button } from "../../../components/ui/button";
 import { Orb } from "../../../components/orb";
-import { cn } from "../../../lib/cn";
 import { useIsDark } from "../../../hooks/use-is-dark";
-import IconCheckmark1 from "central-icons-bold/IconCheckmark1";
 import IconWorld from "central-icons/IconWorld";
-import {
-  getSourceConfig,
-  SourceIcon,
-} from "../../library/source-registry";
 import { useOnboarding } from "../onboarding-context";
+import { OnboardingSyncSourceTile } from "../onboarding-source-ui";
 import { useOnboardingSync } from "../onboarding-sync-context";
 
 const GRADIENT_LIGHT =
   "linear-gradient(180deg, oklch(0.97 0.005 270) 0%, oklch(0.985 0.002 280) 40%, oklch(1 0 0) 100%)";
 const GRADIENT_DARK =
   "linear-gradient(180deg, oklch(0.17 0.005 270) 0%, oklch(0.155 0.002 280) 40%, oklch(0.145 0 0) 100%)";
-
-function getRegistrySourceId(sourceId: string): string {
-  if (sourceId === "hn") return "hackernews";
-  return sourceId;
-}
 
 const SYNC_PHRASES = [
   "Raiding your bookmarks",
@@ -123,13 +113,8 @@ export function OnboardingSyncStep() {
   const activeSyncIndex = state.sourceStates.findIndex(
     (s) => s.status === "syncing",
   );
-
-  const primaryAction =
-    state.status === "syncing"
-      ? { disabled: true, label: "Syncing…", onClick: () => undefined }
-      : !meta.hasSucceeded && meta.hasFailures
-        ? { disabled: false, label: "Back to Sources", onClick: actions.goBack }
-        : { disabled: false, label: "Open Library", onClick: actions.complete };
+  const showRetry = meta.hasFailures && state.status !== "syncing";
+  const showBackToSources = !meta.hasSucceeded && meta.hasFailures;
 
   return (
     <motion.div
@@ -194,45 +179,24 @@ export function OnboardingSyncStep() {
           </AnimatePresence>
         </motion.div>
 
-        {/* Source tiles — macOS-style squares */}
         <motion.div layout="position" className="flex items-center gap-5 mb-16" variants={enterVariants}>
           {state.sourceStates.map((source, i) => {
-            const config = getSourceConfig(
-              getRegistrySourceId(source.sourceId),
-            );
             const isActive = i === activeSyncIndex;
-            const isDone = source.status === "succeeded";
-            const isFailed = source.status === "failed";
-            const isHn = source.sourceId === "hn";
 
             return (
               <motion.div
                 key={source.sourceId}
-                className={cn(
-                  "relative flex size-16 items-center justify-center rounded-2xl",
-                  isActive && "bg-foreground/[0.12] shadow-lg",
-                  isDone && "bg-foreground/[0.08] shadow-sm",
-                  isFailed && "bg-red-500/10",
-                  !isActive && !isDone && !isFailed && "bg-foreground/3",
-                )}
                 animate={{
-                  opacity: isActive ? 1 : isDone ? 1 : 0.2,
+                  opacity: isActive || source.status === "succeeded" ? 1 : 0.35,
                   scale: isActive ? 1.1 : 1,
                 }}
                 transition={{ type: "spring" as const, stiffness: 400, damping: 30 }}
               >
-                <SourceIcon
-                  config={config.icons}
-                  className={cn(
-                    isHn ? "size-full rounded-2xl" : "size-8",
-                    !isHn && "opacity-70",
-                  )}
+                <OnboardingSyncSourceTile
+                  isActive={isActive}
+                  sourceId={source.sourceId}
+                  status={source.status}
                 />
-                {isDone && (
-                  <div className="absolute -bottom-2 -right-2 flex size-6 items-center justify-center rounded-full bg-foreground/80">
-                    <IconCheckmark1 className="size-4 text-background" />
-                  </div>
-                )}
               </motion.div>
             );
           })}
@@ -258,11 +222,11 @@ export function OnboardingSyncStep() {
               variant="primary"
               shape="pill"
               size="lg"
-              onClick={primaryAction.onClick}
+              onClick={showBackToSources ? actions.goBack : actions.complete}
             >
-              {primaryAction.label}
+              {showBackToSources ? "Back to Sources" : "Open Library"}
             </Button>
-            {meta.hasFailures && (
+            {showRetry && (
               <Button
                 className="text-muted-foreground hover:text-foreground"
                 shape="square"

@@ -3,9 +3,6 @@
 /* Explicit source paths for Tailwind v4 content detection */
 @source "../**/*.{ts,tsx}";
 
-/* Support class-based dark mode (.dark) */
-@custom-variant dark (&:is(.dark, .dark *));
-
 :root {
   color-scheme: light;
 
