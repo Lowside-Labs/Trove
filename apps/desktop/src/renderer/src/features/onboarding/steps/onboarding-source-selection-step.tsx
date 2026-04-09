@@ -139,13 +139,13 @@ export function OnboardingSourceSelectionStep() {
                         key={id}
                         className="relative inline-flex size-6 items-center justify-center rounded-full bg-primary p-[3px]"
                       >
-                        <span className="flex size-full items-center justify-center overflow-hidden rounded-full bg-foreground/20">
+                        <span className="flex size-full items-center justify-center overflow-hidden rounded-full bg-primary-foreground/20">
                           <SourceIcon
                             config={config.icons}
                             className={
                               hasOwnBg
                                 ? "size-full"
-                                : "size-3 brightness-0 invert"
+                                : "size-3 brightness-0"
                             }
                           />
                         </span>
