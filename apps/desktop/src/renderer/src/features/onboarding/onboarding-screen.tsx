@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
+import type { WorkspaceSetup } from "trove-contracts";
 import { OnboardingProvider, useOnboarding } from "./onboarding-context";
 import { getOnboardingStepPresentation } from "./onboarding-step-registry";
 import { OnboardingLayout } from "./onboarding-shell";
@@ -10,7 +11,8 @@ interface OnboardingScreenProps {
   isForcedPreview: boolean;
   onComplete(): void;
   onRefreshSnapshot(): void;
-  snapshot: ReadyWorkspaceSnapshot;
+  snapshot?: ReadyWorkspaceSnapshot;
+  workspaceSetup?: WorkspaceSetup;
 }
 
 export function OnboardingScreen({
@@ -19,13 +21,15 @@ export function OnboardingScreen({
   onComplete,
   onRefreshSnapshot,
   snapshot,
+  workspaceSetup,
 }: OnboardingScreenProps) {
   return (
     <OnboardingProvider
       {...(initialStep ? { initialStep } : {})}
       isForcedPreview={isForcedPreview}
       onComplete={onComplete}
-      snapshot={snapshot}
+      {...(snapshot ? { snapshot } : {})}
+      {...(workspaceSetup ? { workspaceSetup } : {})}
     >
       <OnboardingScreenContent onRefreshSnapshot={onRefreshSnapshot} />
     </OnboardingProvider>

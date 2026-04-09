@@ -1,6 +1,6 @@
-import type { SourceStatus, WorkspaceSnapshot } from "trove-contracts";
+import type { SourceStatus, WorkspaceSetup, WorkspaceSnapshot } from "trove-contracts";
 
-export type OnboardingStepId = "welcome" | "sources" | "sync";
+export type OnboardingStepId = "welcome" | "workspace" | "sources" | "sync";
 
 export interface OnboardingStepDefinition {
   id: OnboardingStepId;
@@ -21,12 +21,14 @@ export interface OnboardingMeta {
   availableSources: SourceStatus[];
   isForcedPreview: boolean;
   selectedSources: SourceStatus[];
+  workspaceSetup: WorkspaceSetup | null;
 }
 
 export interface OnboardingActions {
   continue(): void;
   goBack(): void;
   complete(): void;
+  setReadySnapshot(snapshot: ReadyWorkspaceSnapshot): void;
   toggleSource(sourceId: string): void;
   setHnUsername(username: string): void;
 }

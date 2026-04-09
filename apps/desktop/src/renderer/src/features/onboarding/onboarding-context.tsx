@@ -1,10 +1,12 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type PropsWithChildren,
 } from "react";
+import type { WorkspaceSetup } from "trove-contracts";
 import { markOnboardingCompleted } from "./onboarding-storage";
 import type {
   OnboardingContextValue,
@@ -18,7 +20,8 @@ interface OnboardingProviderProps extends PropsWithChildren {
   initialStep?: OnboardingStepId;
   isForcedPreview: boolean;
   onComplete(): void;
-  snapshot: ReadyWorkspaceSnapshot;
+  snapshot?: ReadyWorkspaceSnapshot;
+  workspaceSetup?: WorkspaceSetup;
 }
 
 function getDefaultSourceSelection(snapshot: ReadyWorkspaceSnapshot): string[] {
@@ -30,6 +33,8 @@ function getDefaultSourceSelection(snapshot: ReadyWorkspaceSnapshot): string[] {
 function getNextStep(step: OnboardingStepId): OnboardingStepId {
   switch (step) {
     case "welcome":
+      return "workspace";
+    case "workspace":
       return "sources";
     case "sources":
       return "sync";
@@ -42,8 +47,10 @@ function getPreviousStep(step: OnboardingStepId): OnboardingStepId {
   switch (step) {
     case "welcome":
       return "welcome";
-    case "sources":
+    case "workspace":
       return "welcome";
+    case "sources":
+      return "sources";
     case "sync":
       return "sources";
   }
@@ -54,16 +61,27 @@ export function OnboardingProvider({
   initialStep = "welcome",
   isForcedPreview,
   onComplete,
-  snapshot,
+  snapshot: initialSnapshot,
+  workspaceSetup: initialWorkspaceSetup,
 }: OnboardingProviderProps) {
   const [step, setStep] = useState<OnboardingStepId>(initialStep);
+  const [snapshot, setSnapshot] = useState<ReadyWorkspaceSnapshot | undefined>(initialSnapshot);
+  const [workspaceSetup, setWorkspaceSetup] = useState<WorkspaceSetup | undefined>(initialWorkspaceSetup);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>(() =>
-    getDefaultSourceSelection(snapshot),
+    initialSnapshot ? getDefaultSourceSelection(initialSnapshot) : [],
   );
   const [hnUsername, setHnUsername] = useState("");
+
+  // When snapshot first becomes available (after workspace creation), set default selections
+  useEffect(() => {
+    if (snapshot && selectedSourceIds.length === 0) {
+      setSelectedSourceIds(getDefaultSourceSelection(snapshot));
+    }
+  }, [snapshot, selectedSourceIds.length]);
+
   const selectedSources = useMemo(
-    () => snapshot.sources.filter((source) => selectedSourceIds.includes(source.id)),
-    [selectedSourceIds, snapshot.sources],
+    () => (snapshot?.sources ?? []).filter((source) => selectedSourceIds.includes(source.id)),
+    [selectedSourceIds, snapshot?.sources],
   );
 
   const value = useMemo<OnboardingContextValue>(
@@ -76,9 +94,10 @@ export function OnboardingProvider({
         },
       },
       meta: {
-        availableSources: snapshot.sources,
+        availableSources: snapshot?.sources ?? [],
         isForcedPreview,
         selectedSources,
+        workspaceSetup: workspaceSetup ?? null,
       },
       actions: {
         continue() {
@@ -90,6 +109,10 @@ export function OnboardingProvider({
         complete() {
           markOnboardingCompleted();
           onComplete();
+        },
+        setReadySnapshot(readySnapshot) {
+          setSnapshot(readySnapshot);
+          setWorkspaceSetup(undefined);
         },
         toggleSource(sourceId) {
           setSelectedSourceIds((current) =>
@@ -103,7 +126,7 @@ export function OnboardingProvider({
         },
       },
     }),
-    [hnUsername, isForcedPreview, onComplete, selectedSourceIds, selectedSources, snapshot.sources, step],
+    [hnUsername, isForcedPreview, onComplete, selectedSourceIds, selectedSources, snapshot, step, workspaceSetup],
   );
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;
