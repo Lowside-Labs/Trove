@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { LibraryItemSummary } from "trove-contracts";
-import { getSourceConfig, SourceIcon } from "./source-registry";
+import { getSourceConfig } from "./source-registry";
+import { CardFooter } from "./cards/card-footer";
 
 interface LibraryCardProps {
   item: LibraryItemSummary;
@@ -10,7 +11,6 @@ interface LibraryCardProps {
 export function LibraryCard({ item, onOpen }: LibraryCardProps) {
   const source = getSourceConfig(item.source);
   const Content = source.Content;
-  const showFooter = item.source !== "x";
   const [mediaActive, setMediaActive] = useState(false);
 
   return (
@@ -24,14 +24,7 @@ export function LibraryCard({ item, onOpen }: LibraryCardProps) {
       onBlur={() => setMediaActive(false)}
     >
       <Content item={item} mediaActive={mediaActive} />
-      {showFooter ? (
-        <div className="mt-auto flex items-center gap-1.5 pt-1 text-muted-foreground/60">
-          {source.isKnown ? (
-            <SourceIcon config={source.icons} className="size-3.5" />
-          ) : null}
-          <span className="text-[11px] font-medium">{source.displayName}</span>
-        </div>
-      ) : null}
+      <CardFooter item={item} />
     </button>
   );
 }

@@ -4,11 +4,9 @@ import { OnboardingProvider, useOnboarding } from "./onboarding-context";
 import { getOnboardingStepPresentation } from "./onboarding-step-registry";
 import { OnboardingLayout } from "./onboarding-shell";
 import { OnboardingSyncProvider } from "./onboarding-sync-context";
-import type { OnboardingStepId, ReadyWorkspaceSnapshot } from "./onboarding-types";
+import type { ReadyWorkspaceSnapshot } from "./onboarding-types";
 
 interface OnboardingScreenProps {
-  initialStep?: OnboardingStepId;
-  isForcedPreview: boolean;
   onComplete(): void;
   onRefreshSnapshot(): void;
   snapshot?: ReadyWorkspaceSnapshot;
@@ -16,8 +14,6 @@ interface OnboardingScreenProps {
 }
 
 export function OnboardingScreen({
-  initialStep,
-  isForcedPreview,
   onComplete,
   onRefreshSnapshot,
   snapshot,
@@ -25,8 +21,6 @@ export function OnboardingScreen({
 }: OnboardingScreenProps) {
   return (
     <OnboardingProvider
-      {...(initialStep ? { initialStep } : {})}
-      isForcedPreview={isForcedPreview}
       onComplete={onComplete}
       {...(snapshot ? { snapshot } : {})}
       {...(workspaceSetup ? { workspaceSetup } : {})}

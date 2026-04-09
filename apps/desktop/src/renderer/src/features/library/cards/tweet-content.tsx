@@ -1,14 +1,12 @@
 import type { LibraryItemSummary } from "trove-contracts";
 import { cn } from "../../../lib/cn";
-import { CardStats } from "./card-stats";
+import { CardParts } from "./card-parts";
 import { InlineMediaPreview } from "./inline-media-preview";
 import { getTweetMedia } from "./tweet-media";
 
 interface TweetRaw {
   screenName?: string;
   profileImageUrl?: string;
-  favoriteCount?: number;
-  retweetCount?: number;
 }
 
 interface TweetContentProps {
@@ -22,46 +20,17 @@ export function TweetContent({ item, mediaActive = false }: TweetContentProps) {
   const displayName = item.author;
   const avatarUrl = raw.profileImageUrl?.replace("_normal.", "_bigger.");
   const body = item.excerpt || item.title;
-  const likes = raw.favoriteCount;
-  const retweets = raw.retweetCount;
-  const hasStats = (likes != null && likes > 0) || (retweets != null && retweets > 0);
   const media = getTweetMedia(item);
   const mediaCount = media.length;
   const hasMedia = mediaCount > 0;
 
   return (
     <>
-      {/* Author row: avatar + name + handle */}
-      {handle || displayName ? (
-        <div className="flex items-center gap-2.5">
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt=""
-              className="size-8 shrink-0 rounded-full bg-muted"
-            />
-          ) : (
-            <div className="size-8 shrink-0 rounded-full bg-muted" />
-          )}
-          <div className="min-w-0">
-            {displayName ? (
-              <p className="truncate text-[13px] font-semibold leading-tight text-card-foreground">
-                {displayName}
-              </p>
-            ) : null}
-            {handle ? (
-              <p className="truncate text-[12px] leading-tight text-muted-foreground">
-                @{handle}
-              </p>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      <CardParts.Author name={displayName} handle={handle}>
+        <CardParts.Avatar src={avatarUrl} />
+      </CardParts.Author>
 
-      {/* Tweet body */}
-      <p className="flex-1 line-clamp-4 text-[15px] leading-normal text-card-foreground">
-        {body}
-      </p>
+      <CardParts.Body className="flex-1">{body}</CardParts.Body>
 
       {hasMedia ? (
         <div
@@ -99,9 +68,6 @@ export function TweetContent({ item, mediaActive = false }: TweetContentProps) {
           ))}
         </div>
       ) : null}
-
-      {/* Engagement stats */}
-      {hasStats ? <CardStats items={[{ kind: "likes", value: likes }, { kind: "reposts", value: retweets }]} /> : null}
     </>
   );
 }

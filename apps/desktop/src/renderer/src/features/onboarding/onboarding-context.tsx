@@ -17,8 +17,6 @@ import type {
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
 interface OnboardingProviderProps extends PropsWithChildren {
-  initialStep?: OnboardingStepId;
-  isForcedPreview: boolean;
   onComplete(): void;
   snapshot?: ReadyWorkspaceSnapshot;
   workspaceSetup?: WorkspaceSetup;
@@ -30,10 +28,13 @@ function getDefaultSourceSelection(snapshot: ReadyWorkspaceSnapshot): string[] {
     .map((source) => source.id);
 }
 
-function getNextStep(step: OnboardingStepId): OnboardingStepId {
+/**
+ * If workspace already exists (snapshot provided), skip the workspace step.
+ */
+function getNextStep(step: OnboardingStepId, hasWorkspace: boolean): OnboardingStepId {
   switch (step) {
     case "welcome":
-      return "workspace";
+      return hasWorkspace ? "sources" : "workspace";
     case "workspace":
       return "sources";
     case "sources":
@@ -58,13 +59,11 @@ function getPreviousStep(step: OnboardingStepId): OnboardingStepId {
 
 export function OnboardingProvider({
   children,
-  initialStep = "welcome",
-  isForcedPreview,
   onComplete,
   snapshot: initialSnapshot,
   workspaceSetup: initialWorkspaceSetup,
 }: OnboardingProviderProps) {
-  const [step, setStep] = useState<OnboardingStepId>(initialStep);
+  const [step, setStep] = useState<OnboardingStepId>("welcome");
   const [snapshot, setSnapshot] = useState<ReadyWorkspaceSnapshot | undefined>(initialSnapshot);
   const [workspaceSetup, setWorkspaceSetup] = useState<WorkspaceSetup | undefined>(initialWorkspaceSetup);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>(() =>
@@ -95,13 +94,13 @@ export function OnboardingProvider({
       },
       meta: {
         availableSources: snapshot?.sources ?? [],
-        isForcedPreview,
         selectedSources,
         workspaceSetup: workspaceSetup ?? null,
       },
       actions: {
         continue() {
-          setStep((current) => getNextStep(current));
+          const hasWorkspace = !!snapshot;
+          setStep((current) => getNextStep(current, hasWorkspace));
         },
         goBack() {
           setStep((current) => getPreviousStep(current));
@@ -126,7 +125,7 @@ export function OnboardingProvider({
         },
       },
     }),
-    [hnUsername, isForcedPreview, onComplete, selectedSourceIds, selectedSources, snapshot, step, workspaceSetup],
+    [hnUsername, onComplete, selectedSourceIds, selectedSources, snapshot, step, workspaceSetup],
   );
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;

@@ -1,9 +1,4 @@
 const ONBOARDING_COMPLETED_KEY = "trove.desktop.onboarding.completed";
-const FORCE_ONBOARDING_KEY = "trove.desktop.onboarding.force-preview";
-
-function isEnvForceEnabled(): boolean {
-  return import.meta.env.DEV && import.meta.env.VITE_TROVE_FORCE_ONBOARDING === "1";
-}
 
 function safeGet(key: string): string | null {
   try {
@@ -37,19 +32,6 @@ export function markOnboardingCompleted(): void {
   safeSet(ONBOARDING_COMPLETED_KEY, "1");
 }
 
-export function isOnboardingPreviewForced(): boolean {
-  return isEnvForceEnabled() || (import.meta.env.DEV && safeGet(FORCE_ONBOARDING_KEY) === "1");
-}
-
-export function setOnboardingPreviewForced(enabled: boolean): void {
-  if (!import.meta.env.DEV) {
-    return;
-  }
-
-  if (enabled) {
-    safeSet(FORCE_ONBOARDING_KEY, "1");
-    return;
-  }
-
-  safeRemove(FORCE_ONBOARDING_KEY);
+export function clearOnboardingCompleted(): void {
+  safeRemove(ONBOARDING_COMPLETED_KEY);
 }

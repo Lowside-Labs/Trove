@@ -38,11 +38,7 @@ const env = {
   XDG_CONFIG_HOME: configHome,
 };
 
-if (forwardedArgs.includes("--force-onboarding")) {
-  env.VITE_TROVE_FORCE_ONBOARDING = "1";
-}
-
-const result = spawnSync("electron-vite", ["dev"], {
+const result = spawnSync("electron-vite", ["dev", "--outDir", "dist"], {
   cwd: desktopRoot,
   env,
   stdio: "inherit",

@@ -132,17 +132,25 @@ export function OnboardingSyncStep() {
         : { disabled: false, label: "Open Library", onClick: actions.complete };
 
   return (
-    <div
+    <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-background text-foreground"
       style={{ background: isDark ? GRADIENT_DARK : GRADIENT_LIGHT }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 2, ease: "easeOut" }}
     >
       {/* macOS draggable region */}
       <div
         className="absolute top-0 right-0 left-0 z-10 h-[38px]"
         style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
       />
-      {/* Orb shader — dark circle at low opacity */}
-      <div className="absolute inset-0 opacity-30">
+      {/* Orb shader — emerges slowly with a subtle scale */}
+      <motion.div
+        className="absolute inset-0"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 0.3, scale: 1 }}
+        transition={{ duration: 2.5, ease: "easeOut" }}
+      >
         <Orb
           hue={0}
           hoverIntensity={0}
@@ -150,18 +158,18 @@ export function OnboardingSyncStep() {
           forceHoverState={false}
           backgroundColor={isDark ? "#1c1c1c" : "#fafafa"}
         />
-      </div>
+      </motion.div>
 
-      {/* Center content */}
+      {/* Center content — delayed entrance after the atmosphere establishes */}
       <motion.div
         layout
         className="relative flex flex-col items-center"
         initial="initial"
         animate="animate"
-        variants={{ initial: {}, animate: { transition: { staggerChildren: 0.1 } } }}
+        variants={{ initial: {}, animate: { transition: { delayChildren: 1, staggerChildren: 0.12 } } }}
       >
         {/* Brand */}
-        <motion.div layoutId="trove-brand" className="flex items-center gap-2 justify-center mb-6" variants={enterVariants}>
+        <motion.div className="flex items-center gap-2 justify-center mb-6" variants={enterVariants}>
           <IconWorld className="size-6 relative top-0.25" />
           <p className="text-xl font-medium">Trove</p>
         </motion.div>
@@ -202,8 +210,8 @@ export function OnboardingSyncStep() {
                 key={source.sourceId}
                 className={cn(
                   "relative flex size-16 items-center justify-center rounded-2xl",
-                  isActive && "bg-background shadow-lg",
-                  isDone && "bg-background shadow-sm",
+                  isActive && "bg-foreground/[0.12] shadow-lg",
+                  isDone && "bg-foreground/[0.08] shadow-sm",
                   isFailed && "bg-red-500/10",
                   !isActive && !isDone && !isFailed && "bg-foreground/3",
                 )}
@@ -246,7 +254,8 @@ export function OnboardingSyncStep() {
             transition={{ type: "spring" as const, stiffness: 300, damping: 28 }}
           >
             <Button
-              className="min-w-[240px] bg-primary text-primary-foreground hover:bg-primary/90"
+              className="min-w-[240px]"
+              variant="primary"
               shape="pill"
               size="lg"
               onClick={primaryAction.onClick}
@@ -266,6 +275,6 @@ export function OnboardingSyncStep() {
           </motion.div>
         )}
       </motion.div>
-    </div>
+    </motion.div>
   );
 }

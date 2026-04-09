@@ -130,25 +130,23 @@ export function OnboardingSourceSelectionStep() {
             ) : (
               <>
                 <span>Continue with</span>
-                <span className="inline-flex items-center -space-x-2">
+                <span className="inline-flex items-center -space-x-1.5">
                   {selectedSourceIds.map((id) => {
                     const config = getSourceConfig(getRegistrySourceId(id));
                     const hasOwnBg = id === "hn";
                     return (
                       <span
                         key={id}
-                        className="relative inline-flex size-6 items-center justify-center rounded-full bg-primary p-[3px]"
+                        className="inline-flex size-6 items-center justify-center overflow-hidden rounded-full bg-foreground/20"
                       >
-                        <span className="flex size-full items-center justify-center overflow-hidden rounded-full bg-primary-foreground/20">
-                          <SourceIcon
-                            config={config.icons}
-                            className={
-                              hasOwnBg
-                                ? "size-full"
-                                : "size-3 brightness-0"
-                            }
-                          />
-                        </span>
+                        <SourceIcon
+                          config={config.icons}
+                          className={
+                            hasOwnBg
+                              ? "size-full"
+                              : "size-3.5 brightness-0 invert"
+                          }
+                        />
                       </span>
                     );
                   })}
@@ -156,11 +154,6 @@ export function OnboardingSourceSelectionStep() {
               </>
             )}
           </Button>
-        }
-        secondary={
-          <OnboardingLayout.SecondaryAction onClick={actions.goBack}>
-            Back
-          </OnboardingLayout.SecondaryAction>
         }
       />
     </OnboardingLayout.StepBody>

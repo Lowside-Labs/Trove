@@ -19,7 +19,6 @@ export interface OnboardingState {
 
 export interface OnboardingMeta {
   availableSources: SourceStatus[];
-  isForcedPreview: boolean;
   selectedSources: SourceStatus[];
   workspaceSetup: WorkspaceSetup | null;
 }

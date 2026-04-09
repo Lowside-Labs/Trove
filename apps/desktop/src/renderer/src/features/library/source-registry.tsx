@@ -57,6 +57,11 @@ const registry: Record<string, SourceConfig> = {
     icons: { light: IconInstagram, dark: IconInstagram },
     Content: InstagramContent,
   },
+  hn: {
+    displayName: "Hacker News",
+    icons: { light: IconHackerNews, dark: IconHackerNews },
+    Content: BookmarkContent,
+  },
   hackernews: {
     displayName: "Hacker News",
     icons: { light: IconHackerNews, dark: IconHackerNews },

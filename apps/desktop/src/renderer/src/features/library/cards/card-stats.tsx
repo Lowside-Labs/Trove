@@ -4,7 +4,7 @@ import IconPlay from "central-icons/IconPlay";
 import IconRepeat from "central-icons/IconRepeat";
 import { formatCount } from "../../../lib/format";
 
-interface CardStatItem {
+export interface CardStatItem {
   kind: "plays" | "likes" | "comments" | "reposts";
   value: number | null | undefined;
 }

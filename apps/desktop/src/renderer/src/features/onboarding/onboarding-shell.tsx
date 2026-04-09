@@ -1,6 +1,5 @@
 import IconCircleCheck from "central-icons-filled/IconCircleCheck";
 import IconWorld from "central-icons/IconWorld";
-import { motion } from "motion/react";
 import type { PropsWithChildren, ReactNode } from "react";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/cn";
@@ -41,10 +40,10 @@ function Header({ children }: PropsWithChildren) {
 
 function Brand({ children }: PropsWithChildren) {
   return (
-    <motion.div layoutId="trove-brand" className="flex items-center gap-2 justify-center mb-6">
+    <div className="flex items-center gap-2 justify-center mb-6">
       <IconWorld className="size-6 relative top-0.25" />
       <p className="text-xl font-medium">{children}</p>
-    </motion.div>
+    </div>
   );
 }
 
@@ -99,7 +98,7 @@ function SecondaryAction({
 
 function StepBody({ children }: PropsWithChildren) {
   return (
-    <div className="mx-auto flex w-full max-w-[760px] flex-col items-center gap-8 text-center">
+    <div className="mx-auto flex w-full max-w-[760px] flex-col items-center gap-16 text-center">
       {children}
     </div>
   );
