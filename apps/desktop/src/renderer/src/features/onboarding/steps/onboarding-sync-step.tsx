@@ -161,7 +161,7 @@ export function OnboardingSyncStep() {
         variants={{ initial: {}, animate: { transition: { staggerChildren: 0.1 } } }}
       >
         {/* Brand */}
-        <motion.div layout="position" className="flex items-center gap-2 justify-center mb-6" variants={enterVariants}>
+        <motion.div layoutId="trove-brand" className="flex items-center gap-2 justify-center mb-6" variants={enterVariants}>
           <IconWorld className="size-6 relative top-0.25" />
           <p className="text-xl font-medium">Trove</p>
         </motion.div>

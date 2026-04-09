@@ -1,14 +1,49 @@
+import IconWorld from "central-icons/IconWorld";
+import { LayoutGroup, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { ReadyWorkspaceRouter } from "./ready-workspace-router";
 import { StatusScreen } from "./status-screen";
 import { WorkspaceRecoveryScreen } from "./workspace-recovery-screen";
 import { useWorkspaceSnapshot } from "./use-workspace-snapshot";
+import { useIsDark } from "../hooks/use-is-dark";
 import { OnboardingScreen } from "../features/onboarding/onboarding-screen";
 import {
   hasCompletedOnboarding,
   isOnboardingPreviewForced,
   setOnboardingPreviewForced,
 } from "../features/onboarding/onboarding-storage";
+
+const GRADIENT_LIGHT =
+  "linear-gradient(180deg, oklch(0.94 0.012 270) 0%, oklch(0.97 0.006 280) 40%, oklch(1 0 0) 100%)";
+const GRADIENT_DARK =
+  "linear-gradient(180deg, oklch(0.18 0.012 270) 0%, oklch(0.16 0.006 280) 40%, oklch(0.145 0 0) 100%)";
+
+function LoadingScreen() {
+  const isDark = useIsDark();
+
+  return (
+    <main
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background text-foreground"
+      style={{ background: isDark ? GRADIENT_DARK : GRADIENT_LIGHT }}
+    >
+      {/* macOS draggable region */}
+      <div
+        className="fixed top-0 right-0 left-0 z-10 h-[38px]"
+        style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+      />
+      <motion.div
+        layoutId="trove-brand"
+        className="flex items-center gap-2"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+      >
+        <IconWorld className="size-6 relative top-0.25" />
+        <p className="text-xl font-medium">Trove</p>
+      </motion.div>
+    </main>
+  );
+}
 
 export function WorkspaceGate() {
   const { error, isLoading, refresh, snapshot } = useWorkspaceSnapshot();
@@ -35,14 +70,43 @@ export function WorkspaceGate() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  if (isLoading && !snapshot) {
-    return (
-      <StatusScreen
-        eyebrow="Loading"
-        title="Opening your Trove library."
-        body="The desktop shell is loading the current workspace through the typed Electron bridge."
+  return (
+    <LayoutGroup>
+      <WorkspaceGateContent
+        error={error}
+        isLoading={isLoading}
+        refresh={refresh}
+        snapshot={snapshot}
+        onboardingDismissed={onboardingDismissed}
+        setOnboardingDismissed={setOnboardingDismissed}
+        isForcedPreview={isForcedPreview}
+        setIsForcedPreview={setIsForcedPreview}
       />
-    );
+    </LayoutGroup>
+  );
+}
+
+function WorkspaceGateContent({
+  error,
+  isLoading,
+  refresh,
+  snapshot,
+  onboardingDismissed,
+  setOnboardingDismissed,
+  isForcedPreview,
+  setIsForcedPreview,
+}: {
+  error: string | null;
+  isLoading: boolean;
+  refresh(): void;
+  snapshot: ReturnType<typeof useWorkspaceSnapshot>["snapshot"];
+  onboardingDismissed: boolean;
+  setOnboardingDismissed: (v: boolean) => void;
+  isForcedPreview: boolean;
+  setIsForcedPreview: (v: boolean) => void;
+}) {
+  if (isLoading && !snapshot) {
+    return <LoadingScreen />;
   }
 
   if (error) {

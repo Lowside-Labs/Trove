@@ -1,5 +1,6 @@
 import IconCircleCheck from "central-icons-filled/IconCircleCheck";
 import IconWorld from "central-icons/IconWorld";
+import { motion } from "motion/react";
 import type { PropsWithChildren, ReactNode } from "react";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/cn";
@@ -40,10 +41,10 @@ function Header({ children }: PropsWithChildren) {
 
 function Brand({ children }: PropsWithChildren) {
   return (
-    <div className="flex items-center gap-2 justify-center mb-6">
+    <motion.div layoutId="trove-brand" className="flex items-center gap-2 justify-center mb-6">
       <IconWorld className="size-6 relative top-0.25" />
       <p className="text-xl font-medium">{children}</p>
-    </div>
+    </motion.div>
   );
 }
 
