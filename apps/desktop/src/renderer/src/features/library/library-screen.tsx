@@ -7,6 +7,7 @@ import type {
 } from "trove-contracts";
 import { useInfiniteScroll } from "../../hooks/use-infinite-scroll";
 import { formatCount } from "../../lib/format";
+import { LibraryEmptyState } from "./library-empty-state";
 import { LibraryGrid } from "./library-grid";
 import { LibraryList } from "./library-list";
 import { LibrarySidebar } from "./library-sidebar";
@@ -186,9 +187,15 @@ function LibraryScreenLayout({
         ) : isLoadingFirstPage ? (
           <p className="py-12 text-center text-[13px] text-muted-foreground">Loading...</p>
         ) : libraryItems.length === 0 ? (
-          <p className="py-12 text-center text-[13px] text-muted-foreground">
-            {selectedSource === "all" ? "No items found." : "No items from this source."}
-          </p>
+          <LibraryEmptyState
+            selectedSource={selectedSource}
+            sources={sources}
+            searchQuery={deferredSearchQuery}
+            onClearSearch={() => {
+              onSearchQueryChange("");
+              searchInputRef.current?.focus();
+            }}
+          />
         ) : (
           <>
             {deferredSearchQuery ? (
