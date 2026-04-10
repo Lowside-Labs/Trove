@@ -2,6 +2,19 @@ appId: io.github.lowsidelabs.trove
 productName: Trove
 directories:
   output: out/release
+files:
+  - dist/**
+  - package.json
+  - node_modules/**
+  - "!src/**"
+  - "!build/**"
+  - "!out/**"
+  - "!.turbo/**"
+  - "!scripts/**"
+  - "!*.log"
+  - "!*.md"
+  - "!tsconfig.json"
+  - "!electron.vite.config.ts"
 asar: true
 asarUnpack:
   - "**/*.node"
