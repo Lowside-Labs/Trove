@@ -169,7 +169,7 @@ function LibraryScreenLayout({
         onSelectSource={onSelectSource}
       />
 
-      <section className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto px-8 pb-8 pt-8">
+      <section className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto px-8 pb-8">
         <LibraryToolbar
           kindOptions={kindOptions}
           selectedKind={selectedKind}
