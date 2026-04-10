@@ -6,7 +6,7 @@ interface CardFooterProps {
   item: LibraryItemSummary;
 }
 
-function getCardStats(item: LibraryItemSummary): CardStatItem[] {
+export function getCardStats(item: LibraryItemSummary): CardStatItem[] {
   const raw = (item.raw ?? {}) as Record<string, unknown>;
 
   switch (item.source) {

@@ -1,7 +1,9 @@
 import { memo, useState } from "react";
 import type { LibraryItemSummary } from "trove-contracts";
-import { getSourceConfig } from "./source-registry";
-import { CardFooter } from "./cards/card-footer";
+import { formatCardDate } from "../../lib/format";
+import { getSourceConfig, SourceIcon } from "./source-registry";
+import { getCardStats } from "./cards/card-footer";
+import { CardStats } from "./cards/card-stats";
 
 interface LibraryCardProps {
   item: LibraryItemSummary;
@@ -12,6 +14,8 @@ export const LibraryCard = memo(function LibraryCard({ item, onOpen }: LibraryCa
   const source = getSourceConfig(item.source);
   const Content = source.Content;
   const [mediaActive, setMediaActive] = useState(false);
+  const date = formatCardDate(item.savedAt);
+  const stats = getCardStats(item);
 
   return (
     <button
@@ -25,7 +29,19 @@ export const LibraryCard = memo(function LibraryCard({ item, onOpen }: LibraryCa
       onBlur={() => setMediaActive(false)}
     >
       <Content item={item} mediaActive={mediaActive} />
-      <CardFooter item={item} />
+      <div className="mt-auto flex items-center gap-2 pt-1 text-muted-foreground/60">
+        {source.isKnown ? (
+          <SourceIcon config={source.icons} className="size-3.5 shrink-0" />
+        ) : null}
+        {date ? (
+          <span className="text-[12px] tabular-nums">{date}</span>
+        ) : null}
+        {stats.length > 0 ? (
+          <div className="ml-auto">
+            <CardStats items={stats} />
+          </div>
+        ) : null}
+      </div>
     </button>
   );
 });
