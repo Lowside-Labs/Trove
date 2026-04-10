@@ -1,13 +1,10 @@
 import type { LibraryItemSummary } from "trove-contracts";
+import { CardParts } from "./card-parts";
 
 interface ConversationContentProps {
   item: LibraryItemSummary;
 }
 
 export function ConversationContent({ item }: ConversationContentProps) {
-  return (
-    <h3 className="text-[15px] font-semibold leading-snug text-card-foreground">
-      {item.title}
-    </h3>
-  );
+  return <CardParts.Title>{item.title}</CardParts.Title>;
 }

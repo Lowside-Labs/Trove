@@ -70,25 +70,22 @@ export function initializeWorkspace(
   };
 }
 
-export function getWorkspaceOverview(root?: string): WorkspaceOverview {
+export function getWorkspaceSnapshot(root?: string): {
+  overview: WorkspaceOverview;
+  sources: SourceStatus[];
+} {
   const paths = getTrovePaths(root);
 
   return withDatabase((db) => {
-    const overview = getArchiveOverview(db);
+    const archiveOverview = getArchiveOverview(db);
 
-    return {
+    const overview: WorkspaceOverview = {
       root: paths.root,
-      totalItems: overview.totalItems,
-      totalSources: overview.totalSources,
-      ...(overview.lastSyncedAt ? { lastSyncedAt: overview.lastSyncedAt } : {}),
+      totalItems: archiveOverview.totalItems,
+      totalSources: archiveOverview.totalSources,
+      ...(archiveOverview.lastSyncedAt ? { lastSyncedAt: archiveOverview.lastSyncedAt } : {}),
     };
-  }, paths.root);
-}
 
-export function getWorkspaceSourceStatuses(root?: string): SourceStatus[] {
-  const paths = getTrovePaths(root);
-
-  return withDatabase((db) => {
     const countsBySource = new Map(
       getSourceCounts(db).map((record) => [record.source, record.count] as const),
     );
@@ -96,7 +93,7 @@ export function getWorkspaceSourceStatuses(root?: string): SourceStatus[] {
       getSourceSyncRecords(db).map((record) => [record.source, record.lastSyncedAt] as const),
     );
 
-    return listSyncSources().map((source) => {
+    const sources: SourceStatus[] = listSyncSources().map((source) => {
       const itemCount = countsBySource.get(source.id) ?? 0;
       const lastSyncedAt = syncBySource.get(source.id);
       const hasSavedBrowserTarget = getSavedSourceBrowserTarget(source.id) !== undefined;
@@ -119,7 +116,17 @@ export function getWorkspaceSourceStatuses(root?: string): SourceStatus[] {
         ...(source.metadata.requiresUser ? { requiresUser: true } : {}),
       };
     });
+
+    return { overview, sources };
   }, paths.root);
+}
+
+export function getWorkspaceOverview(root?: string): WorkspaceOverview {
+  return getWorkspaceSnapshot(root).overview;
+}
+
+export function getWorkspaceSourceStatuses(root?: string): SourceStatus[] {
+  return getWorkspaceSnapshot(root).sources;
 }
 
 export function getSavedBrowserTargets(): WorkspaceBrowserTarget[] {

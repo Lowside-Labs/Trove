@@ -44,7 +44,14 @@ export default defineConfig({
         "trove-contracts": workspaceAlias["trove-contracts"],
       },
     },
-    plugins: [tailwindcss(), react()],
+    plugins: [
+      tailwindcss(),
+      react({
+        babel: {
+          plugins: ["babel-plugin-react-compiler"],
+        },
+      }),
+    ],
     root: path.resolve(dirname, "src/renderer"),
     build: {
       outDir: path.resolve(dirname, "dist/renderer"),

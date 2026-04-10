@@ -773,15 +773,22 @@ function ensureItemsSchema(db: Database.Database): void {
     db.exec("ALTER TABLE items ADD COLUMN kind TEXT");
   }
 
-  db.exec(`
-    UPDATE items
-    SET kind = CASE
-      WHEN json_extract(raw_json, '$.kind') IS NOT NULL THEN json_extract(raw_json, '$.kind')
-      WHEN source IN ('claude', 'chatgpt') THEN 'chat'
-      ELSE source
-    END
-    WHERE kind IS NULL OR trim(kind) = '';
-  `);
+  // Only run the backfill UPDATE if there are rows that need it
+  const needsBackfill = db
+    .prepare("SELECT 1 FROM items WHERE kind IS NULL OR trim(kind) = '' LIMIT 1")
+    .get();
+
+  if (needsBackfill) {
+    db.exec(`
+      UPDATE items
+      SET kind = CASE
+        WHEN json_extract(raw_json, '$.kind') IS NOT NULL THEN json_extract(raw_json, '$.kind')
+        WHEN source IN ('claude', 'chatgpt') THEN 'chat'
+        ELSE source
+      END
+      WHERE kind IS NULL OR trim(kind) = '';
+    `);
+  }
 }
 
 function deriveKindFromRow(row: Pick<ItemRow, "source" | "raw_json">): string {

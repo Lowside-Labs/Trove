@@ -1,4 +1,5 @@
 import type { LibraryItemSummary } from "trove-contracts";
+import { CardParts } from "./card-parts";
 
 interface BookmarkContentProps {
   item: LibraryItemSummary;
@@ -7,13 +8,9 @@ interface BookmarkContentProps {
 export function BookmarkContent({ item }: BookmarkContentProps) {
   return (
     <>
-      <h3 className="text-[15px] font-semibold leading-snug text-card-foreground">
-        {item.title}
-      </h3>
+      <CardParts.Title>{item.title}</CardParts.Title>
       {item.excerpt ? (
-        <p className="line-clamp-3 text-[13px] leading-relaxed text-muted-foreground">
-          {item.excerpt}
-        </p>
+        <CardParts.Excerpt>{item.excerpt}</CardParts.Excerpt>
       ) : null}
     </>
   );

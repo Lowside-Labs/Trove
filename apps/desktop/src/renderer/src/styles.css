@@ -3,9 +3,6 @@
 /* Explicit source paths for Tailwind v4 content detection */
 @source "../**/*.{ts,tsx}";
 
-/* Support class-based dark mode (.dark) */
-@custom-variant dark (&:is(.dark, .dark *));
-
 :root {
   color-scheme: light;
 
@@ -36,7 +33,7 @@
 
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: oklch(0.556 0 0);
 
   --radius: 0.625rem;
 }
@@ -61,7 +58,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 18%);
-  --ring: oklch(0.556 0 0);
+  --ring: oklch(1 0 0 / 25%);
 }
 
 /* Dark mode — system preference fallback */
@@ -84,7 +81,7 @@
     --destructive: oklch(0.704 0.191 22.216);
     --border: oklch(1 0 0 / 12%);
     --input: oklch(1 0 0 / 18%);
-    --ring: oklch(0.556 0 0);
+    --ring: oklch(1 0 0 / 25%);
   }
 }
 
@@ -140,6 +137,11 @@
   button,
   input {
     font: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 
   ::selection {
@@ -253,4 +255,42 @@
 @utility animate-sync-spinner {
   animation: sync-spinner-rotate 1.75s linear infinite;
   transform-origin: center;
+}
+
+/* Toggle group selected pill — needs to be lighter than the track in both modes */
+@utility toggle-selected {
+  background-color: var(--background);
+
+  @media (prefers-color-scheme: dark) {
+    background-color: var(--accent);
+  }
+}
+
+/* Primary button — light uses tokens, dark uses translucent white */
+@utility btn-primary {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+
+  &:hover {
+    background-color: oklch(from var(--primary) l c h / 90%);
+  }
+
+  &:active,
+  &[aria-expanded="true"] {
+    background-color: oklch(from var(--primary) l c h / 80%);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    background-color: oklch(1 0 0 / 10%);
+    color: oklch(1 0 0);
+
+    &:hover {
+      background-color: oklch(1 0 0 / 15%);
+    }
+
+    &:active,
+    &[aria-expanded="true"] {
+      background-color: oklch(1 0 0 / 8%);
+    }
+  }
 }

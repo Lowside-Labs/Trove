@@ -26,6 +26,10 @@ export interface SourceConfig {
   Content: ComponentType<{ item: LibraryItemSummary; mediaActive?: boolean }>;
 }
 
+const sourceAliases: Record<string, string> = {
+  hackernews: "hn",
+};
+
 const registry: Record<string, SourceConfig> = {
   x: {
     displayName: "X",
@@ -57,23 +61,32 @@ const registry: Record<string, SourceConfig> = {
     icons: { light: IconInstagram, dark: IconInstagram },
     Content: InstagramContent,
   },
-  hackernews: {
+  hn: {
     displayName: "Hacker News",
     icons: { light: IconHackerNews, dark: IconHackerNews },
     Content: BookmarkContent,
   },
 };
 
-export function getSourceConfig(source: string): SourceConfig & { isKnown: boolean } {
-  const config = registry[source];
-  if (config) return { ...config, isKnown: true };
+const configCache = new Map<string, SourceConfig & { isKnown: boolean }>();
 
-  return {
-    displayName: source,
-    icons: { light: GitHubLight, dark: GitHubDark },
-    Content: BookmarkContent,
-    isKnown: false,
-  };
+export function getSourceConfig(source: string): SourceConfig & { isKnown: boolean } {
+  const normalizedSource = sourceAliases[source] ?? source;
+  const cached = configCache.get(normalizedSource);
+  if (cached) return cached;
+
+  const config = registry[normalizedSource];
+  const result = config
+    ? { ...config, isKnown: true as const }
+    : {
+        displayName: normalizedSource,
+        icons: { light: GitHubLight, dark: GitHubDark },
+        Content: BookmarkContent,
+        isKnown: false as const,
+      };
+
+  configCache.set(normalizedSource, result);
+  return result;
 }
 
 /**
@@ -82,11 +95,20 @@ export function getSourceConfig(source: string): SourceConfig & { isKnown: boole
 export function SourceIcon({
   config,
   className,
+  tone = "auto",
 }: {
   config: SourceConfig["icons"];
   className?: string;
+  tone?: "auto" | "light" | "dark";
 }) {
   const isDark = useIsDark();
-  const Icon = isDark ? config.dark : config.light;
+  const Icon =
+    tone === "light"
+      ? config.light
+      : tone === "dark"
+        ? config.dark
+        : isDark
+          ? config.dark
+          : config.light;
   return <Icon className={className} />;
 }
