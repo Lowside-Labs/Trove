@@ -35,7 +35,7 @@ const ListRow = memo(function ListRow({
 
   return (
     <button
-      className="interactive-list-item flex w-full cursor-pointer items-start gap-2.5 py-2.5 text-left"
+      className="interactive-list-item -mx-4 flex w-full cursor-pointer items-start gap-2.5 px-4 py-2.5 text-left [--_inset-x:0px] [--_divider-inset:16px]"
       style={{ contentVisibility: "auto", containIntrinsicSize: "auto 52px" }}
       type="button"
       onClick={onOpen}

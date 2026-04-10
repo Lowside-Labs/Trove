@@ -40,7 +40,7 @@ export function LibraryToolbar({
         );
 
   return (
-    <header>
+    <header className="sticky top-0 z-10 bg-background pt-8 pb-2 after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-4 after:h-4 after:bg-linear-to-b after:from-background after:to-transparent">
       <div className="flex items-center gap-4">
         <div className="flex-1">
           <Input

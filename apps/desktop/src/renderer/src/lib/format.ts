@@ -17,6 +17,29 @@ export function formatCount(value: number): string {
   return compactNumberFormatter.format(value);
 }
 
+const shortDateFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+});
+
+const shortDateWithYearFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
+export function formatCardDate(value?: string | null): string {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const now = new Date();
+  return date.getFullYear() === now.getFullYear()
+    ? shortDateFormatter.format(date)
+    : shortDateWithYearFormatter.format(date);
+}
+
 export function formatDate(value?: string | null, fallback = "Unknown date"): string {
   if (!value) {
     return fallback;
